@@ -1,0 +1,11 @@
+{
+  "provider": "auto",
+  "speed": "1.0",
+  "lines": [],
+  "bgm": {
+    "mode": "retrieve",
+    "query": "lo-fi electronic, mechanical, playful, upbeat, ~105 bpm, punchy start",
+    "blob": "Your FX-MIC, now a voice remote for your coding agent",
+    "arc": "Demo Loop — hook (chapter title) → hold+talk → pick a skill → send to agent → brand"
+  }
+}

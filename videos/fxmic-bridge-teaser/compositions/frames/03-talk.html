@@ -1,0 +1,123 @@
+<template>
+<style>
+@font-face{font-family:"Barlow";font-weight:400;font-style:normal;src:url("assets/fonts/barlow-latin-400-normal.woff2") format("woff2");}
+@font-face{font-family:"Barlow";font-weight:600;font-style:normal;src:url("assets/fonts/barlow-latin-600-normal.woff2") format("woff2");}
+@font-face{font-family:"Barlow";font-weight:700;font-style:normal;src:url("assets/fonts/barlow-latin-700-normal.woff2") format("woff2");}
+@font-face{font-family:"Barlow";font-weight:800;font-style:normal;src:url("assets/fonts/barlow-latin-800-normal.woff2") format("woff2");}
+@font-face{font-family:"Barlow";font-weight:900;font-style:normal;src:url("assets/fonts/barlow-latin-900-normal.woff2") format("woff2");}
+@font-face{font-family:"IBM Plex Mono";font-weight:400;font-style:normal;src:url("assets/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");}
+@font-face{font-family:"IBM Plex Mono";font-weight:500;font-style:normal;src:url("assets/fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2");}
+@font-face{font-family:"IBM Plex Mono";font-weight:600;font-style:normal;src:url("assets/fonts/ibm-plex-mono-latin-600-normal.woff2") format("woff2");}
+#root{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;font-family:"Barlow";color:#1A1A1A}
+#f02-talk-bg{position:absolute;inset:0;background:#EDEDE8}
+.f02-talk-kicker{font-family:"IBM Plex Mono";font-weight:500;text-transform:uppercase;letter-spacing:0.14em;font-size:20px;color:#6B6B66}
+.f02-talk-callout{position:absolute;display:flex;align-items:center;gap:14px}
+.f02-talk-callout .box{background:#F05A28;color:#fff;font-family:"IBM Plex Mono";font-weight:600;letter-spacing:0.12em;font-size:30px;padding:12px 22px;text-transform:uppercase}
+.f02-talk-callout .arrow{width:90px;height:4px;background:#F05A28;position:relative}
+.f02-talk-callout .arrow.l::before{content:"";position:absolute;left:-2px;top:-12px;border:14px solid transparent;border-right:20px solid #F05A28;border-left:0}
+.f02-talk-callout .arrow.r::after{content:"";position:absolute;right:-2px;top:-12px;border:14px solid transparent;border-left:20px solid #F05A28;border-right:0}
+.f02-talk-caption{position:absolute;left:72px;right:72px;font-family:"IBM Plex Mono";font-weight:500;font-size:30px;letter-spacing:0.08em;text-transform:uppercase}
+.f02-talk-chrome{position:absolute;left:72px;right:72px;top:56px;display:flex;justify-content:space-between;border-bottom:1px solid #C9C9C3;padding-bottom:16px}
+
+#f02-talk-device{position:absolute;left:352px;top:136px;width:470px;height:687px}
+#f02-talk-device svg{width:100%;height:100%}
+#f02-talk-pill{position:absolute;left:50%;top:48px;margin-left:-300px;width:600px;height:76px;border-radius:38px;background:#0B0B0B;display:flex;align-items:center;gap:18px;padding:0 30px;font-family:"IBM Plex Mono";font-weight:500;font-size:24px;letter-spacing:0.08em;color:#EDEDE8;text-transform:uppercase}
+#f02-talk-dot{width:20px;height:20px;border-radius:50%;background:#E3242B;box-shadow:0 0 0 8px rgba(227,36,43,0.25)}
+#f02-talk-time{margin-left:auto;color:#9A9A95}
+</style>
+<div id="root" data-composition-id="f02-talk" data-width="1080" data-height="1080" data-duration="3.5">
+  <div id="f02-talk-bg" class="clip" data-start="0" data-duration="3.5" data-track-index="0"></div>
+  <div id="f02-talk-stage" class="clip" data-start="0" data-duration="3.5" data-track-index="1" style="position:absolute;inset:0">
+    <div id="f02-talk-pill" data-layout-allow-overflow><span id="f02-talk-dot"></span><span id="f02-talk-label">recording · enhanced</span><span id="f02-talk-time">0:00</span></div>
+    <div id="f02-talk-device"><svg class="fxd" viewBox="-70 0 520 760" xmlns="http://www.w3.org/2000/svg">
+  
+  <style>
+    .fxd .ink{stroke:#1A1A1A;stroke-width:3;stroke-linejoin:round}
+    .fxd-led-red{fill:#5B2B28}
+    .fxd-led-red.on{fill:#E3242B;filter:drop-shadow(0 0 6px #FF3B30)}
+    .fxd-led-white{fill:#6E6E6A}
+    .fxd-led-white.on{fill:#FFFFFF;filter:drop-shadow(0 0 6px #FFFFFF)}
+  </style>
+  
+  <g class="fxd-handle">
+    <rect class="ink" x="-46" y="46" width="132" height="214" rx="14" fill="#F05A28" transform="rotate(-12 20 150)"/>
+  </g>
+  
+  <path class="ink" fill="none" stroke-width="5" stroke-linecap="round"
+    d="M200 540 v18 c-40 0 -40 22 0 22 c40 0 40 22 0 22 c-40 0 -40 22 0 22 c40 0 40 22 0 22 c-40 0 -40 22 0 22 c40 0 40 22 0 22 c-40 0 -40 22 0 22 v40"/>
+  
+  <rect class="fxd-btn-orange ink" x="344" y="78" width="34" height="74" rx="8" fill="#F05A28"/>
+  <rect class="fxd-btn-white ink" x="344" y="206" width="34" height="62" rx="8" fill="#F7F7F3"/>
+  <rect class="fxd-btn-grey ink" x="344" y="392" width="34" height="62" rx="8" fill="#A3A39E"/>
+  
+  <rect class="ink" x="40" y="20" width="320" height="520" rx="24" fill="#E6E6E1"/>
+  
+  <path class="ink" d="M64 20 H336 a24 24 0 0 1 24 24 V318 H40 V44 a24 24 0 0 1 24 -24 Z" fill="#4E4E4B"/>
+  <g fill="#2E2E2C">
+    
+    <circle cx="68" cy="52" r="6.5"/><circle cx="90" cy="52" r="6.5"/><circle cx="112" cy="52" r="6.5"/><circle cx="134" cy="52" r="6.5"/><circle cx="156" cy="52" r="6.5"/><circle cx="178" cy="52" r="6.5"/><circle cx="200" cy="52" r="6.5"/><circle cx="222" cy="52" r="6.5"/><circle cx="244" cy="52" r="6.5"/><circle cx="266" cy="52" r="6.5"/><circle cx="288" cy="52" r="6.5"/><circle cx="68" cy="74" r="6.5"/><circle cx="90" cy="74" r="6.5"/><circle cx="112" cy="74" r="6.5"/><circle cx="134" cy="74" r="6.5"/><circle cx="156" cy="74" r="6.5"/><circle cx="178" cy="74" r="6.5"/><circle cx="200" cy="74" r="6.5"/><circle cx="222" cy="74" r="6.5"/><circle cx="244" cy="74" r="6.5"/><circle cx="266" cy="74" r="6.5"/><circle cx="288" cy="74" r="6.5"/><circle cx="68" cy="96" r="6.5"/><circle cx="90" cy="96" r="6.5"/><circle cx="112" cy="96" r="6.5"/><circle cx="134" cy="96" r="6.5"/><circle cx="156" cy="96" r="6.5"/><circle cx="178" cy="96" r="6.5"/><circle cx="200" cy="96" r="6.5"/><circle cx="222" cy="96" r="6.5"/><circle cx="244" cy="96" r="6.5"/><circle cx="266" cy="96" r="6.5"/><circle cx="288" cy="96" r="6.5"/><circle cx="68" cy="118" r="6.5"/><circle cx="90" cy="118" r="6.5"/><circle cx="112" cy="118" r="6.5"/><circle cx="134" cy="118" r="6.5"/><circle cx="156" cy="118" r="6.5"/><circle cx="178" cy="118" r="6.5"/><circle cx="200" cy="118" r="6.5"/><circle cx="222" cy="118" r="6.5"/><circle cx="244" cy="118" r="6.5"/><circle cx="266" cy="118" r="6.5"/><circle cx="288" cy="118" r="6.5"/><circle cx="68" cy="140" r="6.5"/><circle cx="90" cy="140" r="6.5"/><circle cx="112" cy="140" r="6.5"/><circle cx="134" cy="140" r="6.5"/><circle cx="156" cy="140" r="6.5"/><circle cx="178" cy="140" r="6.5"/><circle cx="200" cy="140" r="6.5"/><circle cx="222" cy="140" r="6.5"/><circle cx="244" cy="140" r="6.5"/><circle cx="266" cy="140" r="6.5"/><circle cx="288" cy="140" r="6.5"/><circle cx="68" cy="162" r="6.5"/><circle cx="90" cy="162" r="6.5"/><circle cx="112" cy="162" r="6.5"/><circle cx="134" cy="162" r="6.5"/><circle cx="156" cy="162" r="6.5"/><circle cx="178" cy="162" r="6.5"/><circle cx="200" cy="162" r="6.5"/><circle cx="222" cy="162" r="6.5"/><circle cx="244" cy="162" r="6.5"/><circle cx="266" cy="162" r="6.5"/><circle cx="288" cy="162" r="6.5"/><circle cx="68" cy="184" r="6.5"/><circle cx="90" cy="184" r="6.5"/><circle cx="112" cy="184" r="6.5"/><circle cx="134" cy="184" r="6.5"/><circle cx="156" cy="184" r="6.5"/><circle cx="178" cy="184" r="6.5"/><circle cx="200" cy="184" r="6.5"/><circle cx="222" cy="184" r="6.5"/><circle cx="244" cy="184" r="6.5"/><circle cx="266" cy="184" r="6.5"/><circle cx="288" cy="184" r="6.5"/><circle cx="68" cy="206" r="6.5"/><circle cx="90" cy="206" r="6.5"/><circle cx="112" cy="206" r="6.5"/><circle cx="134" cy="206" r="6.5"/><circle cx="156" cy="206" r="6.5"/><circle cx="178" cy="206" r="6.5"/><circle cx="200" cy="206" r="6.5"/><circle cx="222" cy="206" r="6.5"/><circle cx="244" cy="206" r="6.5"/><circle cx="266" cy="206" r="6.5"/><circle cx="288" cy="206" r="6.5"/><circle cx="68" cy="228" r="6.5"/><circle cx="90" cy="228" r="6.5"/><circle cx="112" cy="228" r="6.5"/><circle cx="134" cy="228" r="6.5"/><circle cx="156" cy="228" r="6.5"/><circle cx="178" cy="228" r="6.5"/><circle cx="200" cy="228" r="6.5"/><circle cx="222" cy="228" r="6.5"/><circle cx="244" cy="228" r="6.5"/><circle cx="266" cy="228" r="6.5"/><circle cx="288" cy="228" r="6.5"/><circle cx="68" cy="250" r="6.5"/><circle cx="90" cy="250" r="6.5"/><circle cx="112" cy="250" r="6.5"/><circle cx="134" cy="250" r="6.5"/><circle cx="156" cy="250" r="6.5"/><circle cx="178" cy="250" r="6.5"/><circle cx="200" cy="250" r="6.5"/><circle cx="222" cy="250" r="6.5"/><circle cx="244" cy="250" r="6.5"/><circle cx="266" cy="250" r="6.5"/><circle cx="288" cy="250" r="6.5"/><circle cx="68" cy="272" r="6.5"/><circle cx="90" cy="272" r="6.5"/><circle cx="112" cy="272" r="6.5"/><circle cx="134" cy="272" r="6.5"/><circle cx="156" cy="272" r="6.5"/><circle cx="178" cy="272" r="6.5"/><circle cx="200" cy="272" r="6.5"/><circle cx="222" cy="272" r="6.5"/><circle cx="244" cy="272" r="6.5"/><circle cx="266" cy="272" r="6.5"/><circle cx="288" cy="272" r="6.5"/><circle cx="68" cy="294" r="6.5"/><circle cx="90" cy="294" r="6.5"/><circle cx="112" cy="294" r="6.5"/><circle cx="134" cy="294" r="6.5"/><circle cx="156" cy="294" r="6.5"/><circle cx="178" cy="294" r="6.5"/><circle cx="200" cy="294" r="6.5"/><circle cx="222" cy="294" r="6.5"/><circle cx="244" cy="294" r="6.5"/><circle cx="266" cy="294" r="6.5"/><circle cx="288" cy="294" r="6.5"/>
+  </g>
+  
+  <rect x="316" y="44" width="30" height="258" rx="15" fill="#3A3A38"/>
+  <circle class="fxd-led-red r1" cx="331" cy="66" r="8"/>
+  <circle class="fxd-led-red r2" cx="331" cy="96" r="8"/>
+  <circle class="fxd-led-red r3" cx="331" cy="126" r="8"/>
+  <circle class="fxd-led-red r4" cx="331" cy="156" r="8"/>
+  <circle class="fxd-led-white w1" cx="331" cy="196" r="8"/>
+  <circle class="fxd-led-white w2" cx="331" cy="226" r="8"/>
+  <circle class="fxd-led-white w3" cx="331" cy="256" r="8"/>
+  <circle class="fxd-led-white w4" cx="331" cy="286" r="8"/>
+  
+  <line class="ink" x1="40" y1="318" x2="360" y2="318"/>
+  <g fill="none" class="ink" stroke-width="2.5">
+    <circle cx="70" cy="348" r="9"/><circle cx="330" cy="348" r="9"/>
+    <circle cx="70" cy="510" r="9"/><circle cx="330" cy="510" r="9"/>
+  </g>
+  <g stroke="#1A1A1A" stroke-width="2.5">
+    <line x1="64" y1="348" x2="76" y2="348"/><line x1="324" y1="348" x2="336" y2="348"/>
+    <line x1="64" y1="510" x2="76" y2="510"/><line x1="324" y1="510" x2="336" y2="510"/>
+  </g>
+  <rect x="150" y="408" width="100" height="40" rx="6" fill="none" class="ink" stroke-width="2.5"/>
+  <text x="200" y="434" text-anchor="middle" font-family="IBM Plex Mono" font-weight="600" font-size="15" letter-spacing="2" fill="#1A1A1A">BRIDGE</text>
+</svg>
+</div>
+    <div class="f02-talk-callout" style="left:64px;top:290px"><span class="box">hold + talk</span><span class="arrow r"></span></div>
+    <div class="f02-talk-caption" style="top:856px;text-align:center">dictate anywhere on your mac</div>
+  </div>
+</div>
+<script>
+  (function () {
+
+    const tl = gsap.timeline({ paused: true });
+    const RED_ON = { fill: "#E3242B", filter: "drop-shadow(0 0 6px #FF3B30)" }, RED_OFF = { fill: "#5B2B28", filter: "none" };
+    const WHITE_ON = { fill: "#FFFFFF", filter: "drop-shadow(0 0 6px #FFFFFF)" }, WHITE_OFF = { fill: "#6E6E6A", filter: "none" };
+    function red(dev, lit, t) { for (let i = 1; i <= 4; i++) tl.set(dev + " .r" + i, lit.includes(i) ? RED_ON : RED_OFF, t); }
+    function white(dev, n, t) { for (let i = 1; i <= 4; i++) tl.set(dev + " .w" + i, (n >> (i - 1)) & 1 ? WHITE_ON : WHITE_OFF, t); }
+    function press(sel, t) { tl.to(sel, { x: -10, duration: 0.07, ease: "power2.in" }, t).to(sel, { x: 0, duration: 0.3, ease: "power3.out" }, t + 0.09); }
+    function typeOn(sel, t0, dur) {
+      const el = document.querySelector(sel); const txt = el.textContent; el.textContent = "";
+      const spans = [...txt].map((ch) => { const sp = document.createElement("span"); sp.textContent = ch; el.appendChild(sp); return sp; });
+      spans.forEach((sp, i) => tl.fromTo(sp, { display: "none" }, { display: "inline", duration: 0.001 }, t0 + (dur * i) / spans.length));
+    }
+    function rise(sel, t, d = 0.5, y = 24) { tl.fromTo(sel, { opacity: 0, y }, { opacity: 1, y: 0, duration: d, ease: "power3.out" }, t); }
+
+
+    const D = "#f02-talk-device";
+    red(D, [], 0); white(D, 0, 0);
+    tl.fromTo(D, { y: 300, opacity: 0 }, { y: 0, opacity: 1, duration: 0.65, ease: "power3.out" }, 0);
+    tl.fromTo("#f02-talk-stage .f02-talk-callout", { x: -80, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 0.6);
+    tl.fromTo(D + " .fxd-handle", { rotation: 0, svgOrigin: "90 250" }, { rotation: 14, svgOrigin: "90 250", duration: 0.22, ease: "power3.out" }, 1.0);
+    tl.fromTo("#f02-talk-pill", { y: -140 }, { y: 0, duration: 0.45, ease: "power3.out" }, 1.05);
+    const seq = [1, 2, 3, 4, 3, 2];
+    let k = 0; for (let t = 1.2; t < 3.0; t += 0.125, k++) red(D, [seq[k % seq.length]], t);
+    red(D, [2], 3.0);
+    tl.set("#f02-talk-time", { textContent: "0:01" }, 2.0); tl.set("#f02-talk-time", { textContent: "0:02" }, 2.9);
+    typeOn("#f02-talk-stage .f02-talk-caption", 1.9, 0.7);
+    tl.to(D + " .fxd-handle", { rotation: 0, svgOrigin: "90 250", duration: 0.3, ease: "power3.out" }, 3.0);
+    tl.set("#f02-talk-label", { textContent: "written ✓" }, 3.05);
+    tl.set("#f02-talk-dot", { backgroundColor: "#EDEDE8", boxShadow: "0 0 0 8px rgba(237,237,232,0.2)" }, 3.05);
+
+    window.__timelines["f02-talk"] = tl;
+  })();
+</script>
+</template>

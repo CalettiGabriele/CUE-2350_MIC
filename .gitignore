@@ -1,0 +1,21 @@
+# Python / Swift build output
+.venv/
+__pycache__/
+app/.build/
+app/dist/
+.DS_Store
+
+# Vendor firmware and factory-disk dump: not ours to redistribute
+backup/
+
+# Local logs and video tool caches
+logs/
+videos/**/node_modules/
+videos/**/.thumbnails/
+videos/**/.waveform-cache/
+videos/**/.hyperframes/
+videos/**/.media/
+
+# Third-party licensed audio (HeyGen/Openverse): do not redistribute
+videos/**/assets/bgm/
+videos/**/assets/sfx/

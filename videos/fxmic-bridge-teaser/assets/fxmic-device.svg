@@ -1,0 +1,56 @@
+<svg class="fxd" viewBox="-70 0 520 760" xmlns="http://www.w3.org/2000/svg">
+  <!-- FX-MIC redrawn from scratch for FXMic Bridge (style homage, not a trace).
+       Animatable hooks (classes, no ids — safe to inline in several frames):
+       .fxd-handle  lever behind the body (rotate around its lower pivot)
+       .fxd-led-red.r1..r4   red LEDs (mode / KITT)     add .on to light
+       .fxd-led-white.w1..w4 white LEDs (slot, binary)  add .on to light
+       .fxd-btn-orange / .fxd-btn-white / .fxd-btn-grey  side buttons -->
+  <style>
+    .fxd .ink{stroke:#1A1A1A;stroke-width:3;stroke-linejoin:round}
+    .fxd-led-red{fill:#5B2B28}
+    .fxd-led-red.on{fill:#E3242B;filter:drop-shadow(0 0 6px #FF3B30)}
+    .fxd-led-white{fill:#6E6E6A}
+    .fxd-led-white.on{fill:#FFFFFF;filter:drop-shadow(0 0 6px #FFFFFF)}
+  </style>
+  <!-- handle / lever -->
+  <g class="fxd-handle" style="transform-origin:90px 250px">
+    <rect class="ink" x="-46" y="46" width="132" height="214" rx="14" fill="#F05A28" transform="rotate(-12 20 150)"/>
+  </g>
+  <!-- curly cable -->
+  <path class="ink" fill="none" stroke-width="5" stroke-linecap="round"
+    d="M200 540 v18 c-40 0 -40 22 0 22 c40 0 40 22 0 22 c-40 0 -40 22 0 22 c40 0 40 22 0 22 c-40 0 -40 22 0 22 c40 0 40 22 0 22 c-40 0 -40 22 0 22 v40"/>
+  <!-- side buttons (behind the body edge) -->
+  <rect class="fxd-btn-orange ink" x="344" y="78" width="34" height="74" rx="8" fill="#F05A28"/>
+  <rect class="fxd-btn-white ink" x="344" y="206" width="34" height="62" rx="8" fill="#F7F7F3"/>
+  <rect class="fxd-btn-grey ink" x="344" y="392" width="34" height="62" rx="8" fill="#A3A39E"/>
+  <!-- body -->
+  <rect class="ink" x="40" y="20" width="320" height="520" rx="24" fill="#E6E6E1"/>
+  <!-- grille panel -->
+  <path class="ink" d="M64 20 H336 a24 24 0 0 1 24 24 V318 H40 V44 a24 24 0 0 1 24 -24 Z" fill="#4E4E4B"/>
+  <g fill="#2E2E2C">
+    <!-- dot grille: 11 columns x 12 rows -->
+    <circle cx="68" cy="52" r="6.5"/><circle cx="90" cy="52" r="6.5"/><circle cx="112" cy="52" r="6.5"/><circle cx="134" cy="52" r="6.5"/><circle cx="156" cy="52" r="6.5"/><circle cx="178" cy="52" r="6.5"/><circle cx="200" cy="52" r="6.5"/><circle cx="222" cy="52" r="6.5"/><circle cx="244" cy="52" r="6.5"/><circle cx="266" cy="52" r="6.5"/><circle cx="288" cy="52" r="6.5"/><circle cx="68" cy="74" r="6.5"/><circle cx="90" cy="74" r="6.5"/><circle cx="112" cy="74" r="6.5"/><circle cx="134" cy="74" r="6.5"/><circle cx="156" cy="74" r="6.5"/><circle cx="178" cy="74" r="6.5"/><circle cx="200" cy="74" r="6.5"/><circle cx="222" cy="74" r="6.5"/><circle cx="244" cy="74" r="6.5"/><circle cx="266" cy="74" r="6.5"/><circle cx="288" cy="74" r="6.5"/><circle cx="68" cy="96" r="6.5"/><circle cx="90" cy="96" r="6.5"/><circle cx="112" cy="96" r="6.5"/><circle cx="134" cy="96" r="6.5"/><circle cx="156" cy="96" r="6.5"/><circle cx="178" cy="96" r="6.5"/><circle cx="200" cy="96" r="6.5"/><circle cx="222" cy="96" r="6.5"/><circle cx="244" cy="96" r="6.5"/><circle cx="266" cy="96" r="6.5"/><circle cx="288" cy="96" r="6.5"/><circle cx="68" cy="118" r="6.5"/><circle cx="90" cy="118" r="6.5"/><circle cx="112" cy="118" r="6.5"/><circle cx="134" cy="118" r="6.5"/><circle cx="156" cy="118" r="6.5"/><circle cx="178" cy="118" r="6.5"/><circle cx="200" cy="118" r="6.5"/><circle cx="222" cy="118" r="6.5"/><circle cx="244" cy="118" r="6.5"/><circle cx="266" cy="118" r="6.5"/><circle cx="288" cy="118" r="6.5"/><circle cx="68" cy="140" r="6.5"/><circle cx="90" cy="140" r="6.5"/><circle cx="112" cy="140" r="6.5"/><circle cx="134" cy="140" r="6.5"/><circle cx="156" cy="140" r="6.5"/><circle cx="178" cy="140" r="6.5"/><circle cx="200" cy="140" r="6.5"/><circle cx="222" cy="140" r="6.5"/><circle cx="244" cy="140" r="6.5"/><circle cx="266" cy="140" r="6.5"/><circle cx="288" cy="140" r="6.5"/><circle cx="68" cy="162" r="6.5"/><circle cx="90" cy="162" r="6.5"/><circle cx="112" cy="162" r="6.5"/><circle cx="134" cy="162" r="6.5"/><circle cx="156" cy="162" r="6.5"/><circle cx="178" cy="162" r="6.5"/><circle cx="200" cy="162" r="6.5"/><circle cx="222" cy="162" r="6.5"/><circle cx="244" cy="162" r="6.5"/><circle cx="266" cy="162" r="6.5"/><circle cx="288" cy="162" r="6.5"/><circle cx="68" cy="184" r="6.5"/><circle cx="90" cy="184" r="6.5"/><circle cx="112" cy="184" r="6.5"/><circle cx="134" cy="184" r="6.5"/><circle cx="156" cy="184" r="6.5"/><circle cx="178" cy="184" r="6.5"/><circle cx="200" cy="184" r="6.5"/><circle cx="222" cy="184" r="6.5"/><circle cx="244" cy="184" r="6.5"/><circle cx="266" cy="184" r="6.5"/><circle cx="288" cy="184" r="6.5"/><circle cx="68" cy="206" r="6.5"/><circle cx="90" cy="206" r="6.5"/><circle cx="112" cy="206" r="6.5"/><circle cx="134" cy="206" r="6.5"/><circle cx="156" cy="206" r="6.5"/><circle cx="178" cy="206" r="6.5"/><circle cx="200" cy="206" r="6.5"/><circle cx="222" cy="206" r="6.5"/><circle cx="244" cy="206" r="6.5"/><circle cx="266" cy="206" r="6.5"/><circle cx="288" cy="206" r="6.5"/><circle cx="68" cy="228" r="6.5"/><circle cx="90" cy="228" r="6.5"/><circle cx="112" cy="228" r="6.5"/><circle cx="134" cy="228" r="6.5"/><circle cx="156" cy="228" r="6.5"/><circle cx="178" cy="228" r="6.5"/><circle cx="200" cy="228" r="6.5"/><circle cx="222" cy="228" r="6.5"/><circle cx="244" cy="228" r="6.5"/><circle cx="266" cy="228" r="6.5"/><circle cx="288" cy="228" r="6.5"/><circle cx="68" cy="250" r="6.5"/><circle cx="90" cy="250" r="6.5"/><circle cx="112" cy="250" r="6.5"/><circle cx="134" cy="250" r="6.5"/><circle cx="156" cy="250" r="6.5"/><circle cx="178" cy="250" r="6.5"/><circle cx="200" cy="250" r="6.5"/><circle cx="222" cy="250" r="6.5"/><circle cx="244" cy="250" r="6.5"/><circle cx="266" cy="250" r="6.5"/><circle cx="288" cy="250" r="6.5"/><circle cx="68" cy="272" r="6.5"/><circle cx="90" cy="272" r="6.5"/><circle cx="112" cy="272" r="6.5"/><circle cx="134" cy="272" r="6.5"/><circle cx="156" cy="272" r="6.5"/><circle cx="178" cy="272" r="6.5"/><circle cx="200" cy="272" r="6.5"/><circle cx="222" cy="272" r="6.5"/><circle cx="244" cy="272" r="6.5"/><circle cx="266" cy="272" r="6.5"/><circle cx="288" cy="272" r="6.5"/><circle cx="68" cy="294" r="6.5"/><circle cx="90" cy="294" r="6.5"/><circle cx="112" cy="294" r="6.5"/><circle cx="134" cy="294" r="6.5"/><circle cx="156" cy="294" r="6.5"/><circle cx="178" cy="294" r="6.5"/><circle cx="200" cy="294" r="6.5"/><circle cx="222" cy="294" r="6.5"/><circle cx="244" cy="294" r="6.5"/><circle cx="266" cy="294" r="6.5"/><circle cx="288" cy="294" r="6.5"/>
+  </g>
+  <!-- LED column -->
+  <rect x="316" y="44" width="30" height="258" rx="15" fill="#3A3A38"/>
+  <circle class="fxd-led-red r1" cx="331" cy="66" r="8"/>
+  <circle class="fxd-led-red r2" cx="331" cy="96" r="8"/>
+  <circle class="fxd-led-red r3" cx="331" cy="126" r="8"/>
+  <circle class="fxd-led-red r4" cx="331" cy="156" r="8"/>
+  <circle class="fxd-led-white w1" cx="331" cy="196" r="8"/>
+  <circle class="fxd-led-white w2" cx="331" cy="226" r="8"/>
+  <circle class="fxd-led-white w3" cx="331" cy="256" r="8"/>
+  <circle class="fxd-led-white w4" cx="331" cy="286" r="8"/>
+  <!-- lower plate -->
+  <line class="ink" x1="40" y1="318" x2="360" y2="318"/>
+  <g fill="none" class="ink" stroke-width="2.5">
+    <circle cx="70" cy="348" r="9"/><circle cx="330" cy="348" r="9"/>
+    <circle cx="70" cy="510" r="9"/><circle cx="330" cy="510" r="9"/>
+  </g>
+  <g stroke="#1A1A1A" stroke-width="2.5">
+    <line x1="64" y1="348" x2="76" y2="348"/><line x1="324" y1="348" x2="336" y2="348"/>
+    <line x1="64" y1="510" x2="76" y2="510"/><line x1="324" y1="510" x2="336" y2="510"/>
+  </g>
+  <rect x="150" y="408" width="100" height="40" rx="6" fill="none" class="ink" stroke-width="2.5"/>
+  <text x="200" y="434" text-anchor="middle" font-family="IBM Plex Mono" font-weight="600" font-size="15" letter-spacing="2" fill="#1A1A1A">BRIDGE</text>
+</svg>

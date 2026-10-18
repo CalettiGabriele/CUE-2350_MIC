@@ -1,0 +1,64 @@
+<template>
+<style>
+@font-face{font-family:"Barlow";font-weight:400;font-style:normal;src:url("assets/fonts/barlow-latin-400-normal.woff2") format("woff2");}
+@font-face{font-family:"Barlow";font-weight:600;font-style:normal;src:url("assets/fonts/barlow-latin-600-normal.woff2") format("woff2");}
+@font-face{font-family:"Barlow";font-weight:700;font-style:normal;src:url("assets/fonts/barlow-latin-700-normal.woff2") format("woff2");}
+@font-face{font-family:"Barlow";font-weight:800;font-style:normal;src:url("assets/fonts/barlow-latin-800-normal.woff2") format("woff2");}
+@font-face{font-family:"Barlow";font-weight:900;font-style:normal;src:url("assets/fonts/barlow-latin-900-normal.woff2") format("woff2");}
+@font-face{font-family:"IBM Plex Mono";font-weight:400;font-style:normal;src:url("assets/fonts/ibm-plex-mono-latin-400-normal.woff2") format("woff2");}
+@font-face{font-family:"IBM Plex Mono";font-weight:500;font-style:normal;src:url("assets/fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2");}
+@font-face{font-family:"IBM Plex Mono";font-weight:600;font-style:normal;src:url("assets/fonts/ibm-plex-mono-latin-600-normal.woff2") format("woff2");}
+#root{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;font-family:"Barlow";color:#1A1A1A}
+#f01-chapter-bg{position:absolute;inset:0;background:#EDEDE8}
+.f01-chapter-kicker{font-family:"IBM Plex Mono";font-weight:500;text-transform:uppercase;letter-spacing:0.14em;font-size:20px;color:#6B6B66}
+.f01-chapter-callout{position:absolute;display:flex;align-items:center;gap:14px}
+.f01-chapter-callout .box{background:#F05A28;color:#fff;font-family:"IBM Plex Mono";font-weight:600;letter-spacing:0.12em;font-size:30px;padding:12px 22px;text-transform:uppercase}
+.f01-chapter-callout .arrow{width:90px;height:4px;background:#F05A28;position:relative}
+.f01-chapter-callout .arrow.l::before{content:"";position:absolute;left:-2px;top:-12px;border:14px solid transparent;border-right:20px solid #F05A28;border-left:0}
+.f01-chapter-callout .arrow.r::after{content:"";position:absolute;right:-2px;top:-12px;border:14px solid transparent;border-left:20px solid #F05A28;border-right:0}
+.f01-chapter-caption{position:absolute;left:72px;right:72px;font-family:"IBM Plex Mono";font-weight:500;font-size:30px;letter-spacing:0.08em;text-transform:uppercase}
+.f01-chapter-chrome{position:absolute;left:72px;right:72px;top:56px;display:flex;justify-content:space-between;border-bottom:1px solid #C9C9C3;padding-bottom:16px}
+
+#f01-chapter-bar{position:absolute;left:72px;right:72px;top:474px;height:132px;background:#3A3A38;display:flex;align-items:center;gap:34px;padding:0 40px}
+#f01-chapter-num{font-family:"IBM Plex Mono";font-weight:600;font-size:44px;color:#F05A28;letter-spacing:0.02em}
+#f01-chapter-title{font-weight:600;font-size:54px;letter-spacing:0.04em;text-transform:uppercase;color:#EDEDE8}
+#f01-chapter-caret{display:inline-block;width:5px;height:52px;background:#F05A28;margin-left:8px;vertical-align:-6px}
+#f01-chapter-cols{position:absolute;left:72px;right:72px;top:590px;display:grid;grid-template-columns:1fr 1fr;gap:48px;font-family:"IBM Plex Mono";font-size:24px;line-height:1.5;text-transform:uppercase;color:#1A1A1A}
+#f01-chapter-foot{position:absolute;left:72px;right:72px;top:830px;border-top:1px solid #C9C9C3;padding-top:16px}
+</style>
+<div id="root" data-composition-id="f01-chapter" data-width="1080" data-height="1080" data-duration="2.5">
+  <div id="f01-chapter-bg" class="clip" data-start="0" data-duration="2.5" data-track-index="0"></div>
+  <div id="f01-chapter-stage" class="clip" data-start="0" data-duration="2.5" data-track-index="1" style="position:absolute;inset:0">
+<div class="f01-chapter-chrome"><span class="f01-chapter-kicker">EP–2350 FX–MIC · user guide</span><span class="f01-chapter-kicker">unofficial chapter</span></div>
+    <div id="f01-chapter-bar"><span id="f01-chapter-num">((8))</span><span id="f01-chapter-title"><span id="f01-chapter-text">talking to your agent</span><span id="f01-chapter-caret"></span></span></div>
+
+  </div>
+</div>
+<script>
+  (function () {
+
+    const tl = gsap.timeline({ paused: true });
+    const RED_ON = { fill: "#E3242B", filter: "drop-shadow(0 0 6px #FF3B30)" }, RED_OFF = { fill: "#5B2B28", filter: "none" };
+    const WHITE_ON = { fill: "#FFFFFF", filter: "drop-shadow(0 0 6px #FFFFFF)" }, WHITE_OFF = { fill: "#6E6E6A", filter: "none" };
+    function red(dev, lit, t) { for (let i = 1; i <= 4; i++) tl.set(dev + " .r" + i, lit.includes(i) ? RED_ON : RED_OFF, t); }
+    function white(dev, n, t) { for (let i = 1; i <= 4; i++) tl.set(dev + " .w" + i, (n >> (i - 1)) & 1 ? WHITE_ON : WHITE_OFF, t); }
+    function press(sel, t) { tl.to(sel, { x: -10, duration: 0.07, ease: "power2.in" }, t).to(sel, { x: 0, duration: 0.3, ease: "power3.out" }, t + 0.09); }
+    function typeOn(sel, t0, dur) {
+      const el = document.querySelector(sel); const txt = el.textContent; el.textContent = "";
+      const spans = [...txt].map((ch) => { const sp = document.createElement("span"); sp.textContent = ch; el.appendChild(sp); return sp; });
+      spans.forEach((sp, i) => tl.fromTo(sp, { display: "none" }, { display: "inline", duration: 0.001 }, t0 + (dur * i) / spans.length));
+    }
+    function rise(sel, t, d = 0.5, y = 24) { tl.fromTo(sel, { opacity: 0, y }, { opacity: 1, y: 0, duration: d, ease: "power3.out" }, t); }
+
+
+    const F = "#f01-chapter";
+    rise(F + "-stage .f01-chapter-chrome", 0, 0.4, 10);
+    tl.fromTo(F + "-bar", { scaleX: 0, transformOrigin: "0% 50%" }, { scaleX: 1, duration: 0.45, ease: "power3.out" }, 0.05);
+    tl.fromTo(F + "-num", { opacity: 0 }, { opacity: 1, duration: 0.15 }, 0.42);
+    typeOn(F + "-text", 0.55, 1.2);
+    [1.9, 2.2].forEach((t, i) => tl.set(F + "-caret", { opacity: i % 2 ? 1 : 0 }, t));
+
+    window.__timelines["f01-chapter"] = tl;
+  })();
+</script>
+</template>
