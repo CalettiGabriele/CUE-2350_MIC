@@ -22,6 +22,11 @@ final class SettingsModel: ObservableObject {
     @Published var history: [HistoryEntry] = []
     @Published var accessibilityGranted = false
     @Published var microphoneGranted = false
+    /// Live mirror of the mic: logical LED mask and the controls being pressed.
+    @Published var ledMask: UInt8 = 0
+    @Published var pressedControls: Set<DeviceControl> = []
+    /// Profile in use for the frontmost app.
+    @Published var activeProfileID: String?
 
     /// Wired by AppDelegate.
     var onApply: ((AppConfig) -> Void)?

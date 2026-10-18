@@ -188,6 +188,12 @@ public enum LedPattern {
         (frame % 2 == 0 ? 0b0101 : 0b1010) | white(slot: slot)
     }
 
+    /// Connection "boot": one LED at a time down the column (red 1–4, then white 1–4).
+    public static let bootFrames = 8
+    public static func boot(frame: Int) -> UInt8 {
+        frame >= 0 && frame < bootFrames ? UInt8(1) << UInt8(frame) : 0
+    }
+
     /// Error: all red LEDs blinking (on for even frames).
     public static func error(frame: Int) -> UInt8 {
         frame % 2 == 0 ? 0x0F : 0

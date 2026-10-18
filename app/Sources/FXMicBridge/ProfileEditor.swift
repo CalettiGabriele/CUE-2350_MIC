@@ -149,6 +149,7 @@ private struct ProfileDetail: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
     }
 
     private func runPreview() {
@@ -191,9 +192,13 @@ private struct ModesSection: View {
                             interaction.enabled.removeAll { $0 == mode }
                         }
                     })) {
-                    HStack {
-                        Text("LED \(mode.ledIndex + 1) · \(L.t(mode.label))")
-                        if !mode.isAvailable { Text(L.t("not available yet")).font(.caption).foregroundStyle(.secondary) }
+                    HStack(spacing: 10) {
+                        Rectangle().fill(mode == interaction.defaultMode ? Theme.accent : Color.clear).frame(width: 3, height: 18)
+                        LEDDot(on: interaction.enabled.contains(mode), red: true, size: 9)
+                        Text(Theme.chapter("8.\(mode.ledIndex + 1)"))
+                            .font(Theme.mono(10, semibold: true)).foregroundStyle(Theme.muted)
+                        Text(L.t(mode.label).lowercased()).font(Theme.display(15, .extrabold))
+                        if !mode.isAvailable { Kicker(text: L.t("not available yet")) }
                     }
                 }
             }
@@ -227,7 +232,7 @@ private struct SlotsSection: View {
             ForEach(slots.indices, id: \.self) { i in
                 VStack(alignment: .leading, spacing: 4) {
                     HStack {
-                        Text("\(i + 1)").monospacedDigit().foregroundStyle(.secondary).frame(width: 20)
+                        Text(String(format: "%02d", i + 1)).font(Theme.mono(11, semibold: true)).foregroundStyle(Theme.muted).frame(width: 22)
                         BinaryLEDs(number: i + 1)
                         TextField(L.t("Name"), text: $slots[i].name)
                         Picker("", selection: $slots[i].kind) {
@@ -272,17 +277,19 @@ private struct SlotsSection: View {
     }
 }
 
-/// The 4 white LEDs as they will look for slot `number` (top LED = 1).
+/// The 4 white LEDs as they will look for slot `number` (top LED = 1), on the mic's dark
+/// LED strip.
 private struct BinaryLEDs: View {
     let number: Int
     var body: some View {
-        VStack(spacing: 1) {
+        VStack(spacing: 2) {
             ForEach(0..<4, id: \.self) { bit in
-                Circle()
-                    .fill(number >> bit & 1 == 1 ? Color.primary : Color.secondary.opacity(0.2))
-                    .frame(width: 5, height: 5)
+                LEDDot(on: number >> bit & 1 == 1, red: false, size: 5)
             }
         }
+        .padding(.vertical, 4)
+        .padding(.horizontal, 3)
+        .background(Capsule().fill(Color(red: 0x3A / 255, green: 0x3A / 255, blue: 0x38 / 255)))
         .help(L.f("White LEDs for slot %d", number))
     }
 }
@@ -307,7 +314,7 @@ private struct AppLabel: View {
 }
 
 /// Picker for an `Action` plus its parameter.
-private struct ActionRow: View {
+struct ActionRow: View {
     let label: String
     @Binding var action: Action
 
@@ -335,23 +342,36 @@ private struct ActionRow: View {
         }
     }
 
+    /// Short human description ("Next mode", "Keys: cmd+a delete", "Text: /clear⏎").
+    static func describe(_ action: Action) -> String {
+        switch action {
+        case .key(let keys): return KeyLabel.describe(keys)
+        case .text(let text): return text.replacingOccurrences(of: "\n", with: " ⏎")
+        default: return kind(of: action).title
+        }
+    }
+
+    static func kind(of action: Action) -> Kind {
+        switch action {
+        case .none: return .none
+        case .key: return .key
+        case .text: return .text
+        case .undoLastInsertion: return .undo
+        case .reinsertLast(let raw): return raw ? .reinsertRaw : .reinsertProcessed
+        case .cancel: return .cancel
+        case .editSelection: return .editSelection
+        case .cycleMode: return .cycleMode
+        case .resetMode: return .resetMode
+        case .nextSlot: return .nextSlot
+        case .previousSlot: return .previousSlot
+        case .clearSlot: return .clearSlot
+        case .runSlot: return .runSlot
+        }
+    }
+
     private var kind: Binding<Kind> {
         Binding {
-            switch action {
-            case .none: return .none
-            case .key: return .key
-            case .text: return .text
-            case .undoLastInsertion: return .undo
-            case .reinsertLast(let raw): return raw ? .reinsertRaw : .reinsertProcessed
-            case .cancel: return .cancel
-            case .editSelection: return .editSelection
-            case .cycleMode: return .cycleMode
-            case .resetMode: return .resetMode
-            case .nextSlot: return .nextSlot
-            case .previousSlot: return .previousSlot
-            case .clearSlot: return .clearSlot
-            case .runSlot: return .runSlot
-            }
+            Self.kind(of: action)
         } set: { kind in
             switch kind {
             case .none: action = .none

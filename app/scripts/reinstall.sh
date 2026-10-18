@@ -2,11 +2,12 @@
 # Run by the user after each rebuild while the app is ad-hoc signed:
 # quits the app (restoring the mic), resets its Accessibility grant (bound to the binary hash)
 # and relaunches it so macOS asks for the permission again.
-# Not needed anymore once the "FXMic Bridge Dev" signing identity exists (see bundle.sh).
+# Not needed anymore once the "CUE-2350 MIC Dev" signing identity exists (see bundle.sh).
 set -euo pipefail
-APP="$(cd "$(dirname "$0")/.." && pwd)/dist/FXMic Bridge.app"
+APP="$(cd "$(dirname "$0")/.." && pwd)/dist/CUE-2350 MIC.app"
 
-osascript -e 'quit app "FXMic Bridge"' 2>/dev/null || true
+# By bundle id, so it also quits builds made under the old name (FXMic Bridge).
+osascript -e 'quit app id "com.fxmicbridge.app"' 2>/dev/null || true
 sleep 2
 tccutil reset Accessibility com.fxmicbridge.app
 open "$APP"

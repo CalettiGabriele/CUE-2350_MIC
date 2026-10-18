@@ -2,13 +2,17 @@ import FXMicCore
 import Foundation
 
 /// Drives the 8 LEDs in manual mode (One-Pager 001 §3): idle = mode + binary slot,
-/// recording = red "KITT" sweep, processing = alternating reds, error = red blink.
-/// Sends `_L(mask)` to the RAM agent only when the mask changes.
+/// recording = red "KITT" sweep, processing = alternating reds, error = red blink, boot = one
+/// pass down all 8 LEDs when the mic connects.
+/// Sends `_L(mask)` to the RAM agent only when the mask changes; `onMask` mirrors the logical
+/// mask on screen (HUD, Settings).
 @MainActor
 final class LedAnimator {
-    enum State: Equatable { case idle, recording, processing, error }
+    enum State: Equatable { case idle, recording, processing, error, boot }
 
     var send: ((String) -> Void)?
+    /// Logical mask (bits 0–3 red, 4–7 white), called whenever it changes.
+    var onMask: ((UInt8) -> Void)?
     /// Current idle mask and slot number, read on every frame.
     var idleMask: () -> UInt8 = { 0 }
     var slotNumber: () -> Int? = { nil }
@@ -21,6 +25,7 @@ final class LedAnimator {
     private var frame = 0
     private var timer: Timer?
     private var lastSent: UInt8?
+    private var lastLogical: UInt8?
     private var errorUntil: Date?
 
     func set(_ newState: State) {
@@ -42,7 +47,7 @@ final class LedAnimator {
 
     /// Re-sends the idle state (mode/slot changed, device reconnected).
     func refresh(force: Bool = false) {
-        if force { lastSent = nil }
+        if force { lastSent = nil; lastLogical = nil }
         if state == .idle { render() }
     }
 
@@ -59,6 +64,10 @@ final class LedAnimator {
             set(.idle)
             return
         }
+        if state == .boot, frame >= LedPattern.bootFrames {
+            set(.idle)
+            return
+        }
         render()
     }
 
@@ -70,6 +79,11 @@ final class LedAnimator {
         // Processing alternates more slowly than the sweep.
         case .processing: logical = LedPattern.processing(frame: frame / 2, slot: slotNumber())
         case .error: logical = LedPattern.error(frame: frame / 2)
+        case .boot: logical = LedPattern.boot(frame: frame)
+        }
+        if logical != lastLogical {
+            lastLogical = logical
+            onMask?(logical)
         }
         let mask = LedPattern.physical(logical, map: map)
         guard mask != lastSent else { return }

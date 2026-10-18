@@ -195,6 +195,11 @@ import Testing
         #expect(reds == [0b0001, 0b0010, 0b0100, 0b1000, 0b0100, 0b0010, 0b0001])
     }
 
+    @Test func bootRunsDownTheColumnOnce() {
+        let masks = (0..<(LedPattern.bootFrames + 1)).map { LedPattern.boot(frame: $0) }
+        #expect(masks == [0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x00])
+    }
+
     @Test func physicalMapping() {
         #expect(LedPattern.physical(0b0000_0001, map: Array(0..<8)) == 0b0000_0001)
         #expect(LedPattern.physical(0b0000_0001, map: [3, 2, 1, 0, 4, 5, 6, 7]) == 0b0000_1000)

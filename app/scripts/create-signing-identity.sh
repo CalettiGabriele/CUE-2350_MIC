@@ -1,10 +1,10 @@
 #!/bin/zsh
-# Creates the self-signed code-signing identity "FXMic Bridge Dev" in the login keychain.
+# Creates the self-signed code-signing identity "CUE-2350 MIC Dev" in the login keychain.
 # Run it once yourself. Afterwards bundle.sh signs the app with it, macOS ties the
 # Accessibility grant to this certificate instead of the binary hash, and the grant survives
 # rebuilds (no more reinstall.sh). The certificate is only valid on this Mac for local builds.
 set -euo pipefail
-NAME="FXMic Bridge Dev"
+NAME="CUE-2350 MIC Dev"
 KEYCHAIN="$HOME/Library/Keychains/login.keychain-db"
 OPENSSL=/usr/bin/openssl   # system LibreSSL: its PKCS#12 output is what `security import` expects
 

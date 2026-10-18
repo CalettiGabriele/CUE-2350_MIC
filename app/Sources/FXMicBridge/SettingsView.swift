@@ -1,40 +1,137 @@
 import FXMicCore
 import SwiftUI
 
-/// Settings window (TDD §3.9): one tab per area, edits are applied with "Save".
+/// Settings window (TDD §3.9), laid out as chapters of the guide: a numbered sidebar on paper,
+/// one page per area with a chapter header; edits are applied with "Save".
 /// All texts go through `L.t` (English keys, `ui.language`).
 struct SettingsView: View {
     @ObservedObject var model: SettingsModel
-    @State private var tab = "general"
+    @State private var chapter: Chapter = .device
+
+    enum Chapter: Int, CaseIterable, Identifiable {
+        case device = 1, profiles, audio, speech, llm, history, general
+        var id: Int { rawValue }
+        var title: String {
+            switch self {
+            case .device: return L.t("Device")
+            case .profiles: return L.t("Profiles")
+            case .audio: return L.t("Audio")
+            case .speech: return L.t("Transcription")
+            case .llm: return L.t("LLM")
+            case .history: return L.t("History")
+            case .general: return L.t("General")
+            }
+        }
+        var kicker: String {
+            switch self {
+            case .device: return L.t("Buttons, LEDs and gestures, live")
+            case .profiles: return L.t("Modes, slots and gestures per app")
+            case .audio: return L.t("Input and recording")
+            case .speech: return L.t("Whisper, on this Mac")
+            case .llm: return L.t("Local model for Enhanced and Command")
+            case .history: return L.t("Texts kept on this Mac")
+            case .general: return L.t("Language, icon, permissions")
+            }
+        }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
-            TabView(selection: $tab) {
-                GeneralTab(model: model).tabItem { Label(L.t("General"), systemImage: "gearshape") }.tag("general")
-                DeviceTab(model: model).tabItem { Label(L.t("Device"), systemImage: "mic") }.tag("device")
-                AudioTab(model: model).tabItem { Label(L.t("Audio"), systemImage: "waveform") }.tag("audio")
-                SpeechTab(model: model).tabItem { Label(L.t("Transcription"), systemImage: "text.bubble") }.tag("speech")
-                LLMTab(model: model).tabItem { Label(L.t("LLM"), systemImage: "sparkles") }.tag("llm")
-                ProfilesTab(model: model).tabItem { Label(L.t("Profiles"), systemImage: "person.2") }.tag("profiles")
-                HistoryTab(model: model).tabItem { Label(L.t("History"), systemImage: "clock") }.tag("history")
+            HStack(spacing: 0) {
+                sidebar
+                Rectangle().fill(Theme.rule).frame(width: 1)
+                VStack(alignment: .leading, spacing: 0) {
+                    ChapterHeader(number: "\(chapter.rawValue)", title: chapter.title, kicker: chapter.kicker)
+                        .id(chapter)
+                        .padding(.horizontal, 24)
+                        .padding(.top, 20)
+                        .padding(.bottom, 6)
+                    page
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                }
             }
-            .padding(12)
-            Divider()
-            HStack {
+            saveBar
+        }
+        .background(Theme.ground)
+        .tint(Theme.accent)
+        .frame(minWidth: 860, minHeight: 640)
+    }
+
+    private var sidebar: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Kicker(text: "CUE-2350 MIC", color: Theme.ink, size: 11)
+                .padding(.bottom, 2)
+            Kicker(text: L.t("User guide · chapter 8"))
+                .padding(.bottom, 14)
+            ForEach(Chapter.allCases) { item in
+                Button { withAnimation(Theme.paperAnimation) { chapter = item } } label: {
+                    HStack(spacing: 10) {
+                        Rectangle().fill(chapter == item ? Theme.accent : Color.clear).frame(width: 3, height: 22)
+                        Text(Theme.chapter("\(item.rawValue)"))
+                            .font(Theme.mono(10, semibold: true))
+                            .foregroundStyle(chapter == item ? Theme.accent : Theme.muted)
+                            .frame(width: 30, alignment: .leading)
+                        Text(item.title.lowercased())
+                            .font(Theme.display(16, chapter == item ? .extrabold : .semibold))
+                            .foregroundStyle(Theme.ink.opacity(chapter == item ? 1 : 0.75))
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer()
+            HStack(spacing: 6) {
+                ForEach(0..<8, id: \.self) { bit in
+                    LEDDot(on: model.ledMask & (1 << bit) != 0, red: bit < 4, size: 6)
+                }
+            }
+            .padding(.bottom, 8)
+            .help(L.t("The mic's LEDs, live"))
+            Text("UNOFFICIAL · NOT AFFILIATED WITH TEENAGE ENGINEERING")
+                .font(Theme.mono(8))
+                .tracking(Theme.monoTracking(8))
+                .foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(width: 210)
+        .frame(maxHeight: .infinity, alignment: .top)
+    }
+
+    @ViewBuilder private var page: some View {
+        switch chapter {
+        case .device: DevicePage(model: model) { chapter = .profiles }
+        case .profiles: ProfilesTab(model: model)
+        case .audio: AudioTab(model: model)
+        case .speech: SpeechTab(model: model)
+        case .llm: LLMTab(model: model)
+        case .history: HistoryTab(model: model).padding(.horizontal, 24).padding(.vertical, 12)
+        case .general: GeneralTab(model: model)
+        }
+    }
+
+    private var saveBar: some View {
+        VStack(spacing: 0) {
+            Rectangle().fill(model.hasChanges ? Theme.accent : Theme.rule).frame(height: 1)
+            HStack(spacing: 10) {
                 if model.hasChanges {
-                    Label(L.t("Unsaved changes"), systemImage: "circle.fill")
-                        .foregroundStyle(.orange).font(.callout)
+                    Circle().fill(Theme.accent).frame(width: 7, height: 7)
+                    Kicker(text: L.t("Unsaved changes"), color: Theme.ink)
                 }
                 Spacer()
-                Button(L.t("Discard changes")) { model.revert() }.disabled(!model.hasChanges)
+                Button(L.t("Discard changes")) { model.revert() }
+                    .buttonStyle(FlatButtonStyle())
+                    .disabled(!model.hasChanges)
                 Button(L.t("Save")) { model.save() }
                     .keyboardShortcut("s", modifiers: .command)
-                    .buttonStyle(.borderedProminent)
+                    .buttonStyle(FlatButtonStyle(prominent: true))
                     .disabled(!model.hasChanges)
             }
-            .padding(12)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 10)
         }
-        .frame(minWidth: 780, minHeight: 600)
+        .animation(.linear(duration: 0.12), value: model.hasChanges)
     }
 }
 
@@ -54,7 +151,7 @@ private struct GeneralTab: View {
             }
             Section(L.t("Menu bar icon")) {
                 Picker(L.t("Icon"), selection: $model.draft.ui.menuBarIcon) {
-                    Text(L.t("Automatic")).tag("auto")
+                    Text(L.t("Grille (default)")).tag("auto")
                     ForEach(MenuBarIconPreset.allCases, id: \.rawValue) { preset in
                         Label(L.t(preset.label), systemImage: preset.symbolName).tag(preset.rawValue)
                     }
@@ -91,6 +188,7 @@ private struct GeneralTab: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
         .onAppear { model.refreshPermissions() }
     }
 }
@@ -113,27 +211,100 @@ struct PermissionRow: View {
 
 // MARK: - Device
 
-private struct DeviceTab: View {
+/// The mic as the main page: live drawing (LEDs, pressed buttons) and, for each control,
+/// what it does in the active profile. Click a part of the drawing to highlight its row.
+private struct DevicePage: View {
     @ObservedObject var model: SettingsModel
+    var openProfiles: () -> Void
+    @State private var highlight: MicPart?
+
+    private var profile: Profile? {
+        model.saved.profiles.first { $0.id == model.activeProfileID } ?? model.saved.profiles.first
+    }
 
     var body: some View {
-        Form {
-            Section("EP-2350 FX MIC") {
-                LabeledContent(L.t("Status"), value: model.deviceStatus)
-                HStack {
-                    Button(L.t("Reconnect")) { model.onReconnectDevice?() }
-                    Button(L.t("Release (restore the mic)")) { model.onReleaseDevice?() }
-                    Button(L.t("Test LEDs")) { model.onTestLEDs?() }.disabled(!model.deviceConnected)
+        HStack(alignment: .top, spacing: 28) {
+            VStack(spacing: 14) {
+                MicDrawing(mask: model.ledMask, pressed: model.pressedControls, highlight: highlight) { part in
+                    withAnimation(Theme.paperAnimation) { highlight = highlight == part ? nil : part }
                 }
-                Text(L.t("The app controls the mic with an agent loaded in RAM only: quitting the app or switching the mic off restores the factory behaviour."))
-                    .font(.caption).foregroundStyle(.secondary)
+                .frame(width: 230)
+                Kicker(text: model.deviceConnected ? L.t("Connected") : L.t("Not connected"),
+                       color: model.deviceConnected ? Theme.accent : Theme.muted)
             }
-            Section(L.t("Gestures")) {
-                Text(L.t("The list of gestures and default actions is in docs/GESTURES.md. Actions are assigned per profile in the Profiles tab."))
-                    .font(.callout).foregroundStyle(.secondary)
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    statusBlock
+                    if let profile {
+                        HStack {
+                            Kicker(text: L.f("Profile in use: %@", profile.name), color: Theme.ink)
+                            Spacer()
+                            Button(L.t("Edit in Profiles")) { openProfiles() }.buttonStyle(FlatButtonStyle())
+                        }
+                        .padding(.top, 22)
+                        .padding(.bottom, 8)
+                        controlRow(.orange, name: L.t("Orange"), rows: [
+                            (L.t("tap"), profile.orange.tap), (L.t("double tap"), profile.orange.doubleTap),
+                            (L.t("long press"), profile.orange.longPress)])
+                        controlRow(.white, name: L.t("White"), rows: [
+                            (L.t("tap"), profile.white.tap), (L.t("double tap"), profile.white.doubleTap),
+                            (L.t("long press"), profile.white.longPress)])
+                        controlRow(.grey, name: L.t("Grey"), rows: [
+                            (L.t("tap"), profile.grey.tap), (L.t("double tap"), profile.grey.doubleTap),
+                            (L.t("long press"), profile.grey.longPress), (L.t("while dictating"), profile.chord)])
+                        controlRow(.handle, name: L.t("Handle"), rows: [
+                            (L.t("hold"), nil), (L.t("double click"), profile.handle.doubleClick)])
+                        controlRow(nil, name: L.t("Shake"), rows: [
+                            (L.t("short"), profile.shake.short), (L.t("hold 2 s"), profile.shake.hold)])
+                    }
+                }
+                .padding(.trailing, 24)
             }
         }
-        .formStyle(.grouped)
+        .padding(.leading, 24)
+        .padding(.top, 14)
+    }
+
+    private var statusBlock: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text(model.deviceStatus).font(.callout).foregroundStyle(Theme.ink)
+            HStack(spacing: 8) {
+                Button(L.t("Reconnect")) { model.onReconnectDevice?() }.buttonStyle(FlatButtonStyle())
+                Button(L.t("Release (restore the mic)")) { model.onReleaseDevice?() }.buttonStyle(FlatButtonStyle())
+                Button(L.t("Test LEDs")) { model.onTestLEDs?() }.buttonStyle(FlatButtonStyle()).disabled(!model.deviceConnected)
+            }
+            Text(L.t("The app controls the mic with an agent loaded in RAM only: quitting the app or switching the mic off restores the factory behaviour."))
+                .font(.caption).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
+        }
+    }
+
+    /// One control: name chip, then "gesture / action" lines; the highlighted one gets the
+    /// orange bar (guide-style callout).
+    private func controlRow(_ part: MicPart?, name: String, rows: [(String, Action?)]) -> some View {
+        let active = part != nil && part == highlight
+        let pressed = part.map { model.pressedControls.contains($0.control) } ?? false
+        return HStack(alignment: .top, spacing: 12) {
+            Rectangle().fill(active || pressed ? Theme.accent : Color.clear).frame(width: 3)
+            VStack(alignment: .leading, spacing: 5) {
+                HStack(spacing: 8) {
+                    Text(name.lowercased()).font(Theme.display(18, .extrabold)).foregroundStyle(Theme.ink)
+                    if pressed { Kicker(text: L.t("Pressed"), color: Theme.accent) }
+                }
+                ForEach(rows.indices, id: \.self) { i in
+                    HStack(alignment: .firstTextBaseline, spacing: 8) {
+                        Text("/").font(Theme.mono(11, semibold: true)).foregroundStyle(Theme.accent)
+                        Kicker(text: rows[i].0).frame(width: 120, alignment: .leading)
+                        Text(rows[i].1.map(ActionRow.describe) ?? L.t("Dictate (push to talk)"))
+                            .font(.callout).foregroundStyle(Theme.ink)
+                    }
+                }
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 10)
+        .overlay(alignment: .top) { Rectangle().fill(Theme.rule).frame(height: 1) }
+        .contentShape(Rectangle())
+        .onTapGesture { if let part { withAnimation(Theme.paperAnimation) { highlight = highlight == part ? nil : part } } }
     }
 }
 
@@ -165,6 +336,7 @@ private struct AudioTab: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
         .onAppear { model.refreshDevices() }
     }
 }
@@ -214,6 +386,7 @@ private struct SpeechTab: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
         .onAppear { vocabulary = model.draft.speech.vocabulary.joined(separator: ", ") }
     }
 }
@@ -276,6 +449,7 @@ private struct LLMTab: View {
             }
         }
         .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
     }
 }
 

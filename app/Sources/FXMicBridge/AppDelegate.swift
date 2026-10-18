@@ -54,6 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         L.language = config.ui.language
+        Theme.registerFonts()
         setupStatusItem()
         dictation.onPhase = { [weak self] phase in self?.show(phase) }
         dictation.onLevel = { [weak self] level in self?.hud.setLevel(level) }
@@ -65,6 +66,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             self.rebuildProfileMenu()
         }
         leds.send = { [weak self] command in self?.device.send(command) }
+        leds.onMask = { [weak self] mask in self?.mirrorLEDs(mask) }
         leds.idleMask = { [weak self] in self?.engine.idleLEDs ?? 0 }
         leds.slotNumber = { [weak self] in self?.engine.slotNumber }
         leds.map = config.device.ledMap
@@ -88,7 +90,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             let app = note.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication
             MainActor.assumeIsolated { self?.frontmostChanged(app) }
         }
-        frontmostChanged(NSWorkspace.shared.frontmostApplication, announce: false)
+        frontmostChanged(NSWorkspace.shared.frontmostApplication)
 
         device.delegate = self
         device.start()
@@ -163,11 +165,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     // MARK: - Profiles
 
-    private func frontmostChanged(_ app: NSRunningApplication?, announce: Bool = true) {
+    /// Switching app silently selects its profile: no HUD, no animation (LEDs and menu follow).
+    private func frontmostChanged(_ app: NSRunningApplication?) {
         guard let app, app.bundleIdentifier != Bundle.main.bundleIdentifier else { return }
         frontmost = app
         if engine.activate(bundleID: app.bundleIdentifier) {
-            selectionChanged(announce: announce, title: L.f("Profile: %@", engine.active.name))
+            selectionChanged(announce: false, title: engine.active.name)
         }
     }
 
@@ -183,12 +186,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         "\(engine.active.name) · \(modeName) · \(slotName)"
     }
 
+    /// "MODE 2/4": position of the mode among the ones the orange button cycles through.
+    private var modeKicker: String {
+        let enabled = engine.active.interaction.enabled
+        let index = enabled.firstIndex(of: engine.mode).map { $0 + 1 } ?? engine.mode.ledIndex + 1
+        return L.f("Mode %d/%d", index, enabled.count)
+    }
+
     /// LEDs, menu and HUD after a profile/mode/slot change.
-    private func selectionChanged(announce: Bool, title: String) {
+    private func selectionChanged(announce: Bool, kicker: String = "", title: String) {
         leds.refresh()
         rebuildProfileMenu()
         if announce, !dictation.isRecording {
-            hud.toast(title, detail: selectionDetail)
+            hud.card(kicker: kicker, title: title)
         }
         // One warm-up per minute at most: Ollama keeps the model loaded for ~5 minutes.
         let needsLLM = engine.mode.usesLLM || engine.slot?.kind == .llm
@@ -221,6 +231,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             case .connected(let fw):
                 deviceItem.title = L.f("Mic: connected (firmware %@)", fw)
                 leds.refresh(force: true)
+                if leds.state == .idle { leds.set(.boot) }
             case .readOnly(let fw): deviceItem.title = L.f("Mic: firmware %@ not verified (read-only)", fw)
             case .busy: deviceItem.title = L.t("Mic: port in use by another program")
             case .stopped: deviceItem.title = L.t("Mic: released")
@@ -233,6 +244,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         MainActor.assumeIsolated {
             switch line {
             case .control(let control, let active):
+                if active { settings.pressedControls.insert(control) } else { settings.pressedControls.remove(control) }
                 handle(recognizer.handle(control, active: active, at: timeMs))
             case .poll(_, let shaker, _):
                 handle(recognizer.poll(shaker: shaker, at: timeMs))
@@ -270,10 +282,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         case .cycleMode:
             engine.cycleMode()
             let note = engine.mode.isAvailable ? modeName : L.f("%@ (not available yet)", modeName)
-            selectionChanged(announce: true, title: L.f("Mode: %@", note))
+            selectionChanged(announce: true, kicker: modeKicker, title: note)
         case .resetMode:
             engine.resetMode()
-            selectionChanged(announce: true, title: L.f("Mode: %@", modeName))
+            selectionChanged(announce: true, kicker: modeKicker, title: modeName)
         case .nextSlot:
             engine.nextSlot()
             announceSlot()
@@ -315,7 +327,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     private func announceSlot() {
         guard let slot = engine.slot, let number = engine.slotNumber else {
-            selectionChanged(announce: true, title: L.t("No slot"))
+            selectionChanged(announce: true, kicker: L.t("Slot"), title: L.t("No slot"))
             return
         }
         let kind: String
@@ -326,7 +338,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         }
         leds.refresh()
         rebuildProfileMenu()
-        hud.toast(L.f("Slot %d: %@", number, slot.name) + " · " + kind)
+        hud.card(kicker: L.f("Slot %d", number) + " · " + kind, title: slot.name)
         if slot.kind == .llm, Date().timeIntervalSince(lastWarmUp) > 60 {
             lastWarmUp = Date()
             LLMClient(settings: config.llm).warmUp()
@@ -352,7 +364,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     private func report(_ outcome: TextInjector.Outcome, done: String) {
         switch outcome {
-        case .done: hud.toast(done)
+        case .done: hud.toast(done, glyph: .done)
         case .secureInput: hud.toast(L.t("Protected field: no keys sent"))
         case .notTrusted:
             log.error("action not sent: Accessibility not granted")
@@ -438,6 +450,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     private func rebuildProfileMenu() {
         profileItem.title = L.f("Profile: %@", engine.active.name)
+        settings.activeProfileID = engine.active.id
         modeMenu.removeAllItems()
         for mode in InteractionMode.allCases {
             let enabled = engine.active.interaction.enabled.contains(mode)
@@ -468,7 +481,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     @objc private func selectMode(_ sender: NSMenuItem) {
         guard let raw = sender.representedObject as? String, let mode = InteractionMode(rawValue: raw) else { return }
         engine.select(mode: mode)
-        selectionChanged(announce: true, title: L.f("Mode: %@", modeName))
+        selectionChanged(announce: true, kicker: modeKicker, title: modeName)
     }
 
     @objc private func selectSlot(_ sender: NSMenuItem) {
@@ -497,15 +510,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             leds.set(.processing)
             phaseItem.title = L.f("Processing with %@…", config.llm.model)
             hud.show(statusLine(L.t("Processing")), detail: detail)
-        case .message(let text), .failure(let text):
+        case .message(let text), .done(let text), .failure(let text):
             if case .failure = phase { leds.set(.error) } else { leds.set(.idle) }
             phaseItem.title = text
-            hud.toast(text, duration: 1.5)
+            let glyph: HUD.Glyph
+            switch phase {
+            case .done: glyph = .done
+            case .failure: glyph = .info      // the LED mirror shows the error blink
+            default: glyph = .none
+            }
+            hud.toast(text, duration: 1.5, glyph: glyph)
             messageTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: false) { [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self else { return }
                     switch self.currentPhase {
-                    case .message, .failure: break
+                    case .message, .done, .failure: break
                     default: return
                     }
                     self.currentPhase = .idle
@@ -538,27 +557,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         var image: NSImage?
         switch config.ui.menuBarIcon {
         case "auto":
-            image = nil
+            image = Self.grilleIcon
         case "file":
             image = config.ui.menuBarIconFile.flatMap { NSImage(contentsOfFile: $0) }.map(Self.menuBarImage)
         default:
             image = MenuBarIconPreset(rawValue: config.ui.menuBarIcon)
-                .flatMap { NSImage(systemSymbolName: $0.symbolName, accessibilityDescription: "FXMic Bridge") }
+                .flatMap { NSImage(systemSymbolName: $0.symbolName, accessibilityDescription: "CUE-2350 MIC") }
         }
-        let result = image ?? NSImage(systemSymbolName: "mic", accessibilityDescription: "FXMic Bridge")!
+        let result = image ?? NSImage(systemSymbolName: "mic", accessibilityDescription: "CUE-2350 MIC")!
         result.isTemplate = true
         cachedIdleIcon = (key, result)
         return result
     }
 
-    /// The menu bar icon stays the one chosen by the user, always: macOS already shows its own
-    /// microphone indicator while recording. State is in the tooltip and in the menu.
+    /// Default icon: the mic's dot grille (3×3) next to its LED column, drawn as a template.
+    private static let grilleIcon: NSImage = {
+        let image = NSImage(size: NSSize(width: 18, height: 16), flipped: true) { _ in
+            NSColor.black.set()
+            let body = NSBezierPath(roundedRect: NSRect(x: 1.5, y: 1.5, width: 15, height: 13), xRadius: 2.5, yRadius: 2.5)
+            body.lineWidth = 1.4
+            body.stroke()
+            for row in 0..<3 {
+                for column in 0..<3 {
+                    NSBezierPath(ovalIn: NSRect(x: 3.6 + CGFloat(column) * 3.4, y: 3.6 + CGFloat(row) * 3.4, width: 2.2, height: 2.2)).fill()
+                }
+            }
+            NSBezierPath(roundedRect: NSRect(x: 13.2, y: 3.6, width: 1.6, height: 8.8), xRadius: 0.8, yRadius: 0.8).fill()
+            return true
+        }
+        image.isTemplate = true
+        return image
+    }()
+
+    /// The icon chosen by the user, tinted with the accent while recording or processing.
+    /// Details are in the tooltip and in the menu.
     private func updateIcon() {
         guard let button = statusItem?.button else { return }
-        button.toolTip = "FXMic Bridge — \(phaseItem.title) · \(deviceItem.title)"
-        guard button.image !== idleIcon else { return }
-        button.image = idleIcon
-        button.contentTintColor = nil
+        button.toolTip = "CUE-2350 MIC — \(phaseItem.title) · \(deviceItem.title)"
+        let tint: NSColor?
+        switch currentPhase {
+        case .recording: tint = Theme.accentNS
+        case .transcribing, .processing: tint = Theme.accentNS.withAlphaComponent(0.6)
+        default: tint = nil
+        }
+        if button.image !== idleIcon { button.image = idleIcon }
+        if button.contentTintColor != tint { button.contentTintColor = tint }
+    }
+
+    /// LED masks to the screen: HUD wing and the mic drawn in Settings/onboarding. With Reduce
+    /// Motion the recording sweep is shown as all red LEDs on.
+    private func mirrorLEDs(_ mask: UInt8) {
+        var shown = mask
+        if Theme.reduceMotion, leds.state == .recording || leds.state == .processing {
+            shown = 0x0F | (mask & 0xF0)
+        }
+        hud.setLEDs(shown)
+        settings.ledMask = shown
     }
 
     private func rebuildIconMenu() {
@@ -576,7 +630,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             item.target = self
             iconMenu.addItem(item)
         }
-        add(L.t("Automatic"), id: "auto", image: nil)
+        add(L.t("Grille (default)"), id: "auto", image: Self.grilleIcon)
         for preset in MenuBarIconPreset.allCases {
             add(L.t(preset.label), id: preset.rawValue,
                 image: NSImage(systemSymbolName: preset.symbolName, accessibilityDescription: nil))
@@ -688,11 +742,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         device(self.device, didChange: deviceStatus)   // re-titles the device line
         checkLLM()
         if let window = settingsWindow {
-            window.title = L.t("FXMic Bridge Settings")
+            window.title = L.t("CUE-2350 MIC Settings")
             window.contentViewController = NSHostingController(rootView: SettingsView(model: settings))
         }
         if let window = onboardingWindow {
-            window.title = L.t("Set up FXMic Bridge")
+            window.title = L.t("Set up CUE-2350 MIC")
             window.contentViewController = NSHostingController(rootView: onboardingView())
         }
     }
@@ -749,7 +803,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         settings.refreshDevices()
         settings.history = historyStore.entries
         if settingsWindow == nil {
-            settingsWindow = makeWindow(title: L.t("FXMic Bridge Settings"),
+            settingsWindow = makeWindow(title: L.t("CUE-2350 MIC Settings"),
                                         content: NSHostingController(rootView: SettingsView(model: settings)),
                                         resizable: true)
         }
@@ -769,7 +823,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private func showOnboarding() {
         settings.refreshPermissions()
         if onboardingWindow == nil {
-            onboardingWindow = makeWindow(title: L.t("Set up FXMic Bridge"),
+            onboardingWindow = makeWindow(title: L.t("Set up CUE-2350 MIC"),
                                           content: NSHostingController(rootView: onboardingView()), resizable: false)
         }
         NSApp.activate(ignoringOtherApps: true)

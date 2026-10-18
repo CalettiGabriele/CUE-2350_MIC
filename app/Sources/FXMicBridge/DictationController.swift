@@ -25,6 +25,8 @@ final class DictationController {
         case transcribing
         case processing
         case message(String)
+        /// Something was written or run: a message, plus the orange "done" flash.
+        case done(String)
         /// An error: same as a message, plus the LED error blink.
         case failure(String)
     }
@@ -258,7 +260,7 @@ final class DictationController {
             let latency = now() - releasedAt
             log.notice("command \(summary, privacy: .public) → \(String(describing: outcome), privacy: .public) in \(latency, format: .fixed(precision: 0), privacy: .public) ms")
             if outcome == .done { lastInsertion = (context.bundleID, Date()) }
-            onPhase?(outcome == .done ? .message(L.f("Command: %@", summary)) : .failure(L.t("Command not run")))
+            onPhase?(outcome == .done ? .done(L.f("Command: %@", summary)) : .failure(L.t("Command not run")))
         case .failure(.forbidden(let key)):
             record(raw: raw, processed: L.f("blocked: %@", key), context: context)
             onPhase?(.failure(L.f("Command blocked: %@", key)))
@@ -286,7 +288,7 @@ final class DictationController {
         switch outcome {
         case .done:
             lastInsertion = (context.bundleID, Date())
-            onPhase?(.message(L.f("Written (%.1f s)", latency / 1000)))
+            onPhase?(.done(L.f("Written (%.1f s)", latency / 1000)))
         case .secureInput: onPhase?(.failure(L.t("Protected field: text not written")))
         case .notTrusted: onPhase?(.failure(L.t("Accessibility permission needed")))
         case .failed: onPhase?(.failure(L.t("Writing failed")))
