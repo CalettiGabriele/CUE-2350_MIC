@@ -35,24 +35,6 @@ final class HUD {
     /// Notch of the screen the island is on (nil = flat bar).
     private var notchSize: NSSize?
     private var screenFrame: NSRect = .zero
-    /// Open frame for the current content; while recording the island "breathes" around it.
-    private var baseFrame: NSRect = .zero
-    private var breathTimer: Timer?
-    private var breathing = false {
-        didSet {
-            guard breathing != oldValue else { return }
-            breathTimer?.invalidate()
-            breathTimer = nil
-            guard breathing, !Theme.reduceMotion else { return }
-            let started = CACurrentMediaTime()
-            let timer = Timer(timeInterval: 1.0 / 30, repeats: true) { [weak self] _ in
-                MainActor.assumeIsolated { self?.breathe(since: started) }
-            }
-            RunLoop.main.add(timer, forMode: .common)
-            breathTimer = timer
-        }
-    }
-
     private let rowHeight: CGFloat = 28
     private let wing: CGFloat = 56          // space added on each side of the notch
     private let maxWidth: CGFloat = 460
@@ -138,7 +120,6 @@ final class HUD {
     func hide() {
         hideTimer?.invalidate()
         clock?.invalidate()
-        breathing = false
         guard visible else { return }
         visible = false
         if Theme.reduceMotion {
@@ -220,9 +201,7 @@ final class HUD {
             panel.orderFrontRegardless()
         }
         visible = true
-        baseFrame = target
         spring.animate(to: target, opening ? .opening : .resizing)
-        breathing = glyph == .recording
     }
 
     private var textSize: NSSize {
@@ -296,14 +275,6 @@ final class HUD {
         CATransaction.commit()
     }
 
-    /// Slow swell of the wings (±3 pt, ~2.4 s period) while recording; the spring smooths it.
-    private func breathe(since start: CFTimeInterval) {
-        guard visible, breathing else { return }
-        let phase = (CACurrentMediaTime() - start) * 2 * .pi / 2.4
-        let swell = 3 * CGFloat(sin(phase))
-        spring.animate(to: baseFrame.insetBy(dx: -swell, dy: 0), .resizing, keepTransition: true)
-    }
-
     private func springSettled() {
         if !visible { panel.orderOut(nil) }
     }
@@ -360,12 +331,7 @@ private final class IslandSpring {
         target = value
     }
 
-    /// `keepTransition`: retarget without restarting an opening in progress (breathing).
-    func animate(to frame: NSRect, _ transition: Transition, keepTransition: Bool = false) {
-        if keepTransition, timer != nil {
-            target = Self.components(frame)
-            return
-        }
+    func animate(to frame: NSRect, _ transition: Transition) {
         self.transition = transition
         start = value
         target = Self.components(frame)
