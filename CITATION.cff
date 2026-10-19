@@ -1,0 +1,23 @@
+cff-version: 1.2.0
+message: "If you use CUE-2350 MIC, please cite it as below."
+title: "CUE-2350 MIC"
+abstract: >-
+  A macOS menu-bar app that turns the EP-2350 FX-MIC into a voice and gesture
+  remote for your Mac and your coding agent. Local speech-to-text, optional
+  local LLM, nothing stored on the device.
+type: software
+authors:
+  - given-names: Gabriele
+    family-names: Caletti
+    alias: CalettiGabriele
+    website: "https://www.linkedin.com/in/gabriele-caletti-a952301b6"
+version: 0.3.0
+date-released: 2026-10-19
+license: MIT
+repository-code: "https://github.com/CalettiGabriele/CUE-2350_MIC"
+keywords:
+  - macos
+  - dictation
+  - speech-to-text
+  - whisper
+  - coding-agents
