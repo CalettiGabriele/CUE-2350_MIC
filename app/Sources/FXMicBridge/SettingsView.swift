@@ -35,6 +35,8 @@ struct SettingsView: View {
         }
     }
 
+    private static let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "0.3.0"
+
     var body: some View {
         VStack(spacing: 0) {
             HStack(spacing: 0) {
@@ -88,6 +90,11 @@ struct SettingsView: View {
             }
             .padding(.bottom, 8)
             .help(L.t("The mic's LEDs, live"))
+            Text("CUE-2350 MIC \(Self.version) · GABRIELE CALETTI")
+                .font(Theme.mono(8, semibold: true))
+                .tracking(Theme.monoTracking(8))
+                .foregroundStyle(Theme.ink.opacity(0.7))
+                .padding(.bottom, 4)
             Text("UNOFFICIAL · NOT AFFILIATED WITH TEENAGE ENGINEERING")
                 .font(Theme.mono(8))
                 .tracking(Theme.monoTracking(8))

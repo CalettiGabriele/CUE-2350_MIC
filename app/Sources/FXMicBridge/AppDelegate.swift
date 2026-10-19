@@ -519,7 +519,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             case .failure: glyph = .info      // the LED mirror shows the error blink
             default: glyph = .none
             }
-            hud.toast(text, duration: 1.5, glyph: glyph)
+            hud.toast(text, duration: 0.9, glyph: glyph)
             messageTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: false) { [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self else { return }
@@ -794,8 +794,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         window.title = title
         window.styleMask = resizable ? [.titled, .closable, .miniaturizable, .resizable] : [.titled, .closable]
         window.isReleasedWhenClosed = false
-        window.center()
+        // Opens in the Space (desktop) you are in, not in the one it was first created in.
+        window.collectionBehavior.insert(.moveToActiveSpace)
         return window
+    }
+
+    /// The screen the user is working on: the one under the mouse pointer (same rule as the HUD).
+    private func activeScreen() -> NSScreen? {
+        let mouse = NSEvent.mouseLocation
+        return NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
+    }
+
+    /// Shows `window` centred on the active screen and in the current Space. A window that is
+    /// already open there is left where the user put it.
+    private func present(_ window: NSWindow?) {
+        guard let window else { return }
+        let screen = activeScreen()
+        let alreadyHere = window.isVisible && window.isOnActiveSpace && window.screen == screen
+        if !alreadyHere, let area = screen?.visibleFrame {
+            window.setFrameOrigin(NSPoint(x: (area.midX - window.frame.width / 2).rounded(),
+                                          y: (area.midY - window.frame.height / 2).rounded()))
+        }
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
     }
 
     @objc private func openSettings() {
@@ -807,8 +828,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
                                         content: NSHostingController(rootView: SettingsView(model: settings)),
                                         resizable: true)
         }
-        NSApp.activate(ignoringOtherApps: true)
-        settingsWindow?.makeKeyAndOrderFront(nil)
+        present(settingsWindow)
     }
 
     @objc private func openOnboarding() { showOnboarding() }
@@ -826,8 +846,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             onboardingWindow = makeWindow(title: L.t("Set up CUE-2350 MIC"),
                                           content: NSHostingController(rootView: onboardingView()), resizable: false)
         }
-        NSApp.activate(ignoringOtherApps: true)
-        onboardingWindow?.makeKeyAndOrderFront(nil)
+        present(onboardingWindow)
     }
 
     @objc private func openAccessibility() {

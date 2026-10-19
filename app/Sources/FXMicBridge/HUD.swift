@@ -85,7 +85,7 @@ final class HUD {
     }
 
     /// Short notice that hides itself. `.done` flashes the orange rule.
-    func toast(_ title: String, detail: String = "", duration: TimeInterval = 1.6, glyph: Glyph = .none) {
+    func toast(_ title: String, detail: String = "", duration: TimeInterval = 0.9, glyph: Glyph = .none) {
         clock?.invalidate()
         startedAt = nil
         updateClock()
@@ -95,7 +95,7 @@ final class HUD {
     }
 
     /// Selection card: orange mono kicker + lowercase Barlow title, e.g. "MODE 2/4  enhanced".
-    func card(kicker: String, title: String, duration: TimeInterval = 1.6) {
+    func card(kicker: String, title: String, duration: TimeInterval = 1.0) {
         clock?.invalidate()
         startedAt = nil
         updateClock()
@@ -283,9 +283,9 @@ final class HUD {
         guard !Theme.reduceMotion else { return }
         let pulse = CAKeyframeAnimation(keyPath: "opacity")
         pulse.values = [0, 1, 1, 0]
-        pulse.keyTimes = [0, 0.2, 0.65, 1]
-        pulse.duration = 0.9
-        pulse.beginTime = CACurrentMediaTime() + 0.25    // after the island has opened
+        pulse.keyTimes = [0, 0.2, 0.6, 1]
+        pulse.duration = 0.5
+        pulse.beginTime = CACurrentMediaTime() + 0.12    // as the island settles
         pulse.fillMode = .backwards
         flash.add(pulse, forKey: "flash")
     }
