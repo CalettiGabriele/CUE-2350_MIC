@@ -1,0 +1,25 @@
+---
+import Base from '../layouts/Base.astro';
+import Mic from '../components/Mic.astro';
+---
+<Base title="chapter not found" noindex>
+  <main class="nf wrap">
+    <div class="nf-copy">
+      <p class="label accent">((404))</p>
+      <h1 class="display nf-title">chapter<br />not found<span class="accent">.</span></h1>
+      <p class="lead">This page is not in the user guide. Squeeze the handle and try again.</p>
+      <a class="btn" href="/">back to chapter 8 <span class="arrow">→</span></a>
+    </div>
+    <Mic class="nf-mic" cable={false} />
+  </main>
+</Base>
+
+<style>
+  .nf { min-height: 100svh; display: grid; grid-template-columns: 1.3fr 0.7fr; align-items: center; gap: 48px; }
+  .nf-title { font-size: clamp(64px, 11vw, 168px); margin: 18px 0 28px; }
+  .nf .lead { margin-bottom: 32px; max-width: 32ch; }
+  .nf :global(.nf-mic) { width: 100%; max-width: 300px; height: auto; }
+  .nf :global(.mic-led.r1), .nf :global(.mic-led.r4) { animation: err 1.1s steps(1) infinite; }
+  @keyframes err { 0%, 49% { fill: var(--led-red); } 50%, 100% { fill: var(--led-red-off); } }
+  @media (max-width: 720px) { .nf { grid-template-columns: 1fr; padding-top: 64px; } .nf :global(.nf-mic) { max-width: 160px; order: -1; } }
+</style>

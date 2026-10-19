@@ -1,0 +1,58 @@
+---
+const stats: { v: number; from: number; prefix?: string; scouter?: boolean; label: string; note: string }[] = [
+  { v: 4, from: 0, label: 'modes on the orange button', note: 'dictate · enhanced · command · computer use (soon)' },
+  { v: 15, from: 0, label: 'slots per app on the white one', note: 'commands, templates, LLM skills' },
+  { v: 9000, from: 0, prefix: '+', scouter: true, label: 'aura points', note: 'talking to your agent through a vintage hand mic. scouters can’t keep up.' },
+  { v: 0, from: 999, label: 'words sent to the cloud', note: 'by default. it all runs on your Mac.' },
+];
+---
+<section class="nums" aria-label="By the numbers">
+  <div class="wrap nums-grid">
+    {stats.map((s, i) => (
+      <div class="stat" data-reveal style={`--d:${i * 0.08}s`}>
+        <span class="stat-v">
+          <span class="num" data-count={s.v} data-from={s.from} data-prefix={s.prefix ?? ''} data-scouter={s.scouter ? '' : undefined} data-text={(s.prefix ?? '') + s.v}>{(s.prefix ?? '') + s.v}</span>
+          {s.scouter && <span class="scouter-tag" aria-hidden="true">it’s over 9000!</span>}
+        </span>
+        <span class="stat-l">{s.label}</span>
+        <span class="label muted stat-n">{s.note}</span>
+      </div>
+    ))}
+  </div>
+</section>
+
+<style>
+  .nums { background: var(--ink); color: var(--paper); padding: clamp(72px, 12vh, 140px) 0; }
+  .nums-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .stat { display: flex; flex-direction: column; gap: 10px; padding: 20px 24px 0 0; border-top: 1px solid var(--rule-dark); container-type: inline-size; min-width: 0; }
+  .stat + .stat { padding-left: 24px; border-left: 1px solid var(--rule-dark); }
+  .stat-v { font-weight: 900; font-size: min(clamp(60px, 7.2vw, 124px), 40cqi); letter-spacing: -0.05em; white-space: nowrap; line-height: 0.9; color: var(--accent); font-variant-numeric: tabular-nums; }
+  .stat:last-child .stat-v { color: var(--paper); }
+  .stat-v { position: relative; align-self: flex-start; }
+  .num { position: relative; display: inline-block; }
+
+  /* scouter: the reading goes haywire before it settles (scripts/main.js toggles the classes) */
+  .num.glitch { animation: sc-jitter 0.1s steps(2) infinite; }
+  .num.glitch::before, .num.glitch::after {
+    content: attr(data-text); position: absolute; inset: 0; pointer-events: none;
+  }
+  .num.glitch::before { color: var(--paper); clip-path: inset(8% 0 58% 0); transform: translateX(-0.05em); animation: sc-slice 0.16s steps(2) infinite; }
+  .num.glitch::after { color: var(--led-red); clip-path: inset(62% 0 6% 0); transform: translateX(0.05em); animation: sc-slice 0.13s steps(2) infinite reverse; }
+  .num.pop { animation: sc-pop 0.55s cubic-bezier(0.34, 1.6, 0.64, 1); }
+  @keyframes sc-jitter { 0% { transform: translate(0.02em, -0.01em); } 100% { transform: translate(-0.02em, 0.015em); } }
+  @keyframes sc-slice { 0% { clip-path: inset(10% 0 55% 0); } 50% { clip-path: inset(40% 0 30% 0); } 100% { clip-path: inset(70% 0 4% 0); } }
+  @keyframes sc-pop { 0% { transform: scale(1.14); } 100% { transform: none; } }
+  .scouter-tag {
+    position: absolute; left: 0.1em; bottom: calc(100% + 4px); white-space: nowrap; rotate: -4deg;
+    font-family: var(--font-mono); font-weight: 600; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--ink); background: var(--accent); padding: 3px 7px; opacity: 0; scale: 0.6;
+    transition: opacity 0.2s, scale 0.35s cubic-bezier(0.34, 1.6, 0.64, 1);
+  }
+  .scouter-tag.on { opacity: 1; scale: 1; }
+  .stat-l { font-weight: 600; font-size: 19px; line-height: 1.25; text-transform: lowercase; }
+  .stat-n { font-size: 10.5px; line-height: 1.6; }
+  @media (max-width: 860px) {
+    .nums-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); row-gap: 40px; }
+    .stat:nth-child(odd) { padding-left: 0; border-left: 0; }
+  }
+</style>

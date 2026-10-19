@@ -1,0 +1,47 @@
+---
+import { SITE } from '../site.config';
+import GitHubIcon from '../components/GitHubIcon.astro';
+---
+<section id="get" class="get" data-get>
+  <div class="get-fill" data-get-fill aria-hidden="true"></div>
+  <div class="wrap get-in">
+    <div class="chapter"><span class="num">((8.8))</span><span>get it</span><span class="bar"></span></div>
+    <h2 class="display get-title" data-reveal>open source.<br />free.<br />yours.</h2>
+    <div class="get-row">
+      <a class="btn get-btn" href={SITE.github} target="_blank" rel="noopener noreferrer"><GitHubIcon /> get it on github <span class="arrow">→</span></a>
+      <button class="btn ghost" type="button" data-teaser-open>watch the teaser <span class="arrow">▶</span></button>
+    </div>
+    <p class="label get-req">
+      you need: a mac with apple silicon <span>/</span> macOS 14+ <span>/</span> an ep-2350 fx-mic <span>/</span> a usb-c data cable
+    </p>
+    <p class="get-more">Setup guide, every gesture, profiles and the source code live on GitHub.</p>
+  </div>
+
+  <dialog class="teaser" data-teaser aria-label="Teaser video">
+    <button class="teaser-x label" type="button" data-teaser-close>close ✕</button>
+    <video data-teaser-video controls playsinline preload="none" poster="/media/teaser-poster.jpg" width="1080" height="1080">
+      <source src="/media/teaser.mp4" type="video/mp4" />
+    </video>
+  </dialog>
+</section>
+
+<style>
+  .get { position: relative; padding: clamp(110px, 18vh, 220px) 0; overflow: hidden; isolation: isolate; }
+  /* the orange register floods in as you arrive (JS scrubs --r); without JS it is simply orange */
+  .get-fill { position: absolute; inset: 0; background: var(--accent); z-index: -1; clip-path: circle(var(--r, 150%) at 50% 100%); }
+  .get .chapter .num { color: var(--ink); }
+  .get .chapter .bar { background: rgba(17, 17, 17, 0.25); }
+  .get-title { font-size: clamp(72px, 13vw, 220px); margin: 44px 0 56px; }
+  .get-row { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 36px; }
+  .get-btn { font-size: 15px; padding: 22px 28px 22px 24px; }
+  .get-btn:hover { background: var(--paper); border-color: var(--paper); color: var(--ink); }
+  .get .btn.ghost { border-color: var(--ink); }
+  .get-req { color: rgba(17, 17, 17, 0.75); line-height: 1.9; }
+  .get-req span { margin: 0 6px; }
+  .get-more { margin: 8px 0 0; color: rgba(17, 17, 17, 0.75); }
+
+  .teaser { padding: 0; border: 0; background: transparent; max-width: min(92vw, 80vh); width: 100%; }
+  .teaser::backdrop { background: rgba(10, 10, 10, 0.86); }
+  .teaser video { width: 100%; height: auto; background: #000; }
+  .teaser-x { display: block; margin: 0 0 10px auto; background: none; border: 0; color: var(--paper); cursor: pointer; }
+</style>

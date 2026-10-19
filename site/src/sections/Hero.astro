@@ -1,0 +1,94 @@
+---
+import Mic from '../components/Mic.astro';
+import MacScreen from '../components/MacScreen.astro';
+import GitHubIcon from '../components/GitHubIcon.astro';
+import { SITE } from '../site.config';
+---
+<section class="hero" data-hero>
+  <div class="wrap hero-grid">
+    <div class="hero-copy">
+      <p class="label hero-kicker" data-hero-in>
+        <span class="accent">((8))</span> ep-2350 fx-mic · user guide · unofficial chapter
+      </p>
+      <h1 class="display hero-title" data-hero-title aria-label="talk to your agent.">
+        <span class="ht-line">talk to</span>
+        <span class="ht-line">your agent<span class="ht-dot">.</span><span class="caret" aria-hidden="true"></span></span>
+      </h1>
+      <p class="lead hero-lead" data-hero-in>
+        Your EP-2350 FX-MIC, now a voice remote for your Mac — and for the AI agent in your terminal.
+        Hold the handle. Talk. Release.
+      </p>
+      <div class="hero-ctas" data-hero-in>
+        <a class="btn" href={SITE.github} target="_blank" rel="noopener noreferrer"><GitHubIcon /> get it on github <span class="arrow">→</span></a>
+        <a class="btn ghost" href="#magic">see the magic <span class="arrow">↓</span></a>
+      </div>
+      <p class="label hero-meta" data-hero-in>
+        open source <span class="sep">/</span> macOS <span class="sep">/</span> local ai
+      </p>
+    </div>
+
+    <div class="hero-art" data-hero-art>
+      <MacScreen class="hero-mac" cropped />
+      <Mic class="hero-mic" />
+    </div>
+  </div>
+
+  <div class="hero-foot wrap">
+    <span class="label muted">unofficial · not affiliated with teenage engineering</span>
+    <span class="label scroll-cue" aria-hidden="true">scroll <i></i></span>
+  </div>
+</section>
+
+<style>
+  .hero {
+    position: relative;
+    min-height: 100svh;
+    display: flex; flex-direction: column; justify-content: center;
+    padding: 96px 0 24px;
+    overflow: hidden;
+  }
+  .hero-grid {
+    display: grid; grid-template-columns: 1.25fr 0.75fr; gap: clamp(24px, 4vw, 72px); align-items: center;
+  }
+  .hero-kicker { margin: 0 0 28px; color: #4a4a46; }
+  .hero-title { font-size: clamp(64px, 11.5vw, 188px); margin: 0 0 32px; }
+  .ht-line { display: block; }
+  .ht-dot { color: var(--accent); }
+  .caret {
+    display: inline-block; width: 0.08em; height: 0.78em; margin-left: 0.06em;
+    background: var(--accent); vertical-align: baseline; transform: translateY(0.04em);
+    animation: blink 1s steps(1) infinite;
+  }
+  @keyframes blink { 50% { opacity: 0; } }
+  .hero-lead { max-width: 34ch; margin-bottom: 36px; }
+  .hero-ctas { display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 28px; }
+  .hero-meta { color: #4a4a46; margin: 0; }
+  .hero-meta .sep { color: var(--accent); margin: 0 6px; }
+
+  .hero-art { position: relative; display: flex; flex-direction: column; align-items: center; }
+  /* a MacBook lid is ~1.55:1; we show its upper half, wider than the mic */
+  .hero-art :global(.hero-mac) { width: clamp(420px, 40vw, 600px); flex: none; height: calc(clamp(420px, 40vw, 600px) / 3.1); margin-bottom: 18px; border-radius: 26px 26px 0 0; padding: 11px 11px 0; --nw: 120px; --nh: 24px; --wing: 46px; --row: 28px; --ni-font: 10.5px; }
+  .hero-art :global(.hero-mic) { width: min(100%, 330px); height: auto; }
+
+  .hero-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 40px; }
+  .scroll-cue { display: inline-flex; align-items: center; gap: 10px; color: #4a4a46; }
+  .scroll-cue i { display: block; width: 1px; height: 36px; background: var(--ink); transform-origin: top; animation: cue 1.8s var(--ease-out) infinite; }
+  @keyframes cue { 0% { transform: scaleY(0); } 50% { transform: scaleY(1); transform-origin: top; } 51% { transform-origin: bottom; } 100% { transform: scaleY(0); transform-origin: bottom; } }
+
+  /* grille "breathing": a slow diagonal wave across the dots, waiting for a voice */
+  :global(.hero-mic) :global(.mic-dot) { animation: breathe 3.2s ease-in-out infinite; animation-delay: calc((var(--c) + var(--r)) * 90ms); }
+  @keyframes breathe { 0%, 100% { fill: #2e2e2c; } 45% { fill: #3d3d3a; } }
+  :global(.hero-mic.talking) :global(.mic-dot) { animation: talk 0.5s ease-in-out infinite; animation-delay: calc((var(--c) * 40ms) + (var(--r) * 25ms)); }
+  @keyframes talk { 0%, 100% { fill: #2e2e2c; } 50% { fill: #f05a28; } }
+
+  @media (max-width: 860px) {
+    .hero { padding-top: 72px; }
+    .hero-grid { grid-template-columns: 1fr; }
+    .hero-art { order: -1; flex-direction: row; align-items: flex-start; justify-content: center; gap: 14px; }
+    .hero-art :global(.hero-mic) { width: 130px; flex: none; order: -1; }
+    .hero-art :global(.hero-mac) { width: auto; flex: 1; max-width: 300px; height: 92px; margin: 4px 0 0; padding: 7px 7px 0; border-width: 2.5px; border-radius: 16px 16px 0 0; --nw: 66px; --nh: 16px; --wing: 30px; --row: 20px; --ni-font: 8px; }
+    .hero-art :global(.hero-mic) { width: 110px; }
+    .hero-title { font-size: clamp(56px, 17vw, 120px); }
+    .hero-foot .muted { max-width: 22ch; }
+  }
+</style>

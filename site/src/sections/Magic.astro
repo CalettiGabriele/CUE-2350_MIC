@@ -1,0 +1,176 @@
+---
+import Mic from '../components/Mic.astro';
+import MacScreen from '../components/MacScreen.astro';
+
+// The scroll story: one pinned stage, five scenes. scripts/magic.js drives every frame from the
+// scroll position, so the story can be scrubbed back and forth.
+const scenes = [
+  { n: '8.1', short: 'talk', title: 'hold. talk.', line: 'Squeeze the handle and just say it. The red LEDs sweep while the mic listens.' },
+  { n: '8.2', short: 'listen', title: 'the ai listens.', line: 'Speech becomes text on your Mac, written right where your cursor is.' },
+  { n: '8.3', short: 'clean up', title: 'the ai cleans up.', line: 'Orange switches to enhanced: a local model turns rambling into a clear request.' },
+  { n: '8.4', short: 'send', title: 'send it.', line: 'Grey presses Return. Your agent is already on it. Hands never leave the mic.' },
+  { n: '8.5', short: 'skills', title: 'one button, any skill.', line: 'White picks a slot — /compact, /clear, /review — and the LEDs count it in binary. Grey runs it.' },
+];
+
+// Raw dictation → enhanced text. drop: the model removes it; to: the model rewrites it.
+const tokens: { t: string; drop?: boolean; to?: string }[] = [
+  { t: 'ehm', drop: true }, { t: 'so', drop: true }, { t: 'the', drop: true }, { t: 'the', to: 'The' },
+  { t: 'login' }, { t: 'page' }, { t: 'crashes' }, { t: 'when' }, { t: 'like', drop: true },
+  { t: 'you' }, { t: 'hit', to: 'press' }, { t: 'enter', to: 'Enter' }, { t: 'twice', to: 'twice.' },
+];
+const sp = (i: number) => (i < tokens.length - 1 ? ' ' : '');
+---
+<section id="magic" class="magic" aria-labelledby="magic-title">
+  <h2 id="magic-title" class="sr-only">How it works</h2>
+  <div class="magic-stage" data-magic>
+    <div class="wrap magic-head">
+      <ol class="progress label" aria-hidden="true">
+        {scenes.map((s, i) => <li data-step={i}><span class="pn">(({s.n}))</span> {s.short}</li>)}
+      </ol>
+    </div>
+
+    <div class="wrap magic-grid">
+      <div class="magic-left">
+        <ol class="caps">
+          {scenes.map((s, i) => (
+            <li class="cap" data-cap={i}>
+              <span class="label accent">(({s.n}))</span>
+              <h3 class="h2 cap-title">{s.title}</h3>
+              <p class="cap-line">{s.line}</p>
+            </li>
+          ))}
+        </ol>
+        <div class="magic-mic-wrap"><Mic class="magic-mic" cable={false} /></div>
+      </div>
+
+      <div class="magic-right">
+        <MacScreen class="magic-mac">
+          <div class="term" role="img" aria-label="A terminal: the dictated sentence is cleaned up by the AI and sent to the coding agent, which fixes the bug; then the /review skill runs.">
+            <div class="term-bar"><i></i><i></i><i></i><span>claude code — ~/shop</span></div>
+            <div class="term-body">
+              <p class="tl dim">✻ coding agent ready · ~/shop</p>
+              <div class="tin" data-in1>
+                <span class="pr">&gt;</span>
+                <span class="tin-text" data-raw>
+                  {tokens.map((k, i) => (
+                    <span class="tk" data-drop={k.drop ? '' : undefined} data-to={k.to ? k.to + sp(i) : undefined} data-t={k.t + sp(i)}>{k.t + sp(i)}</span>
+                  ))}
+                  <span class="tcur" data-cur1></span>
+                </span>
+              </div>
+              <p class="tl" data-l="0"><b class="acc">●</b> reading src/auth/LoginForm.tsx</p>
+              <p class="tl" data-l="1"><b class="acc">●</b> submit runs twice on a double Enter</p>
+              <p class="tl ok" data-l="2">✓ fixed: submit is debounced while pending</p>
+              <div class="tin" data-in2>
+                <span class="pr">&gt;</span>
+                <span class="tin-text"><span data-cmd></span><span class="tcur" data-cur2></span></span>
+              </div>
+              <p class="tl" data-l="3"><b class="acc">●</b> reviewing 2 changed files</p>
+              <p class="tl ok" data-l="4">✓ 2 suggestions · 0 issues</p>
+            </div>
+          </div>
+        </MacScreen>
+      </div>
+    </div>
+
+    <canvas class="magic-fx" data-fx aria-hidden="true"></canvas>
+  </div>
+</section>
+
+<style>
+  .magic { position: relative; background: var(--paper); }
+  .magic-stage {
+    position: relative; height: 100svh; min-height: 620px;
+    display: flex; flex-direction: column; justify-content: center; gap: clamp(16px, 3vh, 40px);
+    padding: 76px 0 28px; overflow: hidden;
+  }
+  .magic-fx { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+
+  .progress { display: flex; gap: 0; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--rule); }
+  .progress li {
+    flex: 1; padding-top: 12px; position: relative; color: var(--muted); transition: color 0.3s;
+  }
+  .progress li::before {
+    content: ''; position: absolute; top: -1px; left: 0; height: 2px; width: 100%;
+    background: var(--accent); transform: scaleX(var(--p, 0)); transform-origin: left;
+  }
+  .progress li.on { color: var(--ink); }
+  .progress .pn { color: inherit; }
+  .progress li.on .pn { color: var(--accent); }
+
+  .magic-grid { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: clamp(24px, 5vw, 80px); align-items: center; flex: 1; min-height: 0; }
+  .magic-left { display: grid; grid-template-rows: auto 1fr; gap: 24px; height: 100%; min-height: 0; }
+  .caps { position: relative; list-style: none; margin: 0; padding: 0; min-height: 210px; }
+  .cap { position: absolute; inset: 0 0 auto 0; opacity: 0; }
+  .cap:first-child { opacity: 1; }
+  .cap-title { font-size: clamp(34px, 4.2vw, 64px); margin: 10px 0 14px; }
+  .cap-line { margin: 0; max-width: 34ch; color: #4a4a46; font-size: clamp(16px, 1.3vw, 19px); }
+  .magic-mic-wrap { min-height: 0; display: flex; align-items: flex-end; justify-content: center; }
+  .magic-mic-wrap :global(.magic-mic) { height: 100%; max-height: 46vh; width: auto; }
+
+  .magic-right { min-width: 0; }
+  .magic-right :global(.magic-mac) { --nw: 132px; --nh: 26px; --wing: 50px; --row: 28px; }
+  .term {
+    margin: 48px 18px 18px;
+    background: var(--ink); color: #edede8; border-radius: 8px; overflow: hidden;
+    font-family: var(--font-mono); font-size: clamp(12px, 1.05vw, 15px); line-height: 1.6;
+    height: clamp(300px, 40vh, 400px);
+  }
+  .term-bar {
+    display: flex; align-items: center; gap: 7px; padding: 10px 14px;
+    border-bottom: 1px solid var(--rule-dark); color: var(--muted); font-size: 11px; letter-spacing: 0.08em;
+  }
+  .term-bar i { width: 9px; height: 9px; border-radius: 50%; border: 1px solid #55554f; }
+  .term-bar span { margin-left: 10px; }
+  .term-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 8px; }
+  .tl { margin: 0; opacity: 0; }
+  .tl.dim { color: var(--muted); opacity: 1; }
+  .tl.ok { color: var(--term-green); }
+  .acc { color: var(--accent); font-weight: 500; }
+  .tin {
+    display: flex; gap: 10px; padding: 10px 12px; border: 1px solid #3a3a38; border-radius: 6px;
+    min-height: 2.9em; transition: border-color 0.3s;
+  }
+  .tin.sent { border-color: var(--rule-dark); color: #b9b9b3; }
+  .tin.focus { border-color: #6e6e6a; }
+  .pr { color: var(--accent); flex: none; }
+  .tin-text { min-width: 0; }
+  .tk { display: inline-block; white-space: pre; vertical-align: top; overflow: hidden; position: relative; }
+  .tk.strike::after {
+    content: ''; position: absolute; left: 0; right: 0.5ch; top: 52%; height: 1.5px;
+    background: var(--accent); transform: scaleX(var(--s, 0)); transform-origin: left;
+  }
+  .tcur { display: inline-block; width: 0.6ch; height: 1.15em; background: var(--accent); vertical-align: text-bottom; opacity: 0; }
+  .tcur.on { opacity: 1; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  [data-in2] { opacity: 0; }
+
+  /* ---- reduced motion / no pin: the final state with every caption listed ---- */
+  .magic.static .magic-stage { height: auto; min-height: 0; padding: 96px 0; }
+  .magic.static .progress, .magic.static .magic-fx { display: none; }
+  .magic.static .caps { min-height: 0; display: grid; gap: 28px; }
+  .magic.static .cap { position: static; opacity: 1 !important; visibility: visible !important; transform: none !important; }
+  .magic.static .magic-grid { align-items: start; }
+  .magic.static .magic-right { position: sticky; top: 110px; }
+  .magic.static .term { height: auto; }
+  .magic.static .magic-left { grid-template-rows: auto auto; height: auto; }
+  .magic.static .magic-mic-wrap { justify-content: flex-start; }
+  .magic.static .magic-mic-wrap :global(.magic-mic) { height: auto; width: 220px; }
+
+  @media (max-width: 860px) {
+    .magic-stage { padding: 64px 0 16px; gap: 12px; }
+    .progress li { font-size: 10px; letter-spacing: 0.06em; }
+    .progress .pn { display: none; }
+    .magic-grid { grid-template-columns: 1fr; gap: 14px; align-content: start; }
+    .magic-left { grid-template-columns: 76px 1fr; grid-template-rows: auto; gap: 14px; height: auto; align-items: start; }
+    .magic-mic-wrap { order: -1; }
+    .magic-mic-wrap :global(.magic-mic) { width: 76px; height: auto; max-height: none; }
+    .caps { min-height: 150px; }
+    .cap-title { font-size: 30px; margin: 4px 0 8px; }
+    .cap-line { font-size: 15px; }
+    .magic-right :global(.magic-mac) { --nw: 84px; --nh: 20px; --wing: 36px; --row: 22px; --ni-font: 8.5px; padding: 6px; border-width: 2.5px; border-radius: 16px; }
+    .term { margin: 32px 8px 8px; height: 42svh; font-size: 11.5px; }
+    .term-body { padding: 12px; gap: 6px; }
+    .magic.static .magic-left { grid-template-columns: 1fr; }
+  }
+</style>

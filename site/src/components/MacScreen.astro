@@ -1,0 +1,101 @@
+---
+// A MacBook lid in the same flat line-art as the mic: outer lid, display, notch. The app's island
+// lives in the notch exactly as in HUD.swift: a black shape with a flat top that grows out of the
+// notch with a spring; left wing = the mic's 8 LEDs in two columns, right wing = elapsed time,
+// one line of text below the notch. Driven by scripts/island.js.
+//   cropped: only the upper half of the lid, fading out (used above the mic in the hero).
+interface Props { class?: string; cropped?: boolean }
+const { class: cls = '', cropped = false } = Astro.props;
+---
+<div class={`mac ${cropped ? 'mac-cropped' : ''} ${cls}`}>
+  <div class="mac-display">
+    <div class="notch-island" data-island aria-hidden="true">
+      <span class="ni-leds">
+        {[1, 2, 3, 4].map((n) => <i class={`ni-led red r${n}`} />)}
+        {[1, 2, 3, 4].map((n) => <i class={`ni-led white w${n}`} />)}
+      </span>
+      <span class="ni-time" data-island-time></span>
+      <span class="ni-row"><span class="ni-dot"></span><span class="ni-text" data-island-text></span></span>
+    </div>
+    <div class="mac-content"><slot /></div>
+  </div>
+</div>
+
+<style is:global>
+  .mac {
+    --nw: 120px;   /* notch width */
+    --nh: 24px;    /* notch height */
+    --wing: 46px;  /* space the island adds on each side of the notch */
+    --row: 26px;   /* text row below the notch */
+    --ni-font: 10.5px;
+    position: relative;
+    background: var(--ink);          /* solid bezel, the notch is part of it */
+    border: 3px solid var(--ink);
+    border-radius: 22px;
+    padding: 9px;
+  }
+  .mac-display {
+    position: relative; height: 100%;
+    background: var(--paper);
+    border-radius: 8px;
+    display: flex; flex-direction: column;
+  }
+  .mac-content { position: relative; flex: 1; min-height: 0; }
+
+  /* upper half only: the lid fades out downwards, no bottom edge */
+  .mac-cropped {
+    border-bottom: 0; border-radius: 22px 22px 0 0; padding-bottom: 0;
+    -webkit-mask-image: linear-gradient(to bottom, #000 55%, transparent);
+    mask-image: linear-gradient(to bottom, #000 55%, transparent);
+  }
+  .mac-cropped .mac-display { border-radius: 8px 8px 0 0; }
+
+  /* ---- the island ---- */
+  .notch-island {
+    position: absolute; top: 0; left: 50%; z-index: 4;
+    width: var(--nw); height: var(--nh);
+    transform: translateX(-50%);
+    background: var(--ink); color: #edede8;
+    border-radius: 0 0 11px 11px;
+    transition:
+      width 0.62s cubic-bezier(0.34, 1.42, 0.64, 1),
+      height 0.62s cubic-bezier(0.34, 1.42, 0.64, 1),
+      border-radius 0.4s ease;
+    font-family: var(--font-mono); font-weight: 500; font-size: var(--ni-font);
+    letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap;
+  }
+  .notch-island.open { height: calc(var(--nh) + var(--row)); border-radius: 0 0 16px 16px; }
+  .notch-island > * { opacity: 0; transition: opacity 0.18s ease; }
+  .notch-island.open > * { opacity: 1; transition: opacity 0.3s ease 0.22s; }
+
+  .ni-leds {
+    position: absolute; top: calc(var(--nh) / 2); left: calc(var(--wing) / 2); transform: translate(-50%, -50%);
+    display: grid; grid-template-columns: repeat(2, 4px); grid-template-rows: repeat(4, 4px); grid-auto-flow: column; gap: 1.5px 2.5px;
+  }
+  .ni-led { width: 4px; height: 4px; border-radius: 50%; background: #3a2220; }
+  .ni-led.white { background: #3a3a38; }
+  .ni-led.red.on { background: var(--led-red); box-shadow: 0 0 4px #ff3b30; }
+  .ni-led.white.on { background: #fff; box-shadow: 0 0 4px #fff; }
+  .ni-time {
+    position: absolute; top: calc(var(--nh) / 2); right: calc(var(--wing) / 2); transform: translate(50%, -50%);
+    color: #edede8; font-variant-numeric: tabular-nums; letter-spacing: 0.06em;
+  }
+  .ni-row {
+    position: absolute; left: 0; right: 0; top: var(--nh); height: var(--row);
+    display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px 2px;
+  }
+  .ni-dot { width: 6px; height: 6px; border-radius: 50%; background: #555; flex: none; }
+  .notch-island.rec .ni-dot { background: var(--led-red); animation: ni-radar 1.2s ease-out infinite; }
+  .notch-island.think .ni-dot { background: #fff; animation: ni-pulse 0.9s ease-in-out infinite; }
+  .notch-island.done .ni-dot { background: var(--accent); }
+  @keyframes ni-radar { 0% { box-shadow: 0 0 0 0 rgba(227, 36, 43, 0.65); } 100% { box-shadow: 0 0 0 8px rgba(227, 36, 43, 0); } }
+  @keyframes ni-pulse { 50% { opacity: 0.25; } }
+  /* the text flashes in with a thin orange underline, as in the app */
+  .ni-text { position: relative; }
+  .ni-text.flash::after { content: ''; position: absolute; left: 0; right: 0; bottom: -4px; height: 1.5px; background: var(--accent); animation: ni-flash 0.6s ease-out forwards; transform-origin: left; }
+  @keyframes ni-flash { from { transform: scaleX(0); } 60% { transform: scaleX(1); opacity: 1; } to { transform: scaleX(1); opacity: 0; } }
+
+  @media (prefers-reduced-motion: reduce) {
+    .notch-island { transition: none; }
+  }
+</style>

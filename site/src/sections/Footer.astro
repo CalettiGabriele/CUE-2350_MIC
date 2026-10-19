@@ -1,0 +1,30 @@
+---
+import { SITE } from '../site.config';
+---
+<footer class="foot">
+  <div class="wrap">
+    <div class="foot-top">
+      <a class="foot-mark" href="/">cue-2350 <span>mic</span></a>
+      <nav class="label foot-nav" aria-label="Footer">
+        <a href={SITE.github} target="_blank" rel="noopener noreferrer">github</a>
+        <a href={SITE.linkedin} target="_blank" rel="noopener noreferrer">linkedin</a>
+        <a href={`${SITE.github}/blob/main/LICENSE`} target="_blank" rel="noopener noreferrer">mit license</a>
+        <a href="/legal">legal &amp; credits</a>
+      </nav>
+    </div>
+    <p class="foot-by">Designed and built by <b>{SITE.author}</b>.</p>
+    <p class="foot-legal">{SITE.disclaimer}</p>
+  </div>
+</footer>
+
+<style>
+  .foot { background: var(--ink); color: var(--paper); padding: 72px 0 48px; }
+  .foot-top { display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 24px; padding-bottom: 28px; border-bottom: 1px solid var(--rule-dark); }
+  .foot-mark { font-weight: 900; font-size: clamp(48px, 7vw, 96px); letter-spacing: -0.05em; line-height: 0.85; text-decoration: none; }
+  .foot-mark span { color: var(--accent); }
+  .foot-nav { display: flex; flex-wrap: wrap; gap: 24px; }
+  .foot-nav a { text-decoration: none; color: #b9b9b3; }
+  .foot-nav a:hover { color: var(--accent); }
+  .foot-by { margin: 28px 0 10px; }
+  .foot-legal { margin: 0; max-width: 80ch; font-size: 13px; line-height: 1.6; color: var(--muted); }
+</style>

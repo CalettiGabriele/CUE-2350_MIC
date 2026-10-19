@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <rect width="64" height="64" rx="14" fill="#edede8"/>
+  <rect x="9" y="10" width="14" height="30" rx="3" fill="#f05a28" transform="rotate(-10 16 25)"/>
+  <rect x="17" y="6" width="38" height="52" rx="6" fill="#4e4e4b" stroke="#1a1a1a" stroke-width="2.5"/>
+  <g fill="#2e2e2c">
+    <circle cx="25" cy="15" r="2.6"/><circle cx="32" cy="15" r="2.6"/><circle cx="39" cy="15" r="2.6"/>
+    <circle cx="25" cy="22" r="2.6"/><circle cx="32" cy="22" r="2.6"/><circle cx="39" cy="22" r="2.6"/>
+    <circle cx="25" cy="29" r="2.6"/><circle cx="32" cy="29" r="2.6"/><circle cx="39" cy="29" r="2.6"/>
+  </g>
+  <circle cx="48" cy="15" r="3" fill="#e3242b"/>
+  <circle cx="48" cy="23" r="3" fill="#5b2b28"/>
+  <circle cx="48" cy="31" r="3" fill="#6e6e6a"/>
+  <rect x="17" y="38" width="38" height="20" rx="0" fill="#e6e6e1" stroke="#1a1a1a" stroke-width="2.5"/>
+  <rect x="17" y="6" width="38" height="52" rx="6" fill="none" stroke="#1a1a1a" stroke-width="2.5"/>
+</svg>

@@ -1,0 +1,34 @@
+---
+const statement = 'your agent is a conversation. stop typing it.';
+const words = statement.split(' ');
+---
+<section class="idea" data-idea>
+  <div class="wrap">
+    <div class="chapter"><span class="num">((8.0))</span><span>the idea</span><span class="bar"></span></div>
+    <p class="display idea-text" data-idea-text aria-label={statement}>
+      {words.map((w) => <span class="iw" aria-hidden="true">{w} </span>)}
+    </p>
+    <div class="idea-foot">
+      <span class="stub"></span>
+      <p class="lead" data-reveal>
+        The FX-MIC already has what a remote needs: a handle you squeeze, three buttons you find
+        without looking, eight LEDs. Squeeze it, say what you want, let go.
+      </p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .idea { padding: clamp(96px, 16vh, 200px) 0; }
+  .idea-text {
+    font-size: clamp(52px, 9.4vw, 152px);
+    margin: 44px 0 56px;
+    max-width: 12ch;
+  }
+  .iw { display: inline; opacity: 0.12; }
+  .no-js .iw, :global(html:not(.js)) .iw { opacity: 1; }
+  .iw:nth-last-child(-n + 3) { color: var(--accent); }
+  .idea-foot { display: flex; gap: 24px; align-items: flex-start; max-width: 640px; margin-left: auto; }
+  .idea-foot .stub { margin-top: 14px; flex: none; }
+  @media (prefers-reduced-motion: reduce) { .iw { opacity: 1; } }
+</style>

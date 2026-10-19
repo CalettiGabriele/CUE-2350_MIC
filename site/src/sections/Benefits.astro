@@ -1,0 +1,100 @@
+---
+import Mic from '../components/Mic.astro';
+const apps = [
+  { app: 'terminal', slots: ['/compact', '/clear', '/review'] },
+  { app: 'claude', slots: ['new chat', 'summarize', 'explain simply'] },
+  { app: 'mail', slots: ['email', 'shorter', 'translate en'] },
+];
+---
+<section id="why" class="why">
+  <div class="wrap">
+    <div class="chapter"><span class="num">((8.6))</span><span>why you'll love it</span><span class="bar"></span></div>
+    <h2 class="h2 why-title" data-reveal>less typing.<br />more <span class="accent">doing.</span></h2>
+
+    <div class="why-grid">
+      <article class="card" data-reveal style="--d:0s">
+        <div class="card-art art-handle"><Mic class="mini-mic" cable={false} /></div>
+        <h3 class="card-title"><span class="accent">/</span> a button you can feel</h3>
+        <p>A physical handle keeps you in the flow. No shortcut to remember, no window to focus: squeeze and talk.</p>
+      </article>
+
+      <article class="card" data-reveal style="--d:0.12s">
+        <div class="card-art art-home" aria-hidden="true">
+          <div class="home-box"><span class="label">your mac</span><i class="bx"><i class="by"></i></i></div>
+        </div>
+        <h3 class="card-title"><span class="accent">/</span> your voice stays home</h3>
+        <p>Speech-to-text and the language model run on your Mac. Audio is never saved, nothing goes to the cloud unless you say so.</p>
+      </article>
+
+      <article class="card" data-reveal style="--d:0.24s">
+        <div class="card-art art-apps" aria-hidden="true">
+          {apps.map((a, i) => (
+            <div class="app-panel" style={`--k:${i}`}>
+              <span class="label app-name">{a.app}</span>
+              <ul>{a.slots.map((s) => <li>{s}</li>)}</ul>
+            </div>
+          ))}
+        </div>
+        <h3 class="card-title"><span class="accent">/</span> every app, its own skills</h3>
+        <p>Buttons follow the app in front: <code>/review</code> in the terminal, “rewrite as email” everywhere else. Up to fifteen slots each.</p>
+      </article>
+    </div>
+
+    <p class="why-note" data-reveal>
+      <span class="label accent">nothing permanent</span>
+      The app talks to the mic through a tiny agent that lives only in its RAM. Switch the mic off and it is factory-fresh again.
+    </p>
+  </div>
+</section>
+
+<style>
+  .why { padding: clamp(96px, 14vh, 180px) 0; border-top: 1px solid var(--rule); }
+  .why-title { margin: 40px 0 64px; font-size: clamp(44px, 7vw, 112px); }
+  .why-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0; border-top: 1px solid var(--rule); }
+  .card { padding: 28px 28px 8px 0; }
+  .card + .card { padding-left: 28px; border-left: 1px solid var(--rule); }
+  .card-title { font-weight: 800; font-size: clamp(24px, 2.2vw, 32px); letter-spacing: -0.02em; line-height: 1.05; text-transform: lowercase; margin: 24px 0 12px; }
+  .card p { margin: 0; color: #4a4a46; font-size: 17px; }
+  .card code { font-family: var(--font-mono); font-size: 0.9em; }
+  .card-art { height: 200px; display: flex; align-items: center; justify-content: center; background: var(--paper-2); border: 1px solid var(--rule); position: relative; overflow: hidden; }
+
+  /* 1 · the handle goes down and up */
+  .art-handle :global(.mini-mic) { height: 160px; width: auto; }
+  .art-handle :global(.mic-handle) { animation: squeeze 2.6s var(--ease-out) infinite; }
+  .art-handle :global(.mic-led.r1) { animation: led 2.6s steps(1) infinite; }
+  @keyframes squeeze { 0%, 18% { transform: none; } 28%, 70% { transform: rotate(10deg); } 80%, 100% { transform: none; } }
+  @keyframes led { 0%, 27% { fill: var(--led-red-off); } 28%, 70% { fill: var(--led-red); } 71% { fill: var(--led-red-off); } }
+
+  /* 2 · a voice dot bouncing inside the Mac, never leaving it */
+  .home-box { position: relative; width: 74%; height: 64%; border: 1.5px solid var(--ink); border-radius: 8px; }
+  .home-box .label { position: absolute; left: 10px; top: 8px; font-size: 10px; color: var(--muted); }
+  .bx { position: absolute; inset: 10px; animation: bx 3.1s linear infinite alternate; }
+  .by { position: absolute; left: 0; top: 0; width: 14px; height: 14px; border-radius: 50%; background: var(--accent); animation: by 1.7s linear infinite alternate; }
+  @keyframes bx { from { transform: translateX(0); } to { transform: translateX(calc(100% - 14px)); } }
+  .bx { width: calc(100% - 20px); }
+  @keyframes by { from { transform: translateY(0); } to { transform: translateY(calc(var(--h, 92px))); } }
+
+  /* 3 · the app in front changes, the slots follow */
+  .art-apps { flex-direction: column; }
+  .app-panel {
+    position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px;
+    opacity: 0; animation: app 7.5s infinite; animation-delay: calc(var(--k) * 2.5s);
+  }
+  .app-name { background: var(--ink); color: var(--paper); padding: 4px 10px; }
+  .app-panel ul { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; max-width: 90%; }
+  .app-panel li { font-family: var(--font-mono); font-size: 12px; border: 1px solid var(--ink); padding: 4px 8px; background: var(--paper); }
+  .app-panel li:first-child { background: var(--accent); border-color: var(--accent); }
+  @keyframes app { 0% { opacity: 0; transform: translateY(10px); } 4%, 30% { opacity: 1; transform: none; } 34%, 100% { opacity: 0; transform: translateY(-10px); } }
+
+  .why-note { display: flex; gap: 18px; align-items: baseline; flex-wrap: wrap; margin: 56px 0 0; padding-top: 20px; border-top: 1px solid var(--rule); color: #4a4a46; }
+
+  @media (max-width: 860px) {
+    .why-grid { grid-template-columns: 1fr; }
+    .card, .card + .card { padding: 28px 0; border-left: 0; }
+    .card + .card { border-top: 1px solid var(--rule); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .app-panel { animation: none; }
+    .app-panel:first-child { opacity: 1; }
+  }
+</style>

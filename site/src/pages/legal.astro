@@ -1,0 +1,74 @@
+---
+import Base from '../layouts/Base.astro';
+import TopBar from '../sections/TopBar.astro';
+import Footer from '../sections/Footer.astro';
+import { SITE } from '../site.config';
+
+const credits = [
+  { what: 'WhisperKit', by: 'Argmax', use: 'speech-to-text, on your Mac', lic: 'MIT', href: 'https://github.com/argmaxinc/WhisperKit' },
+  { what: 'Whisper models', by: 'OpenAI', use: 'the speech models WhisperKit runs', lic: 'MIT', href: 'https://github.com/openai/whisper' },
+  { what: 'Ollama', by: 'Ollama', use: 'default local model server', lic: 'MIT', href: 'https://ollama.com' },
+  { what: 'Barlow', by: 'The Barlow Project Authors', use: 'display type', lic: 'SIL OFL 1.1', href: 'https://github.com/jpt/barlow' },
+  { what: 'IBM Plex Mono', by: 'IBM Corp.', use: 'labels, numerals, terminal', lic: 'SIL OFL 1.1', href: 'https://github.com/IBM/plex' },
+  { what: 'GSAP', by: 'GreenSock / Webflow', use: 'animations on this site', lic: 'GSAP standard license (free)', href: 'https://gsap.com' },
+  { what: 'Astro', by: 'The Astro Technology Company', use: 'builds this site', lic: 'MIT', href: 'https://astro.build' },
+];
+---
+<Base title="legal & credits" description="Credits, licenses, the not-affiliated notice and the privacy note of the CUE-2350 MIC website.">
+  <TopBar />
+  <main class="legal wrap">
+    <a class="label back" href="/">← back</a>
+    <h1 class="display legal-title">legal &amp; credits<span class="accent">.</span></h1>
+
+    <section>
+      <div class="chapter"><span class="num">((C.1))</span><span>not affiliated</span><span class="bar"></span></div>
+      <p>{SITE.disclaimer}</p>
+      <p>No logo, photograph, illustration or firmware file from teenage engineering is used or distributed. The app never writes to the mic’s flash, ROM or disk: it talks to the mic through a small agent that lives only in its RAM. If you represent teenage engineering and would like something changed, please <a href={`${SITE.github}/issues`} target="_blank" rel="noopener noreferrer">open an issue</a>.</p>
+    </section>
+
+    <section>
+      <div class="chapter"><span class="num">((C.2))</span><span>license</span><span class="bar"></span></div>
+      <p>The app’s source code, documentation and illustrations are released under the <a href={`${SITE.github}/blob/main/LICENSE`} target="_blank" rel="noopener noreferrer">MIT license</a>. It does not cover the fonts (SIL OFL 1.1), the teaser video’s music and sound effects (third-party libraries, under their own terms) or anyone’s trademarks.</p>
+    </section>
+
+    <section>
+      <div class="chapter"><span class="num">((C.3))</span><span>built with</span><span class="bar"></span></div>
+      <ul class="credits">
+        {credits.map((c) => (
+          <li><a href={c.href} target="_blank" rel="noopener noreferrer"><b>{c.what}</b></a><span>{c.by}</span><span>{c.use}</span><span class="label">{c.lic}</span></li>
+        ))}
+      </ul>
+    </section>
+
+    <section>
+      <div class="chapter"><span class="num">((C.4))</span><span>privacy of this website</span><span class="bar"></span></div>
+      <p>This website sets no cookies, runs no analytics or tracking scripts and loads nothing from third parties: fonts, scripts and the video are served from this domain. The hosting provider may keep standard server logs (such as IP address and requested page) for security and operation.</p>
+    </section>
+
+    <section>
+      <div class="chapter"><span class="num">((C.5))</span><span>made by</span><span class="bar"></span></div>
+      <p><b>{SITE.author}</b> · <a href={SITE.github.replace(/\/[^/]+$/, '')} target="_blank" rel="noopener noreferrer">GitHub</a> · <a href={SITE.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn</a></p>
+    </section>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  .legal { padding-top: 120px; padding-bottom: 120px; max-width: 920px; }
+  .back { text-decoration: none; color: #4a4a46; }
+  .back:hover { color: var(--accent); }
+  .legal-title { font-size: clamp(56px, 9vw, 120px); margin: 28px 0 64px; }
+  section { margin-bottom: 56px; }
+  section p { color: #3a3a37; max-width: 68ch; margin: 18px 0 0; }
+  section a { text-decoration-color: var(--accent); text-underline-offset: 3px; }
+  .credits { list-style: none; padding: 0; margin: 18px 0 0; }
+  .credits li { display: grid; grid-template-columns: 1.1fr 1.3fr 1.6fr 1fr; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--rule); font-size: 16px; }
+  .credits a { text-decoration: none; }
+  .credits a:hover { color: var(--accent); }
+  .credits .label { font-size: 10.5px; color: #4a4a46; align-self: center; }
+  @media (max-width: 720px) { .credits li { grid-template-columns: 1fr 1fr; } }
+</style>
+
+<script>
+  document.querySelector('[data-topbar]')?.classList.add('show');
+</script>

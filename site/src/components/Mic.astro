@@ -1,0 +1,63 @@
+---
+// The FX-MIC, redrawn from scratch as vector (style homage, not a trace): the same drawing as
+// videos/fxmic-bridge-teaser/assets/fxmic-device.svg, with every part addressable from JS.
+//   .mic-handle            lever (rotate around its pivot)
+//   .mic-led.r1..r4        red LEDs (mode / KITT)       add .on
+//   .mic-led.w1..w4        white LEDs (slot in binary)  add .on
+//   .mic-btn-orange/-white/-grey   side buttons (add .pressed)
+//   .mic-dot               grille dots (11 x 12), data-i = index
+interface Props { class?: string; cable?: boolean; label?: string }
+const { class: cls = '', cable = true, label = 'CUE-2350' } = Astro.props;
+
+const dots: { x: number; y: number; i: number }[] = [];
+for (let r = 0; r < 12; r++) for (let c = 0; c < 11; c++) dots.push({ x: 68 + c * 22, y: 52 + r * 22, i: r * 11 + c });
+const red = [66, 96, 126, 156];
+const white = [196, 226, 256, 286];
+const vb = cable ? '-70 0 520 760' : '-70 0 520 560';
+---
+<svg class={`mic ${cls}`} viewBox={vb} xmlns="http://www.w3.org/2000/svg" role="img" aria-label="The EP-2350 FX-MIC, drawn in flat vector">
+  <g class="mic-handle">
+    <rect class="ink" x="-46" y="46" width="132" height="214" rx="14" fill="#F05A28" transform="rotate(-12 20 150)" />
+  </g>
+  {cable && (
+    <path class="ink mic-cable" fill="none" stroke-width="5" stroke-linecap="round"
+      d="M200 540 v18 c-40 0 -40 22 0 22 c40 0 40 22 0 22 c-40 0 -40 22 0 22 c40 0 40 22 0 22 c-40 0 -40 22 0 22 c40 0 40 22 0 22 c-40 0 -40 22 0 22 v40" />
+  )}
+  <rect class="ink mic-btn mic-btn-orange" x="344" y="78" width="34" height="74" rx="8" fill="#F05A28" />
+  <rect class="ink mic-btn mic-btn-white" x="344" y="206" width="34" height="62" rx="8" fill="#F7F7F3" />
+  <rect class="ink mic-btn mic-btn-grey" x="344" y="392" width="34" height="62" rx="8" fill="#A3A39E" />
+  <rect class="ink" x="40" y="20" width="320" height="520" rx="24" fill="#E6E6E1" />
+  <path class="ink" d="M64 20 H336 a24 24 0 0 1 24 24 V318 H40 V44 a24 24 0 0 1 24 -24 Z" fill="#4E4E4B" />
+  <g class="mic-grille" fill="#2E2E2C">
+    {dots.map((d) => <circle class="mic-dot" data-i={d.i} cx={d.x} cy={d.y} r="6.5" style={`--c:${d.i % 11};--r:${Math.floor(d.i / 11)}`} />)}
+  </g>
+  <rect x="316" y="44" width="30" height="258" rx="15" fill="#3A3A38" />
+  {red.map((y, k) => <circle class={`mic-led red r${k + 1}`} cx="331" cy={y} r="8" />)}
+  {white.map((y, k) => <circle class={`mic-led white w${k + 1}`} cx="331" cy={y} r="8" />)}
+  <line class="ink" x1="40" y1="318" x2="360" y2="318" />
+  <g fill="none" class="ink" stroke-width="2.5">
+    <circle cx="70" cy="348" r="9" /><circle cx="330" cy="348" r="9" />
+    <circle cx="70" cy="510" r="9" /><circle cx="330" cy="510" r="9" />
+  </g>
+  <g stroke="#1A1A1A" stroke-width="2.5">
+    <line x1="64" y1="348" x2="76" y2="348" /><line x1="324" y1="348" x2="336" y2="348" />
+    <line x1="64" y1="510" x2="76" y2="510" /><line x1="324" y1="510" x2="336" y2="510" />
+  </g>
+  <rect x="140" y="408" width="120" height="40" rx="6" fill="none" class="ink" stroke-width="2.5" />
+  <text x="200" y="434" text-anchor="middle" font-family="IBM Plex Mono" font-weight="600" font-size="15" letter-spacing="2" fill="#1A1A1A">{label}</text>
+</svg>
+
+<style is:global>
+  .mic { overflow: visible; }
+  .mic .ink { stroke: #1a1a1a; stroke-width: 3; stroke-linejoin: round; }
+  .mic-handle { transform-box: view-box; transform-origin: 90px 250px; transition: transform 0.35s var(--ease-out); }
+  .mic.held .mic-handle { transform: rotate(10deg); }
+  .mic-btn { transform-box: fill-box; transition: transform 0.12s ease-out; }
+  .mic-btn.pressed { transform: translateX(-9px); }
+  .mic-led.red { fill: var(--led-red-off); }
+  .mic-led.red.on { fill: var(--led-red); filter: drop-shadow(0 0 6px #ff3b30); }
+  .mic-led.white { fill: var(--led-white-off); }
+  .mic-led.white.on { fill: #fff; filter: drop-shadow(0 0 6px #fff); }
+  .mic-dot { transition: fill 0.3s; }
+  .mic-dot.lit { fill: var(--accent); }
+</style>

@@ -1,0 +1,35 @@
+/* "Chapter 8" identity, shared with the app (app/Sources/FXMicBridge/Theme.swift) and the
+   teaser (videos/fxmic-bridge-teaser/frame.md). Paper / ink grounds, ONE accent (fire orange),
+   red only for LEDs and recording, Barlow lowercase display, IBM Plex Mono uppercase chrome. */
+
+@font-face { font-family: "Barlow"; font-weight: 400; font-display: swap; src: url("/fonts/barlow-latin-400-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 600; font-display: swap; src: url("/fonts/barlow-latin-600-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 800; font-display: swap; src: url("/fonts/barlow-latin-800-normal.woff2") format("woff2"); }
+@font-face { font-family: "Barlow"; font-weight: 900; font-display: swap; src: url("/fonts/barlow-latin-900-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 500; font-display: swap; src: url("/fonts/ibm-plex-mono-latin-500-normal.woff2") format("woff2"); }
+@font-face { font-family: "IBM Plex Mono"; font-weight: 600; font-display: swap; src: url("/fonts/ibm-plex-mono-latin-600-normal.woff2") format("woff2"); }
+
+:root {
+  --ink: #1a1a1a;
+  --paper: #edede8;
+  --paper-2: #e6e6e1;
+  --accent: #f05a28;
+  --led-red: #e3242b;
+  --led-red-off: #5b2b28;
+  --led-white-off: #6e6e6a;
+  --muted: #8c8c88;
+  --muted-on-dark: #8c8c88;
+  --rule: #c9c9c3;
+  --rule-dark: #282726;
+  --bar: #5e5e5b;
+  --grille: #3a3a38;
+  --term-green: #7fbf7f;
+
+  --font-display: "Barlow", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
+
+  --gutter: clamp(16px, 4vw, 64px);
+  --max: 1280px;
+
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+}
