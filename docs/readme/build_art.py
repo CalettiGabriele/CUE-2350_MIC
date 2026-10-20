@@ -53,6 +53,20 @@ def svg(width, height, body, fonts=ALL_FONTS, title=""):
             f'<title>{title}</title><style>{font_css(fonts)}{STYLE}</style>{body}</svg>\n')
 
 
+# Widths of the texts revealed by a wipe, measured in the browser with the embedded fonts
+# (getComputedTextLength). Python cannot measure them; re-measure when a text, its size or its
+# weight changes. The wipes add a margin, so a small difference never cuts a word.
+MEASURED = {
+    ("refactor the auth middleware and add tests for expired tokens.", 38, 600): 958,
+    ("gabriele caletti", 44, 800): 273,
+}
+WIPE_MARGIN = 24
+
+
+def measured(text, size, weight):
+    return MEASURED[(text, size, weight)]
+
+
 # ---------------------------------------------------------------------------- SMIL helpers
 
 def _fmt(x):
@@ -351,13 +365,13 @@ def talk():
     # the text field the dictation lands in
     body.append(f'<rect x="470" y="430" width="1050" height="130" fill="#FFFFFF" stroke="{RULE}" stroke-width="1.5"/>'
                 + kicker(494, 462, "notes.md", color=MUTED, size=13))
-    # Barlow SemiBold averages ~0.255 em per character at this tracking (measured in the browser).
-    text_w = round(len(sentence) * 38 * 0.255)
+    text_w = measured(sentence, 38, 600)
+    clip_w = text_w + WIPE_MARGIN
     reveal = (f'<clipPath id="tw"><rect x="492" y="472" width="0" height="70">'
-              f'{tween("width", [(0, 0), (4.1, 0), (4.9, text_w + 6), (7.8, text_w + 6), (8.1, 0)], P, ease=LINEAR)}</rect></clipPath>')
+              f'{tween("width", [(0, 0), (4.1, 0), (4.9, clip_w), (7.8, clip_w), (8.1, 0)], P, ease=LINEAR)}</rect></clipPath>')
     body.append(reveal)
     body.append(f'<g clip-path="url(#tw)">{display(494, 524, sentence, 38, weight=600)}</g>')
-    caret_x = [(0, 498), (4.1, 498), (4.9, 498 + text_w + 6), (7.8, 498 + text_w + 6), (8.1, 498)]
+    caret_x = [(0, 494), (4.1, 494), (4.9, 494 + text_w + 6), (7.8, 494 + text_w + 6), (8.1, 494)]
     body.append(f'<rect x="494" y="492" width="3" height="38" fill="{ORANGE}">{tween("x", caret_x, P, ease=LINEAR)}'
                 f'{steps("opacity", [(i * 0.5, 1 - i % 2) for i in range(int(P * 2))], P)}</rect>')
     return svg(W, H, "".join(body), title="Hold the handle, talk, release")
@@ -483,7 +497,7 @@ def end_card():
     # colophon: a hairline, then the author, set like the printer's line of a manual.
     # Everything plays once (it is the last thing on the page) and then stays still.
     name = "gabriele caletti"
-    name_w = round(len(name) * 44 * 0.5)       # Barlow ExtraBold ≈ 0.5 em/char at 44px
+    name_w = measured(name, 44, 800)
     body.append(f'<rect x="80" y="440" width="0" height="1.5" fill="#3A3A38">'
                 f'{tween("width", [(0, 0), (0.5, 0), (1.3, 1440)], 1.3, once=True)}</rect>')
     body.append(f'<g opacity="0">{tween("opacity", [(0, 0), (1.0, 0), (1.4, 1)], 1.4, once=True)}'
@@ -492,7 +506,7 @@ def end_card():
                 + kicker(200, 497, "designed &amp; built by", color="#8C8C88", size=15)
                 + '</g>')
     body.append(f'<clipPath id="who"><rect x="196" y="500" width="0" height="80">'
-                f'{tween("width", [(0, 0), (1.4, 0), (2.4, name_w + 20)], 2.4, ease=LINEAR, once=True)}</rect></clipPath>'
+                f'{tween("width", [(0, 0), (1.4, 0), (2.4, name_w + WIPE_MARGIN)], 2.4, ease=LINEAR, once=True)}</rect></clipPath>'
                 f'<g clip-path="url(#who)">{display(198, 560, name, 44, color=PAPER, weight=800)}</g>')
     body.append(f'<g opacity="0">{tween("opacity", [(0, 0), (2.5, 0), (3.0, 1)], 3.0, once=True)}'
                 + kicker(1520, 497, "github.com/CalettiGabriele", color="#DADAD6", size=15, anchor="end")
@@ -500,7 +514,7 @@ def end_card():
                 + kicker(1520, 551, "mit license", color="#8C8C88", size=15, anchor="end")
                 + '</g>')
     body.append(f'<rect x="198" y="524" width="4" height="40" fill="{ORANGE}" opacity="0">'
-                f'{tween("x", [(0, 198), (1.4, 198), (2.4, 198 + name_w + 4)], 2.4, ease=LINEAR, once=True)}'
+                f'{tween("x", [(0, 198), (1.4, 198), (2.4, 198 + name_w + 8)], 2.4, ease=LINEAR, once=True)}'
                 f'{steps("opacity", [(0, 0), (1.4, 1), (2.9, 1), (3.1, 0), (3.3, 1), (3.5, 0), (3.7, 1), (3.9, 0)], 4.2, once=True)}</rect>')
     return svg(W, H, "".join(body), title="CUE-2350 MIC — open source, macOS, local by design. Designed and built by Gabriele Caletti. MIT license.")
 
