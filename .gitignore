@@ -19,3 +19,6 @@ videos/**/.media/
 # Third-party licensed audio (HeyGen/Openverse): do not redistribute
 videos/**/assets/bgm/
 videos/**/assets/sfx/
+
+# Local Claude Code session config
+.claude/
