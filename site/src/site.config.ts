@@ -2,8 +2,12 @@
 export const SITE = {
   name: 'CUE-2350 MIC',
   tagline: 'talk to your agent',
+  // Search-result title and description of the home page.
+  homeTitle: 'CUE-2350 MIC — EP-2350 FX-MIC voice remote for your Mac',
   description:
-    'Turn the EP-2350 FX-MIC into a voice remote for your Mac and your coding agent. Hold the handle, talk, release. Local AI, open source, macOS.',
+    'CUE-2350 MIC turns the EP-2350 FX-MIC into a voice remote for your Mac and your AI coding agent. Local dictation and AI, open source, macOS.',
+  // Other ways people write or remember the name.
+  aliases: ['CUE 2350', 'CUE2350', 'EP-2350 FX-MIC voice remote', 'EP2350 FX MIC app'],
   github: 'https://github.com/CalettiGabriele/CUE-2350_MIC',
   linkedin: 'https://www.linkedin.com/in/gabriele-caletti-a952301b6',
   author: 'Gabriele Caletti',

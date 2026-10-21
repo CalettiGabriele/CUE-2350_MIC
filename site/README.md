@@ -22,10 +22,10 @@ npm run dev        # http://localhost:4321
 ## Build
 
 ```bash
-SITE_URL=https://your-domain npm run build
+npm run build
 ```
 
-`SITE_URL` sets canonical links, Open Graph URLs, `robots.txt` and the sitemap. The output is in `dist/`.
+The site defaults to `https://cue-2350.lofai.xyz`; set `SITE_URL=https://other-domain` to override it. `SITE_URL` drives canonical links, Open Graph URLs, structured data, `robots.txt` and the sitemap. The output is in `dist/`.
 
 ## Deploy on Hostinger
 
@@ -47,3 +47,10 @@ SITE_URL=https://your-domain npm run build
 | `public/og.png`, `favicon.svg`, `apple-touch-icon.png` | share image and icons |
 
 With *reduce motion* turned on, the story is not pinned: every caption is listed next to the final terminal.
+
+## Search and accessibility
+
+- **Titles, description, Open Graph, structured data** (WebSite, SoftwareApplication, FAQPage): `src/layouts/Base.astro`, copy in `src/site.config.ts`. The FAQ text (`src/faq.ts`, shown on `/faq`) is both the visible FAQ and the FAQPage data: keep it in step with the README.
+- **One address**: `.htaccess` redirects `www` and plain http to `https://<domain>`, so search engines see a single site.
+- **Accessibility**: skip link, one `h1`, landmarks, links that open a new tab are announced, reduced motion respected. Known trade-off: the brand orange and grey keep the original look, so small orange/grey text on paper is below WCAG AA contrast (2.9:1). Audit with axe-core after changes.
+- **After going live**: verify the domain in Google Search Console and Bing Webmaster Tools, submit `/sitemap-index.xml`, and link the site from the GitHub repo (About → Website), the README and your profiles.

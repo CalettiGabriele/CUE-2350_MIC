@@ -127,7 +127,6 @@ export function initMagic() {
       const k = Math.min(seg(t, lo, lo + 0.12), 1 - seg(t, hi, hi + 0.12));
       c.style.opacity = k;
       c.style.transform = `translateY(${(1 - k) * (t < i + 0.5 ? 18 : -18)}px)`;
-      c.style.visibility = k < 0.01 ? 'hidden' : 'visible';
     });
     const scene = Math.min(4, Math.floor(t));
     steps.forEach((s, i) => { s.style.setProperty('--p', seg(t, i, i + 1)); s.classList.toggle('on', i === scene); });

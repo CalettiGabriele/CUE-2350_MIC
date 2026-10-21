@@ -2,23 +2,72 @@
 import '../styles/global.css';
 import { SITE } from '../site.config';
 
-interface Props { title?: string; description?: string; noindex?: boolean }
-const { title, description = SITE.description, noindex = false } = Astro.props;
-const fullTitle = title ? `${title} · ${SITE.name}` : `${SITE.name} — ${SITE.tagline}`;
+interface Props {
+  title?: string;
+  description?: string;
+  noindex?: boolean;
+  faq?: { q: string; a: string }[];
+}
+const { title, description = SITE.description, noindex = false, faq } = Astro.props;
+const isHome = Astro.url.pathname === '/';
+const fullTitle = title ? `${title} · ${SITE.name}` : SITE.homeTitle;
 const canonical = new URL(Astro.url.pathname, Astro.site);
+const origin = new URL('/', Astro.site).toString();
 const og = new URL('/og.png', Astro.site);
-const ld = {
-  '@context': 'https://schema.org',
-  '@type': 'SoftwareApplication',
-  name: SITE.name,
-  description: SITE.description,
-  applicationCategory: 'UtilitiesApplication',
-  operatingSystem: 'macOS 14+',
-  offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
-  license: 'https://opensource.org/licenses/MIT',
-  codeRepository: SITE.github,
-  author: { '@type': 'Person', name: SITE.author },
-};
+const ogAlt = 'CUE-2350 MIC: the EP-2350 FX-MIC drawn in flat vector below a MacBook with the status island open. Talk to your agent.';
+
+// Structured data (what Google reads to understand the site): the site, the app, optionally the FAQ.
+const graph: Record<string, unknown>[] = [
+  {
+    '@type': 'WebSite',
+    '@id': `${origin}#website`,
+    url: origin,
+    name: SITE.name,
+    alternateName: SITE.aliases,
+    inLanguage: 'en',
+    description: SITE.description,
+  },
+];
+if (isHome) {
+  graph.push({
+    '@type': 'SoftwareApplication',
+    '@id': `${origin}#app`,
+    name: SITE.name,
+    alternateName: SITE.aliases,
+    url: origin,
+    image: og.toString(),
+    description: SITE.description,
+    applicationCategory: 'UtilitiesApplication',
+    applicationSubCategory: 'Voice dictation and voice control',
+    operatingSystem: 'macOS 14 or later',
+    softwareRequirements: 'Apple silicon Mac, EP-2350 FX-MIC, USB-C data cable',
+    featureList: [
+      'Push-to-talk dictation with the EP-2350 FX-MIC handle',
+      'Local speech-to-text with WhisperKit',
+      'Optional local language model (Ollama) to clean up or turn speech into commands',
+      'Up to fifteen slots per app to run commands and skills, such as /compact, /clear and /review',
+      'Nothing stored on the microphone; audio is never saved',
+    ],
+    isAccessibleForFree: true,
+    offers: { '@type': 'Offer', price: '0', priceCurrency: 'EUR' },
+    license: 'https://opensource.org/licenses/MIT',
+    codeRepository: SITE.github,
+    downloadUrl: SITE.github,
+    sameAs: [SITE.github],
+    author: { '@type': 'Person', name: SITE.author, sameAs: [SITE.linkedin, 'https://github.com/CalettiGabriele'] },
+  });
+}
+if (faq?.length) {
+  graph.push({
+    '@type': 'FAQPage',
+    mainEntity: faq.map((f) => ({
+      '@type': 'Question',
+      name: f.q,
+      acceptedAnswer: { '@type': 'Answer', text: f.a },
+    })),
+  });
+}
+const ld = { '@context': 'https://schema.org', '@graph': graph };
 ---
 <!doctype html>
 <html lang="en">
@@ -27,30 +76,38 @@ const ld = {
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{fullTitle}</title>
     <meta name="description" content={description} />
+    <meta name="author" content={SITE.author} />
     <link rel="canonical" href={canonical} />
-    {noindex && <meta name="robots" content="noindex" />}
+    {noindex
+      ? <meta name="robots" content="noindex" />
+      : <meta name="robots" content="index, follow, max-image-preview:large" />}
     <meta name="theme-color" content="#edede8" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="sitemap" href="/sitemap-index.xml" />
     <link rel="preload" href="/fonts/barlow-latin-900-normal.woff2" as="font" type="font/woff2" crossorigin />
     <link rel="preload" href="/fonts/ibm-plex-mono-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin />
 
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:locale" content="en_US" />
     <meta property="og:title" content={fullTitle} />
     <meta property="og:description" content={description} />
     <meta property="og:url" content={canonical} />
     <meta property="og:image" content={og} />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content={ogAlt} />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content={fullTitle} />
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={og} />
+    <meta name="twitter:image:alt" content={ogAlt} />
     <script type="application/ld+json" set:html={JSON.stringify(ld)} />
     <script is:inline>document.documentElement.classList.add('js')</script>
   </head>
   <body>
+    <a class="skip" href="#main">skip to content</a>
     <slot />
   </body>
 </html>

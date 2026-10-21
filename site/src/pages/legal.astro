@@ -16,26 +16,26 @@ const credits = [
 ---
 <Base title="legal & credits" description="Credits, licenses, the not-affiliated notice and the privacy note of the CUE-2350 MIC website.">
   <TopBar />
-  <main class="legal wrap">
+  <main id="main" class="legal wrap">
     <a class="label back" href="/">← back</a>
     <h1 class="display legal-title">legal &amp; credits<span class="accent">.</span></h1>
 
     <section>
       <div class="chapter"><span class="num">((C.1))</span><span>not affiliated</span><span class="bar"></span></div>
       <p>{SITE.disclaimer}</p>
-      <p>No logo, photograph, illustration or firmware file from teenage engineering is used or distributed. The app never writes to the mic’s flash, ROM or disk: it talks to the mic through a small agent that lives only in its RAM. If you represent teenage engineering and would like something changed, please <a href={`${SITE.github}/issues`} target="_blank" rel="noopener noreferrer">open an issue</a>.</p>
+      <p>No logo, photograph, illustration or firmware file from teenage engineering is used or distributed. The app never writes to the mic’s flash, ROM or disk: it talks to the mic through a small agent that lives only in its RAM. If you represent teenage engineering and would like something changed, please <a href={`${SITE.github}/issues`} target="_blank" rel="noopener noreferrer">open an issue<span class="sr-only"> (opens in a new tab)</span></a>.</p>
     </section>
 
     <section>
       <div class="chapter"><span class="num">((C.2))</span><span>license</span><span class="bar"></span></div>
-      <p>The app’s source code, documentation and illustrations are released under the <a href={`${SITE.github}/blob/main/LICENSE`} target="_blank" rel="noopener noreferrer">MIT license</a>. It does not cover the fonts (SIL OFL 1.1), the teaser video’s music and sound effects (third-party libraries, under their own terms) or anyone’s trademarks.</p>
+      <p>The app’s source code, documentation and illustrations are released under the <a href={`${SITE.github}/blob/main/LICENSE`} target="_blank" rel="noopener noreferrer">MIT license<span class="sr-only"> (opens in a new tab)</span></a>. It does not cover the fonts (SIL OFL 1.1), the teaser video’s music and sound effects (third-party libraries, under their own terms) or anyone’s trademarks.</p>
     </section>
 
     <section>
       <div class="chapter"><span class="num">((C.3))</span><span>built with</span><span class="bar"></span></div>
       <ul class="credits">
         {credits.map((c) => (
-          <li><a href={c.href} target="_blank" rel="noopener noreferrer"><b>{c.what}</b></a><span>{c.by}</span><span>{c.use}</span><span class="label">{c.lic}</span></li>
+          <li><a href={c.href} target="_blank" rel="noopener noreferrer"><b>{c.what}</b><span class="sr-only"> (opens in a new tab)</span></a><span>{c.by}</span><span>{c.use}</span><span class="label">{c.lic}</span></li>
         ))}
       </ul>
     </section>
@@ -47,7 +47,7 @@ const credits = [
 
     <section>
       <div class="chapter"><span class="num">((C.5))</span><span>made by</span><span class="bar"></span></div>
-      <p><b>{SITE.author}</b> · <a href={SITE.github.replace(/\/[^/]+$/, '')} target="_blank" rel="noopener noreferrer">GitHub</a> · <a href={SITE.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn</a></p>
+      <p><b>{SITE.author}</b> · <a href={SITE.github.replace(/\/[^/]+$/, '')} target="_blank" rel="noopener noreferrer">GitHub<span class="sr-only"> (opens in a new tab)</span></a> · <a href={SITE.linkedin} target="_blank" rel="noopener noreferrer">LinkedIn<span class="sr-only"> (opens in a new tab)</span></a></p>
     </section>
   </main>
   <Footer />

@@ -5,9 +5,10 @@ const words = statement.split(' ');
 <section class="idea" data-idea>
   <div class="wrap">
     <div class="chapter"><span class="num">((8.0))</span><span>the idea</span><span class="bar"></span></div>
-    <p class="display idea-text" data-idea-text aria-label={statement}>
+    <h2 class="display idea-text" data-idea-text>
+      <span class="sr-only">{statement}</span>
       {words.map((w) => <span class="iw" aria-hidden="true">{w} </span>)}
-    </p>
+    </h2>
     <div class="idea-foot">
       <span class="stub"></span>
       <p class="lead" data-reveal>

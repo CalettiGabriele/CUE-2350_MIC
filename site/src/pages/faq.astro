@@ -1,0 +1,62 @@
+---
+import Base from '../layouts/Base.astro';
+import TopBar from '../sections/TopBar.astro';
+import Footer from '../sections/Footer.astro';
+import GitHubIcon from '../components/GitHubIcon.astro';
+import { FAQ } from '../faq';
+import { SITE } from '../site.config';
+---
+<Base
+  title="FAQ: EP-2350 FX-MIC voice remote for your Mac"
+  description="Answers about CUE-2350 MIC: what you need (Mac, EP-2350 FX-MIC, USB-C), Claude Code and coding agents, privacy and local AI, firmware, license."
+  faq={FAQ}
+>
+  <TopBar />
+  <main id="main" class="faq wrap">
+    <a class="label back" href="/">← back</a>
+    <div class="chapter"><span class="num">((8.7))</span><span>good to know</span><span class="bar"></span></div>
+    <h1 class="display faq-title">questions,<br />answered<span class="accent">.</span></h1>
+
+    <div class="faq-list">
+      {FAQ.map((f) => (
+        <details class="qa">
+          <summary><span class="q">{f.q}</span><i class="pm" aria-hidden="true"></i></summary>
+          <p class="a">{f.a}</p>
+        </details>
+      ))}
+    </div>
+
+    <div class="faq-end">
+      <p class="lead">More detail, the setup guide and the source code are on GitHub.</p>
+      <a class="btn" href={SITE.github} target="_blank" rel="noopener noreferrer"><GitHubIcon /> get it on github <span class="arrow">→</span><span class="sr-only"> (opens in a new tab)</span></a>
+    </div>
+  </main>
+  <Footer />
+</Base>
+
+<style>
+  .faq { padding-top: 120px; padding-bottom: 120px; max-width: 980px; }
+  .back { text-decoration: none; color: #4a4a46; display: inline-block; margin-bottom: 36px; }
+  .back:hover { color: var(--accent); }
+  .faq-title { font-size: clamp(56px, 9vw, 120px); margin: 40px 0 56px; }
+  .faq-list { border-top: 1px solid var(--rule); }
+  .qa { border-bottom: 1px solid var(--rule); }
+  .qa summary {
+    display: flex; align-items: center; justify-content: space-between; gap: 24px;
+    padding: 22px 4px; cursor: pointer; list-style: none;
+  }
+  .qa summary::-webkit-details-marker { display: none; }
+  .q { font-weight: 800; font-size: clamp(20px, 2vw, 28px); letter-spacing: -0.02em; line-height: 1.15; text-transform: lowercase; }
+  .qa summary:hover .q { color: var(--accent); }
+  /* + / − drawn with two bars */
+  .pm { position: relative; flex: none; width: 18px; height: 18px; }
+  .pm::before, .pm::after { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 2px; margin-top: -1px; background: var(--ink); transition: transform 0.3s var(--ease-out); }
+  .pm::after { transform: rotate(90deg); }
+  .qa[open] .pm::after { transform: rotate(0deg); }
+  .a { margin: 0; padding: 0 44px 26px 4px; max-width: 68ch; color: #3a3a37; font-size: 17px; }
+  .faq-end { margin-top: 64px; display: flex; flex-direction: column; align-items: flex-start; gap: 20px; }
+</style>
+
+<script>
+  document.querySelector('[data-topbar]')?.classList.add('show');
+</script>

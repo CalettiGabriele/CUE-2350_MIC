@@ -6,12 +6,14 @@ const stats: { v: number; from: number; prefix?: string; scouter?: boolean; labe
   { v: 0, from: 999, label: 'words sent to the cloud', note: 'by default. it all runs on your Mac.' },
 ];
 ---
-<section class="nums" aria-label="By the numbers">
+<section class="nums" aria-labelledby="nums-title">
+  <h2 id="nums-title" class="sr-only">CUE-2350 MIC by the numbers</h2>
   <div class="wrap nums-grid">
     {stats.map((s, i) => (
       <div class="stat" data-reveal style={`--d:${i * 0.08}s`}>
         <span class="stat-v">
-          <span class="num" data-count={s.v} data-from={s.from} data-prefix={s.prefix ?? ''} data-scouter={s.scouter ? '' : undefined} data-text={(s.prefix ?? '') + s.v}>{(s.prefix ?? '') + s.v}</span>
+          <span class="sr-only">{(s.prefix ?? '') + s.v}</span>
+          <span class="num" aria-hidden="true" data-count={s.v} data-from={s.from} data-prefix={s.prefix ?? ''} data-scouter={s.scouter ? '' : undefined} data-text={(s.prefix ?? '') + s.v}>{(s.prefix ?? '') + s.v}</span>
           {s.scouter && <span class="scouter-tag" aria-hidden="true">it’s over 9000!</span>}
         </span>
         <span class="stat-l">{s.label}</span>
