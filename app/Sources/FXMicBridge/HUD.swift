@@ -7,7 +7,8 @@ import QuartzCore
 ///   notch. Left wing: a mirror of the mic's 8 LEDs as two vertical columns (red, white),
 ///   driven by the same masks `LedAnimator` sends to the device; right wing: elapsed time;
 ///   below the notch: one line of text, centred.
-/// - Screen without a notch: flat black bar below the menu bar with a 1px light rule:
+/// - Screen without a notch: a black pill (fully rounded ends) below the menu bar with a 1px
+///   light rule:
 ///   [LEDs] text [time].
 /// Every text uses the same mono chrome (uppercase IBM Plex Mono), except the selection card.
 /// Motion: the shape is driven by a damped spring (slight overshoot), growing out of the notch,
@@ -31,8 +32,10 @@ final class HUD {
     private var clock: Timer?
     private var startedAt: Date?
     private var visible = false
+    /// Invalidates a fade-out that a newer notice has overtaken.
+    private var closeToken = 0
     private var glyph: Glyph = .none
-    /// Notch of the screen the island is on (nil = flat bar).
+    /// Notch of the screen the island is on (nil = floating pill).
     private var notchSize: NSSize?
     private var screenFrame: NSRect = .zero
     private let rowHeight: CGFloat = 28
@@ -122,10 +125,24 @@ final class HUD {
         clock?.invalidate()
         guard visible else { return }
         visible = false
-        if Theme.reduceMotion {
-            NSAnimationContext.runAnimationGroup({ $0.duration = 0.15; panel.animator().alphaValue = 0 },
-                                                 completionHandler: { [weak self] in
-                MainActor.assumeIsolated { if self?.visible == false { self?.panel.orderOut(nil) } }
+        if Theme.reduceMotion || notchSize == nil {
+            // Pill (screens without a notch) and Reduce Motion: fade out. The pill also
+            // draws in slightly while it fades; it never shrinks to a small empty shape.
+            closeToken += 1
+            let token = closeToken
+            if notchSize == nil, !Theme.reduceMotion {
+                spring.animate(to: Self.scaled(panel.frame, 0.94, lift: 4), .resizing)
+            }
+            NSAnimationContext.runAnimationGroup({ context in
+                context.duration = 0.2
+                context.timingFunction = CAMediaTimingFunction(name: .easeIn)
+                panel.animator().alphaValue = 0
+            }, completionHandler: { [weak self] in
+                MainActor.assumeIsolated {
+                    guard let self, self.closeToken == token, !self.visible else { return }
+                    self.spring.stop()
+                    self.panel.orderOut(nil)
+                }
             })
             return
         }
@@ -178,20 +195,59 @@ final class HUD {
         guard let screen = activeScreen() else { return }
         screenFrame = screen.frame
         notchSize = notch(of: screen)
-        island.style = notchSize == nil ? .bar : .notch
+        island.style = notchSize == nil ? .pill : .notch
 
         let target = targetFrame()
         if Theme.reduceMotion {
-            panel.setFrame(target, display: true)
+            // Reduce Motion: a short fade, shape still.
+            spring.stop()
+            closeToken += 1
+            let opening = !visible || !panel.isVisible
             apply(frame: target, openness: 1)
-            if !visible {
+            if opening {
                 panel.alphaValue = 0
                 panel.orderFrontRegardless()
-                NSAnimationContext.runAnimationGroup { $0.duration = 0.15; panel.animator().alphaValue = 1 }
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.15
+                    panel.animator().alphaValue = 1
+                }
+            } else {
+                NSAnimationContext.runAnimationGroup({ $0.duration = 0; panel.animator().alphaValue = 1 })
+                panel.alphaValue = 1
+                panel.orderFrontRegardless()
             }
             visible = true
             return
         }
+        if notchSize == nil {
+            // Pill: it grows in from slightly smaller and a little higher while fading in, and
+            // glides to every new size. Critically damped spring, no overshoot, and never a
+            // tiny empty shape: the fade carries the opening and the closing.
+            spring.configure(smooth: true)
+            closeToken += 1
+            let opening = !visible || !panel.isVisible
+            if opening {
+                let start = Self.scaled(target, 0.9, lift: 6)
+                spring.jump(to: start)
+                apply(frame: start, openness: 1)
+                panel.alphaValue = 0
+                panel.orderFrontRegardless()
+                NSAnimationContext.runAnimationGroup { context in
+                    context.duration = 0.22
+                    context.timingFunction = Theme.paperTiming
+                    panel.animator().alphaValue = 1
+                }
+            } else {
+                // A notice replaces the previous one (possibly mid fade-out): bring it back.
+                NSAnimationContext.runAnimationGroup({ $0.duration = 0; panel.animator().alphaValue = 1 })
+                panel.alphaValue = 1
+                panel.orderFrontRegardless()
+            }
+            visible = true
+            spring.animate(to: target, opening ? .opening : .resizing)
+            return
+        }
+        spring.configure(smooth: false)
         let opening = !visible
         if opening, !panel.isVisible {
             let start = collapsedFrame()
@@ -217,14 +273,21 @@ final class HUD {
             let height = notch.height + rowHeight
             return NSRect(x: screenFrame.midX - width / 2, y: screenFrame.maxY - height, width: width, height: height)
         }
-        let ledSpace: CGFloat = leds.isHidden ? 0 : leds.size(forHeight: rowHeight - 6).width + 12
-        let timeSpace: CGFloat = startedAt != nil ? 44 : 0
-        let width = text.width + 2 * max(ledSpace, timeSpace) + 32
+        // The pill's round ends eat into the sides: keep a wider margin than a rectangle needs.
+        let ledSpace: CGFloat = leds.isHidden ? 0 : leds.size(forHeight: rowHeight - 6).width + 14
+        let timeSpace: CGFloat = startedAt != nil ? 46 : 0
+        let width = text.width + 2 * max(ledSpace, timeSpace) + 56
         let top = (NSScreen.screens.first { $0.frame == screenFrame }?.visibleFrame.maxY ?? screenFrame.maxY) - 6
         return NSRect(x: screenFrame.midX - width / 2, y: top - rowHeight, width: width, height: rowHeight)
     }
 
-    /// Where the island grows from / retracts into: the notch itself (or a narrow bar).
+    /// `rect` scaled around its centre, optionally moved up by `lift` (the pill's entry/exit).
+    private static func scaled(_ rect: NSRect, _ factor: CGFloat, lift: CGFloat) -> NSRect {
+        let width = rect.width * factor, height = rect.height * factor
+        return NSRect(x: rect.midX - width / 2, y: rect.midY - height / 2 + lift, width: width, height: height)
+    }
+
+    /// Where the island grows from / retracts into the notch (notch screens only).
     private func collapsedFrame() -> NSRect {
         if let notch = notchSize {
             return NSRect(x: screenFrame.midX - notch.width / 2, y: screenFrame.maxY - notch.height,
@@ -240,7 +303,8 @@ final class HUD {
         island.needsDisplay = true
         content.frame = island.bounds
         // Contents appear once the shape is mostly open and leave before it closes.
-        content.alphaValue = max(0, min(1, (openness - 0.55) / 0.35))
+        // (The pill fades as a whole instead, see present/hide.)
+        content.alphaValue = notchSize == nil ? 1 : max(0, min(1, (openness - 0.55) / 0.35))
         layoutContent(size: frame.size)
     }
 
@@ -261,10 +325,10 @@ final class HUD {
             label.frame = NSRect(x: (size.width - text.width) / 2, y: (row - text.height) / 2,
                                  width: text.width, height: text.height)
         } else {
-            // Flat bar: LEDs left, time right, text centred between them.
+            // Pill: LEDs left, time right, text centred between them.
             let ledSize = leds.size(forHeight: size.height - 6)
-            leds.frame = NSRect(x: 14, y: (size.height - ledSize.height) / 2, width: ledSize.width, height: ledSize.height)
-            timeLabel.frame = NSRect(x: size.width - 14 - timeSize.width, y: (size.height - timeSize.height) / 2,
+            leds.frame = NSRect(x: 18, y: (size.height - ledSize.height) / 2, width: ledSize.width, height: ledSize.height)
+            timeLabel.frame = NSRect(x: size.width - 18 - timeSize.width, y: (size.height - timeSize.height) / 2,
                                      width: timeSize.width, height: timeSize.height)
             label.frame = NSRect(x: (size.width - text.width) / 2, y: (size.height - text.height) / 2,
                                  width: text.width, height: text.height)
@@ -314,8 +378,15 @@ private final class IslandSpring {
     var onStep: ((NSRect, CGFloat) -> Void)?
     var onRest: (() -> Void)?
 
-    private let stiffness: CGFloat = 85
-    private let damping: CGFloat = 11.5    // ζ ≈ 0.62
+    /// Notch: underdamped, a few points of overshoot (ζ ≈ 0.62). Smooth (pill): critically
+    /// damped, settles in ~0.35 s with no overshoot.
+    private var stiffness: CGFloat = 85
+    private var damping: CGFloat = 11.5
+
+    func configure(smooth: Bool) {
+        stiffness = smooth ? 240 : 85
+        damping = smooth ? 31 : 11.5
+    }
     private var value = [CGFloat](repeating: 0, count: 4)     // midX, maxY, width, height
     private var velocity = [CGFloat](repeating: 0, count: 4)
     private var target = [CGFloat](repeating: 0, count: 4)
@@ -324,6 +395,11 @@ private final class IslandSpring {
     private var transition = Transition.resizing
     private var timer: Timer?
     private var last: CFTimeInterval = 0
+
+    func stop() {
+        timer?.invalidate()
+        timer = nil
+    }
 
     func jump(to frame: NSRect) {
         value = Self.components(frame)
@@ -433,11 +509,11 @@ private final class LEDMirror: NSView {
     }
 }
 
-/// Black shape. Notch style: no border, flat top merging with the notch. Bar style: flat
-/// rectangle with a 1px light rule so it stays visible on dark backgrounds.
+/// Black shape. Notch style: no border, flat top merging with the notch. Pill style: fully
+/// rounded ends with a 1px light rule so it stays visible on dark backgrounds.
 private final class IslandView: NSView {
-    enum Style { case notch, bar }
-    var style: Style = .bar
+    enum Style { case notch, pill }
+    var style: Style = .pill
 
     override func draw(_ dirtyRect: NSRect) {
         NSColor.black.setFill()
@@ -453,9 +529,9 @@ private final class IslandView: NSView {
             path.line(to: NSPoint(x: bounds.maxX, y: bounds.maxY))
             path.close()
             path.fill()
-        case .bar:
+        case .pill:
             let rect = bounds.insetBy(dx: 0.5, dy: 0.5)
-            let r = min(2, rect.height / 2)
+            let r = rect.height / 2
             let path = NSBezierPath(roundedRect: rect, xRadius: r, yRadius: r)
             path.fill()
             NSColor(white: 1, alpha: 0.28).setStroke()
