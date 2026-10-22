@@ -15,15 +15,12 @@
 
 ## I tre pulsanti
 
-### Arancione: modalità di interazione (LED rossi, uno per modalità)
-| LED rosso | Modalità | La dettatura… |
-|---|---|---|
-| 1 | **Dettato** | viene scritta così com'è. |
-| 2 | **Migliorato** | passa dall'LLM locale con l'istruzione "Migliorato" del profilo. |
-| 3 | **Comando** | diventa un'azione: "fai un elenco puntato", "vai a capo", "cancella l'ultima parola"…. L'LLM restituisce tasti e testo da un elenco chiuso; scorciatoie pericolose come ⌘Q e ⌘W sono bloccate. |
-| 4 | **Computer Use** | *non ancora disponibile*: la dettatura finisce solo in cronologia. |
+### Arancione: canali (LED rossi, uno per canale)
+Un **canale** è una destinazione per la voce: un'app, un documento o una finestra (per esempio una sessione di Claude, un `TODO.md` in VS Code, una bozza di Mail). Fino a **4 canali**, ciascuno con un LED rosso. Il canale selezionato è il LED rosso acceso; la posizione dopo l'ultimo canale è vuota e serve per agganciarne uno nuovo. Parlando, l'app porta in primo piano la finestra del canale e scrive lì.
 
-**Tocco:** modalità successiva (solo quelle abilitate nel profilo). **Pressione lunga:** torna alla modalità predefinita del profilo.
+**Tocco:** canale successivo, porta la sua finestra in primo piano. **Doppio tocco:** canale precedente. **Pressione lunga:** **aggancia** la finestra in primo piano al canale selezionato (se è già agganciata, seleziona quel canale). Se non c'è nessun canale selezionato (posizione vuota) la voce va all'app in primo piano, come prima.
+
+La finestra si ritrova per documento (`AXDocument`, per esempio un file in VS Code) o per titolo; se non si trova, viene portata in primo piano l'app. I canali si gestiscono anche dal menu › Canale (arancione). Le modalità di interazione (Dettato, Migliorato, Comando, Computer Use) non sono più selezionabili: la dettatura è sempre grezza, il comando vocale arriva con il grigio ([One-Pager 004](design-docs/onepager-004-channels-and-commands.md), in corso).
 
 ### Bianco: slot di comandi e skill (LED bianchi in binario)
 Fino a **15 slot per profilo**. I 4 LED bianchi mostrano il numero dello slot in binario, con il LED in alto = 1, poi 2, 4, 8. **Tutti spenti = nessuno slot.** L'isola mostra sempre il nome dello slot.
@@ -40,11 +37,18 @@ Fino a **15 slot per profilo**. I 4 LED bianchi mostrano il numero dello slot in
 - **Dopo l'uso** la selezione torna a "nessuno slot".
 - **In modalità Comando** gli slot Modello e LLM vengono ignorati.
 
-### Grigio
+### Grigio: azioni e comandi vocali
 - **Tocco:** esegue lo slot "Esegui" selezionato; se non c'è nessuno slot preme **Invio**.
 - **Doppio tocco:** annulla l'ultimo inserimento (⌘Z, entro 30 s, stessa app).
-- **Pressione lunga:** riscrive l'ultimo testo grezzo; nei terminali preme **Esc**.
-- **Premuto durante la dettatura:** **modifica della selezione**, cioè l'istruzione dettata viene applicata al testo selezionato.
+- **Pressione lunga:** **interrompi** (intento `interrupt` del profilo, per impostazione predefinita **Esc**).
+- **Premuto una volta mentre tieni la maniglia e parli: comando vocale.** La frase non viene scritta: va al modello locale, che sceglie le azioni da un elenco chiuso. Funziona in qualsiasi lingua e senza parole chiave da ricordare. Azioni possibili:
+  - **testo e tasti** nel campo attivo: "vai a capo", "cancella l'ultima parola", "elenco puntato", "scrivi buongiorno a tutti";
+  - **selezione:** se c'è del testo selezionato, "traducilo in inglese", "rendilo più corto", "mettilo in elenco puntato" lo sostituiscono con la versione trasformata; "cancellalo" lo elimina;
+  - **canali:** "passa al progetto api", "vai a Codex" (basta una parte del nome);
+  - **slot:** "lancia la review", "fai il compact";
+  - **intenti del profilo:** "fermati", "nuova sessione" (vedi *Intenti*).
+  
+  Se il comando non è chiaro non succede nulla e la pillola lo dice. Le scorciatoie pericolose (⌘Q, ⌘W…) restano bloccate. Il modello locale impiega circa 1 s.
 
 ## Maniglia e accelerometro
 | Gesto | Azione |
@@ -83,6 +87,14 @@ Fino a **15 slot per profilo**. I 4 LED bianchi mostrano il numero dello slot in
 | **Agente di coding** | Terminale, iTerm2, Ghostty, VS Code, Warp | /compact · /clear · /review · Bug report · Commit message (LLM) |
 | **Generale** | Tutte le altre | Email · Traduci EN · Elenco puntato · Più breve (tutti LLM) |
 
+## Intenti
+Un **intento** è un'azione con un nome che il profilo traduce nell'app: così "fermati" vale Esc in Claude e un'altra scorciatoia altrove. Si definiscono per profilo in `config.json`, sotto `intents`. Quelli senza associazione rispondono "non disponibile qui".
+
+| Intento | Predefinito |
+|---|---|
+| `interrupt` | tasto Esc (anche pressione lunga del grigio) |
+| altri (per esempio `newSession`, `approve`) | da definire per profilo: `"intents": {"newSession": {"type": "key", "keys": ["cmd+n"]}}` |
+
 ## Azioni configurabili
 | `type` | Effetto |
 |---|---|
@@ -91,7 +103,9 @@ Fino a **15 slot per profilo**. I 4 LED bianchi mostrano il numero dello slot in
 | `cycleMode` / `resetMode` | Modalità successiva / predefinita |
 | `nextSlot` / `previousSlot` / `clearSlot` | Navigazione degli slot |
 | `runSlot` | Esegue lo slot "Esegui", altrimenti Invio |
-| `undoLastInsertion`, `reinsertLast`, `cancel`, `editSelection`, `none` | Come in precedenza |
+| `nextChannel` / `previousChannel` / `bindChannel` | Canali (arancione) |
+| `intent` (`name`) | Esegue l'intento del profilo |
+| `undoLastInsertion`, `reinsertLast`, `cancel`, `editSelection` (comando vocale), `none` | Come in precedenza |
 
 ## Soglie dei gesti
 | Parametro | Valore |

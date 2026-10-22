@@ -26,7 +26,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private let modelItem = NSMenuItem(title: L.t("Model: not loaded"), action: nil, keyEquivalent: "")
     private let llmItem = NSMenuItem(title: L.t("LLM: checking…"), action: nil, keyEquivalent: "")
     private let profileItem = NSMenuItem(title: L.t("Profile"), action: nil, keyEquivalent: "")
-    private let modeMenu = NSMenu()
+    private let channelMenu = NSMenu()
     private let slotMenu = NSMenu()
     private let leds = LedAnimator()
     private let historyMenu = NSMenu()
@@ -54,11 +54,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         L.language = config.ui.language
+        SessionLocator.custom = config.sessionAdapters
         Theme.registerFonts()
         setupStatusItem()
         dictation.onPhase = { [weak self] phase in self?.show(phase) }
         dictation.onLevel = { [weak self] level in self?.hud.setLevel(level) }
         dictation.contextProvider = { [weak self] in self!.dictationContext() }
+        dictation.commandHandler = { [weak self] step in self?.executeCommandStep(step) ?? .failed }
         dictation.onSlotConsumed = { [weak self] in
             guard let self else { return }
             self.engine.clearSlot()
@@ -176,21 +178,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     /// "Recording · Enhanced · Summarize": phase, mode and the selected slot, if any.
     private func statusLine(_ phase: String) -> String {
-        ([phase, modeName] + (engine.slot.map { [$0.name] } ?? [])).joined(separator: " · ")
+        ([phase, channelName] + (engine.slot.map { [$0.name] } ?? [])).joined(separator: " · ")
     }
 
     private var modeName: String { L.t(engine.mode.label) }
+    /// "Claude · progetto" for a bound channel, "Channel 3" for an empty position.
+    private var channelName: String { engine.channel?.name ?? L.f("Channel %d", engine.channelPosition + 1) }
     private var slotName: String { engine.slot?.name ?? L.t("No slot") }
 
     private var selectionDetail: String {
-        "\(engine.active.name) · \(modeName) · \(slotName)"
+        "\(engine.active.name) · \(channelName) · \(slotName)"
     }
 
-    /// "MODE 2/4": position of the mode among the ones the orange button cycles through.
-    private var modeKicker: String {
-        let enabled = engine.active.interaction.enabled
-        let index = enabled.firstIndex(of: engine.mode).map { $0 + 1 } ?? engine.mode.ledIndex + 1
-        return L.f("Mode %d/%d", index, enabled.count)
+    /// "CHANNEL 2/3": position of the channel among the ones the orange button cycles through.
+    private var channelKicker: String {
+        L.f("Channel %d/%d", engine.channelPosition + 1, engine.channelPositions)
     }
 
     /// LEDs, menu and HUD after a profile/mode/slot change.
@@ -211,7 +213,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private func dictationContext() -> DictationContext {
         let slot = engine.slot.flatMap { $0.kind == .run ? nil : $0 }
         return DictationContext(profile: engine.active, mode: engine.mode, slot: slot,
-                                appName: frontmost?.localizedName ?? "?", bundleID: frontmost?.bundleIdentifier)
+                                appName: frontmost?.localizedName ?? "?", bundleID: frontmost?.bundleIdentifier,
+                                channels: engine.channels.map(\.name))
     }
 
     // MARK: - Device
@@ -264,7 +267,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         for gesture in gestures {
             log.debug("gesture \(String(describing: gesture), privacy: .public)")
             switch gesture {
-            case .pttDown: dictation.pttDown()
+            case .pttDown: pttDown()
             case .pttUp: dictation.pttUp()
             default:
                 if let action = engine.action(for: gesture) { perform(action) }
@@ -279,13 +282,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         switch action {
         case .none:
             break
+        case .nextChannel:
+            engine.nextChannel()
+            channelChanged()
+        case .previousChannel:
+            engine.previousChannel()
+            channelChanged()
+        case .bindChannel:
+            bindFrontmostWindow()
         case .cycleMode:
             engine.cycleMode()
-            let note = engine.mode.isAvailable ? modeName : L.f("%@ (not available yet)", modeName)
-            selectionChanged(announce: true, kicker: modeKicker, title: note)
+            selectionChanged(announce: true, kicker: L.t("Mode"), title: modeName)
         case .resetMode:
             engine.resetMode()
-            selectionChanged(announce: true, kicker: modeKicker, title: modeName)
+            selectionChanged(announce: true, kicker: L.t("Mode"), title: modeName)
         case .nextSlot:
             engine.nextSlot()
             announceSlot()
@@ -297,6 +307,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             announceSlot()
         case .runSlot:
             runSelectedSlot()
+        case .intent(let name):
+            runIntent(name)
         case .key(let combos):
             report(TextInjector.send(combos), done: KeyLabel.describe(combos))
         case .text(let text):
@@ -325,6 +337,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         }
     }
 
+    // MARK: - Channels (One-Pager 004 §4)
+
+    /// Selected channel changed: bring its window forward, take its profile, show it.
+    private func channelChanged() {
+        if let channel = engine.channel {
+            activateProfile(of: channel)
+            ChannelNavigator.bringToFront(channel)
+            selectionChanged(announce: true, kicker: channelKicker, title: channel.name)
+        } else {
+            selectionChanged(announce: true, kicker: channelKicker,
+                             title: L.t("Empty: hold orange on a window to bind it"))
+        }
+    }
+
+    /// The profile follows the channel's app, also before macOS reports the app switch.
+    private func activateProfile(of channel: Channel) {
+        if let app = NSRunningApplication.runningApplications(withBundleIdentifier: channel.bundleID).first {
+            frontmost = app
+        }
+        if engine.activate(bundleID: channel.bundleID) { rebuildProfileMenu() }
+    }
+
+    /// Long press on orange: ties the window you are working in to the selected channel.
+    private func bindFrontmostWindow() {
+        guard let app = NSWorkspace.shared.frontmostApplication,
+              app.bundleIdentifier != Bundle.main.bundleIdentifier,
+              let channel = ChannelNavigator.capture(app) else {
+            hud.toast(L.t("Bring the window to bind to the front first"))
+            return
+        }
+        engine.bind(channel)
+        applyConfig(engine.config, save: true)
+        hud.card(kicker: channelKicker, title: L.f("Bound: %@", channel.name))
+    }
+
+    /// Talking goes to the selected channel: its window comes forward before recording starts.
+    private func pttDown() {
+        if let channel = engine.channel {
+            activateProfile(of: channel)
+            if !ChannelNavigator.isShowing(channel) { ChannelNavigator.bringToFront(channel) }
+        }
+        dictation.pttDown()
+    }
+
     private func announceSlot() {
         guard let slot = engine.slot, let number = engine.slotNumber else {
             selectionChanged(announce: true, kicker: L.t("Slot"), title: L.t("No slot"))
@@ -346,6 +402,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     }
 
     /// Grey: runs a "run" slot once and clears the selection; with no slot it presses Return.
+    /// Does what the active profile says for an intent ("interrupt", "newSession"…).
+    @discardableResult
+    private func runIntent(_ name: String) -> Bool {
+        guard let action = engine.active.intents[name], action != .none else {
+            hud.toast(L.f("%@ is not available here", name))
+            return false
+        }
+        // An intent that points to another intent would loop.
+        if case .intent = action { return false }
+        perform(action)
+        return true
+    }
+
+    /// The voice-command steps that act on the app itself (One-Pager 004 §6.2).
+    private func executeCommandStep(_ step: CommandStep) -> TextInjector.Outcome {
+        switch step {
+        case .switchChannel(let name):
+            guard let index = NameMatcher.index(of: name, in: engine.channels.map(\.name)) else {
+                hud.toast(L.f("No channel called %@", name))
+                return .failed
+            }
+            engine.select(channel: index)
+            channelChanged()
+            return .done
+        case .runSlot(let name):
+            guard let index = NameMatcher.index(of: name, in: engine.active.slots.map(\.name)) else {
+                hud.toast(L.f("No slot called %@", name))
+                return .failed
+            }
+            engine.select(slot: index)
+            runSelectedSlot()
+            return .done
+        case .intent(let name):
+            return runIntent(name) ? .done : .failed
+        case .text, .keys, .replaceSelection:
+            return .failed
+        }
+    }
+
     private func runSelectedSlot() {
         guard let slot = engine.slot else {
             perform(.key(["return"]))
@@ -381,7 +476,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             let down = event.modifierFlags.contains(.option)
             guard down != self.hotkeyDown else { return }
             self.hotkeyDown = down
-            down ? self.dictation.pttDown() : self.dictation.pttUp()
+            down ? self.pttDown() : self.dictation.pttUp()
         }
         NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { event in
             MainActor.assumeIsolated { handler(event) }
@@ -411,9 +506,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         menu.addItem(llmItem)
         menu.addItem(.separator())
         menu.addItem(profileItem)
-        let modeItem = NSMenuItem(title: L.t("Mode (orange)"), action: nil, keyEquivalent: "")
-        modeItem.submenu = modeMenu
-        menu.addItem(modeItem)
+        let channelItem = NSMenuItem(title: L.t("Channel (orange)"), action: nil, keyEquivalent: "")
+        channelItem.submenu = channelMenu
+        menu.addItem(channelItem)
         let slotItem = NSMenuItem(title: L.t("Slot (white)"), action: nil, keyEquivalent: "")
         slotItem.submenu = slotMenu
         menu.addItem(slotItem)
@@ -430,6 +525,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         menu.addItem(withTitle: L.t("Open config.json"), action: #selector(openConfig), keyEquivalent: "")
         menu.addItem(withTitle: L.t("Reload configuration"), action: #selector(reloadConfig), keyEquivalent: "r")
         menu.addItem(withTitle: L.t("Accessibility permission…"), action: #selector(openAccessibility), keyEquivalent: "")
+        // Developer tool (One-Pager 004 §10.1), shown while ⌥ is held.
+        let diagnostics = menu.addItem(withTitle: "Accessibility diagnostics (5 s)", action: #selector(runAXDiagnostics), keyEquivalent: "")
+        diagnostics.keyEquivalentModifierMask = .option
+        diagnostics.isAlternate = true
         menu.addItem(withTitle: L.t("Release device"), action: #selector(releaseDevice), keyEquivalent: "")
         menu.addItem(withTitle: L.t("Reconnect device"), action: #selector(reconnectDevice), keyEquivalent: "")
         menu.addItem(.separator())
@@ -451,17 +550,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private func rebuildProfileMenu() {
         profileItem.title = L.f("Profile: %@", engine.active.name)
         settings.activeProfileID = engine.active.id
-        modeMenu.removeAllItems()
-        for mode in InteractionMode.allCases {
-            let enabled = engine.active.interaction.enabled.contains(mode)
-            var title = "\(mode.ledIndex + 1). \(L.t(mode.label))"
-            if !mode.isAvailable { title += " (" + L.t("not available yet") + ")" }
-            let item = NSMenuItem(title: title, action: enabled ? #selector(selectMode(_:)) : nil, keyEquivalent: "")
-            item.representedObject = mode.rawValue
-            item.state = mode == engine.mode ? .on : .off
+        channelMenu.removeAllItems()
+        for position in 0..<engine.channelPositions {
+            let title = "\(position + 1). " + (engine.channels.indices.contains(position) ? engine.channels[position].name : L.t("Empty"))
+            let item = NSMenuItem(title: title, action: #selector(selectChannel(_:)), keyEquivalent: "")
+            item.tag = position
+            item.state = position == engine.channelPosition ? .on : .off
             item.target = self
-            modeMenu.addItem(item)
+            channelMenu.addItem(item)
         }
+        channelMenu.addItem(.separator())
+        let bind = NSMenuItem(title: L.t("Bind the frontmost window here"), action: #selector(bindFromMenu), keyEquivalent: "")
+        bind.target = self
+        channelMenu.addItem(bind)
+        let unbind = NSMenuItem(title: L.t("Unbind this channel"), action: #selector(unbindChannel), keyEquivalent: "")
+        unbind.target = self
+        unbind.isEnabled = engine.channel != nil
+        channelMenu.addItem(unbind)
         slotMenu.removeAllItems()
         let none = NSMenuItem(title: L.t("No slot"), action: #selector(selectSlot(_:)), keyEquivalent: "")
         none.tag = -1
@@ -478,10 +583,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         }
     }
 
-    @objc private func selectMode(_ sender: NSMenuItem) {
-        guard let raw = sender.representedObject as? String, let mode = InteractionMode(rawValue: raw) else { return }
-        engine.select(mode: mode)
-        selectionChanged(announce: true, kicker: modeKicker, title: modeName)
+    @objc private func selectChannel(_ sender: NSMenuItem) {
+        engine.select(channel: sender.tag)
+        channelChanged()
+    }
+
+    /// From the menu the frontmost app is the menu bar's own, so the last real app is used.
+    @objc private func bindFromMenu() {
+        guard let app = frontmost, let channel = ChannelNavigator.capture(app) else {
+            hud.toast(L.t("Bring the window to bind to the front first"))
+            return
+        }
+        engine.bind(channel)
+        applyConfig(engine.config, save: true)
+        hud.card(kicker: channelKicker, title: L.f("Bound: %@", channel.name))
+    }
+
+    @objc private func unbindChannel() {
+        guard engine.unbindChannel() else { return }
+        applyConfig(engine.config, save: true)
+        hud.card(kicker: channelKicker, title: L.t("Channel unbound"))
     }
 
     @objc private func selectSlot(_ sender: NSMenuItem) {
@@ -712,6 +833,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private func applyConfig(_ newConfig: AppConfig, save: Bool) {
         let old = config
         config = newConfig
+        SessionLocator.custom = newConfig.sessionAdapters
         if old.ui.language != newConfig.ui.language {
             L.language = newConfig.ui.language
             relocalize()
@@ -852,6 +974,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     @objc private func openAccessibility() {
         TextInjector.isTrusted(prompt: true)
         NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility")!)
+    }
+
+    /// Leaves 5 s to bring the app under test to the front, then probes it.
+    @objc private func runAXDiagnostics() {
+        hud.toast("Diagnostics in 5 s: focus the app to test", duration: 2)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 5) { [weak self] in
+            self?.hud.toast(AXDiagnostics.probeFrontmost(), duration: 2.5)
+        }
     }
 
     @objc private func releaseDevice() {

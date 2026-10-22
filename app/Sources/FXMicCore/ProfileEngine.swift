@@ -56,6 +56,59 @@ public struct ProfileEngine {
         active = config.profiles.first { $0.id == activeID } ?? Self.fallback(in: config)
         modes = modes.filter { id, _ in config.profiles.contains { $0.id == id } }
         slots = slots.filter { id, _ in config.profiles.contains { $0.id == id } }
+        position = channelPosition
+    }
+
+    // MARK: Channels (orange, One-Pager 004 §4)
+
+    /// Position of the selected channel: 0 … number of bound channels. The last position is an
+    /// empty one (while fewer than 4 are bound) where a new window can be bound.
+    private var position = 0
+
+    public var channels: [Channel] { config.channels }
+    public var channelPositions: Int { min(config.channels.count + 1, Channel.maxCount) }
+    public var channelPosition: Int { min(max(position, 0), channelPositions - 1) }
+
+    /// The selected channel; nil on the empty position (dictation goes to the frontmost app).
+    public var channel: Channel? {
+        config.channels.indices.contains(channelPosition) ? config.channels[channelPosition] : nil
+    }
+
+    public mutating func nextChannel() {
+        position = (channelPosition + 1) % channelPositions
+    }
+
+    public mutating func previousChannel() {
+        position = (channelPosition + channelPositions - 1) % channelPositions
+    }
+
+    public mutating func select(channel index: Int) {
+        position = min(max(index, 0), channelPositions - 1)
+    }
+
+    /// Binds a window to the selected position (replacing what was there). A window that is
+    /// already bound just selects its channel. Returns the position it ended up on.
+    @discardableResult
+    public mutating func bind(_ channel: Channel) -> Int {
+        if let existing = config.channels.firstIndex(where: { $0.sameTarget(as: channel) }) {
+            config.channels[existing] = channel
+            position = existing
+        } else if config.channels.indices.contains(channelPosition) {
+            config.channels[channelPosition] = channel
+        } else {
+            config.channels.append(channel)
+            position = config.channels.count - 1
+        }
+        return channelPosition
+    }
+
+    /// Removes the selected channel; true if there was one.
+    @discardableResult
+    public mutating func unbindChannel() -> Bool {
+        guard config.channels.indices.contains(channelPosition) else { return false }
+        config.channels.remove(at: channelPosition)
+        position = channelPosition
+        return true
     }
 
     private static func fallback(in config: AppConfig) -> Profile {
@@ -139,7 +192,7 @@ public struct ProfileEngine {
     public var slotName: String { slot?.name ?? "No slot" }
 
     /// Logical LED mask for the idle state (see `LedPattern`).
-    public var idleLEDs: UInt8 { LedPattern.idle(mode: mode, slot: slotNumber) }
+    public var idleLEDs: UInt8 { LedPattern.idle(channel: channelPosition, slot: slotNumber) }
 
     /// The configured action for a gesture in the active profile (nil = handled elsewhere).
     public func action(for gesture: Gesture) -> Action? {
@@ -175,6 +228,11 @@ public enum LedPattern {
 
     public static func idle(mode: InteractionMode, slot: Int?) -> UInt8 {
         red(mode.ledIndex) | white(slot: slot)
+    }
+
+    /// Idle: the red LED of the selected channel (0 = top) and the slot in binary.
+    public static func idle(channel: Int, slot: Int?) -> UInt8 {
+        red(channel) | white(slot: slot)
     }
 
     /// Recording: one red LED sweeping up and down (0 1 2 3 2 1 …).
@@ -240,66 +298,97 @@ public enum PromptComposer {
         return (system, user)
     }
 
-    /// Extra Whisper vocabulary while in "Comando" mode: command words are often English or
-    /// short and get misheard ("bullet point" → "ballet point").
+    /// Extra Whisper vocabulary for voice commands: command words are often English or short and
+    /// get misheard ("bullet point" → "ballet point").
     public static let commandVocabulary = [
         "bullet point", "elenco puntato", "punto elenco", "elenco numerato", "a capo", "nuova riga",
         "nuovo paragrafo", "seleziona", "deseleziona", "cancella", "grassetto", "corsivo", "annulla", "ripeti",
     ]
 
-    /// "Comando" mode: the model answers with a JSON list of actions (One-Pager 001 §1).
-    public static func commandMessages(hints: String, context: Context, transcript: String) -> (system: String, user: String) {
-        let system = """
-        Trasformi un comando vocale in azioni di tastiera da eseguire nel campo di testo attivo di macOS.
-        Rispondi SOLO con JSON valido, senza testo prima o dopo, in questa forma:
+    /// What the model needs to know to turn a spoken command into actions (One-Pager 004 §6.3).
+    public struct CommandContext: Sendable {
+        public var appName: String
+        public var language: String
+        /// Names of the bound channels, of the slots of the active profile and of its intents.
+        public var channels: [String]
+        public var slots: [String]
+        public var intents: [String]
+        /// The selected text, if any (cut to `maxSelection`).
+        public var selection: String?
+        public var hints: String
+
+        public static let maxSelection = 2000
+
+        public init(appName: String, language: String, channels: [String] = [], slots: [String] = [],
+                    intents: [String] = [], selection: String? = nil, hints: String = "") {
+            self.appName = appName
+            self.language = language
+            self.channels = channels
+            self.slots = slots
+            self.intents = intents
+            self.selection = selection.map { String($0.prefix(Self.maxSelection)) }
+            self.hints = hints
+        }
+    }
+
+    /// Voice command (grey pressed while talking): the model answers with a JSON list of actions
+    /// from a closed vocabulary, which `CommandParser` validates. The instructions are in English
+    /// and language-neutral: the request can come in any language Whisper recognises.
+    public static func commandMessages(context: CommandContext, transcript: String) -> (system: String, user: String) {
+        func list(_ items: [String]) -> String { items.isEmpty ? "(none)" : items.map { "\"\($0)\"" }.joined(separator: ", ") }
+        var system = """
+        You turn a spoken command into actions on a Mac. The command can be in any language and comes from \
+        speech recognition, so it may contain mistakes: interpret words that sound alike.
+        Reply ONLY with valid JSON, with nothing before or after, in this form:
         {"actions": [{"type": "text", "text": "..."}, {"type": "key", "keys": ["shift+return"]}]}
-        Tipi ammessi:
-        - "text": scrive il testo indicato.
-        - "key": preme le combinazioni indicate, in ordine. Modificatori: cmd, shift, opt, ctrl. \
-        Tasti: lettere, cifre, return, tab, space, delete, forwarddelete, escape, left, right, up, down, home, end.
-        Regole:
-        - Il comando arriva da una trascrizione vocale e può contenere errori: interpreta parole simili \
-        nel suono ("ballet point", "bullet poin", "punto lista" = elenco puntato).
-        - Usa solo le azioni necessarie, nell'ordine minimo: non aggiungere selezioni, cancellazioni \
-        o altri tasti che il comando non chiede ("deseleziona" non deve mai premere cmd+a).
-        - "aggiungi" / "inserisci" + elemento di formattazione (elenco, bullet point, riga, grassetto) \
-        significa inserire quella formattazione, non scrivere le parole.
-        - "elimina", "cancella", "togli", "rimuovi" non scrivono mai testo: usano solo tasti.
-        - Se c'è già una selezione ("cancellalo", "cancella la selezione") basta delete.
-        - Se il comando inizia con "scrivi" o "detta", scrivi tutto il testo che segue così com'è, \
-        anche se contiene altre parole di comando.
-        - Se il comando non è eseguibile con queste azioni rispondi {"actions": []}.
-        Esempi (comando -> risposta):
-        "elenco puntato" / "bullet point" / "punto elenco" -> {"actions":[{"type":"text","text":"- "}]}
-        "aggiungi un bullet point" / "aggiungi ballet point" / "inserisci un punto elenco" -> {"actions":[{"type":"key","keys":["shift+return"]},{"type":"text","text":"- "}]}
-        "elenco numerato" -> {"actions":[{"type":"text","text":"1. "}]}
-        "vai a capo" / "nuova riga" -> {"actions":[{"type":"key","keys":["shift+return"]}]}
-        "nuovo paragrafo" -> {"actions":[{"type":"key","keys":["shift+return","shift+return"]}]}
-        "invia" -> {"actions":[{"type":"key","keys":["return"]}]}
-        "seleziona tutto" -> {"actions":[{"type":"key","keys":["cmd+a"]}]}
-        "deseleziona" / "deseleziona tutto" / "togli la selezione" -> {"actions":[{"type":"key","keys":["right"]}]}
-        "seleziona l'ultima parola" -> {"actions":[{"type":"key","keys":["opt+shift+left"]}]}
-        "vai alla fine della riga" / "in fondo alla frase" -> {"actions":[{"type":"key","keys":["cmd+right"]}]}
-        "vai all'inizio della riga" -> {"actions":[{"type":"key","keys":["cmd+left"]}]}
-        "vai alla fine del testo" -> {"actions":[{"type":"key","keys":["cmd+down"]}]}
-        "vai all'inizio del testo" -> {"actions":[{"type":"key","keys":["cmd+up"]}]}
-        "parola precedente" -> {"actions":[{"type":"key","keys":["opt+left"]}]}
-        "parola successiva" -> {"actions":[{"type":"key","keys":["opt+right"]}]}
-        "cancella l'ultima parola" -> {"actions":[{"type":"key","keys":["opt+delete"]}]}
-        "cancella la riga" -> {"actions":[{"type":"key","keys":["cmd+shift+left","delete"]}]}
-        "cancella tutto" -> {"actions":[{"type":"key","keys":["cmd+a","delete"]}]}
-        "elimina il bullet point" / "togli il punto elenco" / "rimuovi l'elenco" -> {"actions":[{"type":"key","keys":["cmd+left","forwarddelete","forwarddelete"]}]}
-        "cancellalo" / "cancella la selezione" -> {"actions":[{"type":"key","keys":["delete"]}]}
-        "annulla" -> {"actions":[{"type":"key","keys":["cmd+z"]}]}
-        "ripeti" -> {"actions":[{"type":"key","keys":["cmd+shift+z"]}]}
-        "copia" -> {"actions":[{"type":"key","keys":["cmd+c"]}]}
-        "incolla" -> {"actions":[{"type":"key","keys":["cmd+v"]}]}
-        "grassetto" -> {"actions":[{"type":"text","text":"****"},{"type":"key","keys":["left","left"]}]}
-        "scrivi buongiorno a tutti" -> {"actions":[{"type":"text","text":"buongiorno a tutti"}]}
-        "scrivi aggiungi il latte alla lista" -> {"actions":[{"type":"text","text":"aggiungi il latte alla lista"}]}
-        "inserisci un elenco puntato" -> {"actions":[{"type":"key","keys":["shift+return"]},{"type":"text","text":"- "}]}
-        ## Contesto: app=\(context.appName), lingua=\(context.language)
-        """ + (hints.isEmpty ? "" : "\n## Note sull'app: \(hints)")
+        Action types:
+        - "text": types the text in the focused field.
+        - "key": presses the shortcuts in order. Modifiers: cmd, shift, opt, ctrl. \
+        Keys: letters, digits, return, tab, space, delete, forwarddelete, escape, left, right, up, down, home, end.
+        - "replaceSelection": replaces the selected text with the given text. Only when SELECTION is not "(none)".
+        - "switchChannel": goes to one of the CHANNELS (field "name").
+        - "runSlot": runs one of the SLOTS (field "name").
+        - "intent": does one of the INTENTS (field "name").
+        Rules:
+        - Use only the actions the command needs, in the shortest order. Never add selections, deletions or keys it does not ask for.
+        - Names must be copied exactly from the lists. If none matches, answer {"actions": []}.
+        - A command that mentions a channel (or part of its name), as in "go to X", "switch to X" or "passa a X", is "switchChannel". \
+        One that names a slot ("run X", "lancia X") is "runSlot". Stopping, interrupting or starting a new session uses an INTENT if one fits.
+        - "text" is ONLY for two cases: the command starts with "write", "type", "scrivi", "escribe", "écris" or similar \
+        (type everything after it as it is, in its own language), or it asks for a list marker such as "- " or "1. ". \
+        Never type anything else: never answer questions, never invent or complete content.
+        - A question, a chat or anything you cannot do with these actions is {"actions": []}. When unsure, do nothing: \
+        {"actions": []} is always better than a wrong action.
+        - "return" alone SENDS the message. A new line is always "shift+return".
+        - If the command changes the selected text (translate, shorten, rewrite, fix, make a list), use "replaceSelection" \
+        with the new text only. "Delete it" on a selection is key "delete".
+        - Delete, remove and cancel never type text: they use keys.
+        - If nothing fits, answer {"actions": []}.
+        Examples (command -> answer):
+        "new line" / "vai a capo" / "nouvelle ligne" -> {"actions":[{"type":"key","keys":["shift+return"]}]}
+        "send" / "invia" / "enviar" -> {"actions":[{"type":"key","keys":["return"]}]}
+        "select all" / "seleziona tutto" -> {"actions":[{"type":"key","keys":["cmd+a"]}]}
+        "delete the last word" / "cancella l'ultima parola" -> {"actions":[{"type":"key","keys":["opt+delete"]}]}
+        "delete the line" / "cancella la riga" -> {"actions":[{"type":"key","keys":["cmd+shift+left","delete"]}]}
+        "delete everything" / "cancella tutto" -> {"actions":[{"type":"key","keys":["cmd+a","delete"]}]}
+        "go to the end of the line" / "vai a fine riga" -> {"actions":[{"type":"key","keys":["cmd+right"]}]}
+        "undo" / "annulla" -> {"actions":[{"type":"key","keys":["cmd+z"]}]}
+        "bullet list" / "elenco puntato" -> {"actions":[{"type":"text","text":"- "}]}
+        "numbered list" / "elenco numerato" -> {"actions":[{"type":"text","text":"1. "}]}
+        "write see you soon" / "scrivi a presto" -> {"actions":[{"type":"text","text":"see you soon"}]}
+        "what is the weather" / "che tempo fa" -> {"actions":[]}
+        "turn on dark mode" / "attiva la modalità scura" -> {"actions":[]}
+        With SELECTION "buon lavoro a tutti": "translate to English" -> {"actions":[{"type":"replaceSelection","text":"good work everyone"}]}
+        "copy" / "copia" -> {"actions":[{"type":"key","keys":["cmd+c"]}]}
+        "paste" / "incolla" -> {"actions":[{"type":"key","keys":["cmd+v"]}]}
+        ## Context
+        App: \(context.appName). Language setting: \(context.language).
+        CHANNELS: \(list(context.channels))
+        SLOTS: \(list(context.slots))
+        INTENTS: \(list(context.intents))
+        SELECTION: \(context.selection.map { "\"\($0)\"" } ?? "(none)")
+        """
+        if !context.hints.isEmpty { system += "\n## App notes: \(context.hints)" }
         return (system, transcript)
     }
 
@@ -322,10 +411,37 @@ public enum PromptComposer {
     }
 }
 
-/// Validated output of "Comando" mode.
+/// Finds the channel or slot a spoken name refers to. The model is told to copy names exactly,
+/// but speech and small models drift ("progetto api" for "Claude · progetto-api").
+public enum NameMatcher {
+    private static func normalize(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    /// The index of the best match: the exact name, the part after " · ", a name that contains
+    /// the request, or (for names of 3+ letters) a request that contains the name.
+    public static func index(of query: String, in names: [String]) -> Int? {
+        let q = normalize(query)
+        guard !q.isEmpty else { return nil }
+        let normalized = names.map(normalize)
+        if let i = normalized.firstIndex(of: q) { return i }
+        if let i = normalized.firstIndex(where: { $0.components(separatedBy: " · ").last == q }) { return i }
+        if let i = normalized.firstIndex(where: { $0.contains(q) }) { return i }
+        return normalized.firstIndex { $0.count >= 3 && q.contains($0) }
+    }
+}
+
+/// Validated output of a voice command.
 public enum CommandStep: Equatable, Sendable {
     case text(String)
     case keys([String])
+    /// Replaces the selected text with the transformed version.
+    case replaceSelection(String)
+    /// Names of a channel, a slot or an intent: checked by the app against its own lists.
+    case switchChannel(String)
+    case runSlot(String)
+    case intent(String)
 }
 
 public enum CommandParser {
@@ -357,6 +473,16 @@ public enum CommandParser {
                     if forbidden.contains(normalized(combo)) { return .failure(.forbidden(key)) }
                 }
                 if !keys.isEmpty { steps.append(.keys(keys)) }
+            case "replaceSelection":
+                guard let t = action["text"] as? String else { return .failure(.notJSON) }
+                steps.append(.replaceSelection(t))
+            case "switchChannel", "runSlot", "intent":
+                guard let name = action["name"] as? String, !name.isEmpty, name.count <= 80 else { return .failure(.notJSON) }
+                switch action["type"] as? String {
+                case "switchChannel": steps.append(.switchChannel(name))
+                case "runSlot": steps.append(.runSlot(name))
+                default: steps.append(.intent(name))
+                }
             default:
                 return .failure(.notJSON)
             }

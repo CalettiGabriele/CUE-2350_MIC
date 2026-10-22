@@ -12,8 +12,11 @@ struct DictationContext {
     var slot: Slot?
     var appName: String
     var bundleID: String?
+    /// Grey was pressed while talking: the dictation is a voice command, not text to write.
     var editSelection = false
     var selection: String?
+    /// Names of the bound channels, for the voice command and for Whisper's vocabulary.
+    var channels: [String] = []
 }
 
 /// Orchestrates record → transcribe → (LLM) → inject (TDD §3.5).
@@ -38,6 +41,8 @@ final class DictationController {
     var contextProvider: (() -> DictationContext)?
     /// A template/llm slot was applied to a dictation: the app clears the selection.
     var onSlotConsumed: (() -> Void)?
+    /// Runs the voice-command steps that need the app (channel, slot, intent); nil = not handled.
+    var commandHandler: ((CommandStep) -> TextInjector.Outcome)?
     var config: AppConfig {
         didSet {
             machine.minDurationMs = config.audio.minDurationMs
@@ -94,11 +99,13 @@ final class DictationController {
         }
     }
 
-    /// Grey pressed while talking: the dictation becomes an instruction for the selected text.
+    /// Grey pressed while talking: the dictation becomes a voice command (One-Pager 004 §6).
     func markEditSelection() {
         guard isRecording, context?.editSelection == false else { return }
         context?.editSelection = true
-        onPhase?(.message(L.t("Editing the selection")))
+        onPhase?(.message(L.t("Voice command")))
+        // The model is usually loaded already; this only makes sure it stays so.
+        LLMClient(settings: config.llm).warmUp()
         Task { [weak self] in
             let selection = await TextInjector.readSelection()
             self?.context?.selection = selection
@@ -135,22 +142,28 @@ final class DictationController {
 
     private func transcribe(_ audio: [Float], releasedAt: Double) {
         guard let context else { return }
-        guard AudioRecorder.rmsDBFS(audio) >= config.audio.silenceThresholdDBFS else {
+        let level = AudioRecorder.rmsDBFS(audio)
+        let peak = audio.reduce(0) { max($0, abs($1)) }
+        log.notice("recorded \(Double(audio.count) / AudioRecorder.sampleRate, format: .fixed(precision: 1), privacy: .public)s, rms \(level, format: .fixed(precision: 1), privacy: .public) dBFS, peak \(peak, format: .fixed(precision: 3), privacy: .public) (threshold \(self.config.audio.silenceThresholdDBFS, format: .fixed(precision: 0), privacy: .public))")
+        guard level >= config.audio.silenceThresholdDBFS else {
             _ = machine.send(.transcribed(text: "", usesLLM: false))
-            onPhase?(.message(L.t("No speech")))
+            // Exactly zero samples is not a quiet voice: the microphone is blocked or muted.
+            onPhase?(.message(peak == 0 ? L.t("Microphone is silent: check its permission and input") : L.t("No speech")))
             return
         }
         onPhase?(.transcribing)
         let languageSetting = context.profile.language ?? config.speech.language
         let language = languageSetting == "auto" ? nil : languageSetting
-        // "Comando" adds command words, which Whisper often mishears.
+        // Commands add command words, channel and slot names, which Whisper often mishears.
+        let isCommand = context.editSelection || context.mode == .command
         let vocabulary = config.speech.vocabulary
-            + (context.mode == .command ? PromptComposer.commandVocabulary : [])
+            + (isCommand ? PromptComposer.commandVocabulary + context.channels + context.profile.slots.map(\.name) : [])
         let seconds = Double(audio.count) / AudioRecorder.sampleRate
         job = Task { [weak self, transcriber] in
             do {
                 let raw = try await transcriber.transcribe(audio, language: language, vocabulary: vocabulary)
                 guard !Task.isCancelled else { return }
+                self?.log.notice("transcribed \(raw.count, privacy: .public) characters")
                 await self?.postProcess(raw: raw, languageSetting: languageSetting, releasedAt: releasedAt, seconds: seconds)
             } catch {
                 guard let self, !Task.isCancelled else { return }
@@ -171,11 +184,10 @@ final class DictationController {
             onPhase?(.message(L.t("Computer Use is not available yet")))
             return
         }
-        let editing = context.editSelection && context.selection != nil
-        // "Comando" executes; slots apply to the other modes.
-        let command = context.mode == .command && !editing
+        // A voice command executes; slots apply to the dictations that are written.
+        let command = context.editSelection || context.mode == .command
         let slot = command ? nil : context.slot
-        let usesLLM = editing || command || context.mode == .enhanced || slot?.kind == .llm
+        let usesLLM = command || context.mode == .enhanced || slot?.kind == .llm
         switch machine.send(.transcribed(text: raw, usesLLM: usesLLM)) {
         case .inject:
             write(raw: raw, processed: nil, slot: slot, context: context, releasedAt: releasedAt, seconds: seconds)
@@ -186,16 +198,14 @@ final class DictationController {
                 return
             }
             let instruction: String
-            if editing {
-                instruction = "Edit the text following the instruction."
-            } else if let slot, slot.kind == .llm {
+            if let slot, slot.kind == .llm {
                 instruction = slot.template
             } else {
                 instruction = context.profile.interaction.enhancePrompt
             }
             let messages = PromptComposer.messages(
                 base: config.llm.baseSystemPrompt, mode: PromptPreset(name: "", prompt: instruction), style: nil,
-                context: llmContext, transcript: raw, selection: editing ? context.selection : nil)
+                context: llmContext, transcript: raw, selection: nil)
             var processed: String?
             do {
                 processed = try await LLMClient(settings: config.llm).complete(system: messages.system, user: messages.user)
@@ -205,12 +215,6 @@ final class DictationController {
                 onPhase?(.failure(L.t("LLM not available: raw text")))
             }
             guard !Task.isCancelled, machine.send(.postProcessed) == .inject else { return }
-            // If the LLM failed while editing a selection, don't overwrite it with the instruction.
-            if editing, processed == nil {
-                _ = machine.send(.injected)
-                record(raw: raw, processed: nil, context: context)
-                return
-            }
             write(raw: raw, processed: processed, slot: slot, context: context, releasedAt: releasedAt, seconds: seconds)
         default:
             onPhase?(.message(L.t("No speech")))
@@ -220,8 +224,12 @@ final class DictationController {
     /// "Comando": the LLM turns the request into validated key/text steps (One-Pager 001 §1).
     private func runCommand(raw: String, context: DictationContext, llmContext: PromptComposer.Context,
                             releasedAt: Double) async {
-        let messages = PromptComposer.commandMessages(hints: context.profile.interaction.commandHints,
-                                                      context: llmContext, transcript: raw)
+        let intents = context.profile.intents.filter { $0.value != .none }.keys.sorted()
+        let commandContext = PromptComposer.CommandContext(
+            appName: context.appName, language: llmContext.language, channels: context.channels,
+            slots: context.profile.slots.map(\.name), intents: intents, selection: context.selection,
+            hints: context.profile.interaction.commandHints)
+        let messages = PromptComposer.commandMessages(context: commandContext, transcript: raw)
         let response: String
         do {
             response = try await LLMClient(settings: config.llm).complete(system: messages.system, user: messages.user,
@@ -248,12 +256,22 @@ final class DictationController {
                 // Typed, not pasted: several pastes in a row would race on the clipboard.
                 case .text(let text): outcome = TextInjector.insert(text, strategy: .type, restoreAfterMs: 0)
                 case .keys(let keys): outcome = TextInjector.send(keys)
+                case .replaceSelection(let text):
+                    // The selection is replaced by the paste; without one this would just type.
+                    outcome = context.selection == nil ? .failed : TextInjector.insert(
+                        text, strategy: context.profile.injection ?? config.injection.defaultStrategy,
+                        restoreAfterMs: config.injection.restoreClipboardMs)
+                case .switchChannel, .runSlot, .intent: outcome = commandHandler?(step) ?? .failed
                 }
             }
             let summary = steps.map { step -> String in
                 switch step {
                 case .text(let t): return L.f("type «%@»", t)
                 case .keys(let k): return k.joined(separator: " ")
+                case .replaceSelection: return L.t("replace the selection")
+                case .switchChannel(let name): return L.f("channel %@", name)
+                case .runSlot(let name): return L.f("slot %@", name)
+                case .intent(let name): return name
                 }
             }.joined(separator: ", ")
             record(raw: raw, processed: summary, context: context)
@@ -275,9 +293,8 @@ final class DictationController {
         var text = processed ?? raw
         if let slot, slot.kind == .template { text = slot.fill(text) }
         if slot != nil { onSlotConsumed?() }
-        // Trailing space so the next dictation does not stick to this one (not when replacing a selection).
-        let replacing = context.editSelection && context.selection != nil
-        let output = replacing || text.last?.isWhitespace == true ? text : text + " "
+        // Trailing space so the next dictation does not stick to this one.
+        let output = text.last?.isWhitespace == true ? text : text + " "
         let strategy = context.profile.injection ?? config.injection.defaultStrategy
         let outcome = TextInjector.insert(output, strategy: strategy, restoreAfterMs: config.injection.restoreClipboardMs)
         _ = machine.send(.injected)

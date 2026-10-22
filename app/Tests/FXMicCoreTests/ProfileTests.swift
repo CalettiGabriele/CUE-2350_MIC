@@ -7,7 +7,7 @@ import Testing
         let config = try JSONDecoder().decode(AppConfig.self, from: Data("{}".utf8))
         #expect(config == AppConfig())
         #expect(config.profiles.map(\.id) == ["claude-desktop", "coding-agent", "default"])
-        #expect(config.schemaVersion == 2)
+        #expect(config.schemaVersion == 3)
     }
 
     @Test func partialJSONKeepsOtherDefaults() throws {
@@ -26,7 +26,7 @@ import Testing
 
     @Test func actionsRoundTrip() throws {
         let actions: [Action] = [.key(["cmd+a", "delete"]), .text("/clear\n"), .undoLastInsertion,
-                                 .reinsertLast(raw: false), .cancel, .editSelection, .cycleMode, .resetMode,
+                                 .reinsertLast(raw: false), .cancel, .editSelection, .nextChannel, .previousChannel, .bindChannel, .intent("interrupt"), .cycleMode, .resetMode,
                                  .nextSlot, .previousSlot, .clearSlot, .runSlot, .none]
         let data = try JSONEncoder().encode(actions)
         #expect(try JSONDecoder().decode([Action].self, from: data) == actions)
@@ -46,7 +46,7 @@ import Testing
         #expect(mail.white.tap == .nextSlot)
         #expect(mail.white.doubleTap == .previousSlot)
         #expect(mail.grey.tap == .runSlot)
-        #expect(mail.orange.longPress == .resetMode)
+        #expect(mail.orange.longPress == .bindChannel)
     }
 
     @Test func schema1FileGetsNewBuiltInProfiles() throws {
@@ -170,8 +170,9 @@ import Testing
 
     @Test func gestureActionsComeFromActiveProfile() {
         var engine = ProfileEngine(config: AppConfig())
-        #expect(engine.action(for: .tap(.orange)) == .cycleMode)
-        #expect(engine.action(for: .longPress(.orange)) == .resetMode)
+        #expect(engine.action(for: .tap(.orange)) == .nextChannel)
+        #expect(engine.action(for: .doubleTap(.orange)) == .previousChannel)
+        #expect(engine.action(for: .longPress(.orange)) == .bindChannel)
         #expect(engine.action(for: .tap(.white)) == .nextSlot)
         #expect(engine.action(for: .doubleTap(.white)) == .previousSlot)
         #expect(engine.action(for: .longPress(.white)) == .clearSlot)
@@ -227,6 +228,17 @@ import Testing
         #expect(try CommandParser.parse(#"{"actions":[{"type":"text","text":"a } b"}]}"#).get() == [.text("a } b")])
     }
 
+    @Test func parsesChannelSlotIntentAndSelectionSteps() throws {
+        let response = #"{"actions":[{"type":"switchChannel","name":"Codex"},{"type":"runSlot","name":"/compact"},{"type":"intent","name":"interrupt"},{"type":"replaceSelection","text":"Hello"}]}"#
+        #expect(try CommandParser.parse(response).get() == [.switchChannel("Codex"), .runSlot("/compact"), .intent("interrupt"), .replaceSelection("Hello")])
+    }
+
+    @Test func namedStepsNeedAName() {
+        #expect(CommandParser.parse(#"{"actions":[{"type":"switchChannel"}]}"#) == .failure(.notJSON))
+        #expect(CommandParser.parse(#"{"actions":[{"type":"intent","name":""}]}"#) == .failure(.notJSON))
+        #expect(CommandParser.parse(#"{"actions":[{"type":"replaceSelection"}]}"#) == .failure(.notJSON))
+    }
+
     @Test func emptyActionsMeanNothingToDo() throws {
         #expect(try CommandParser.parse(#"{"actions": []}"#).get() == [])
     }
@@ -243,10 +255,25 @@ import Testing
     }
 
     @Test func commandPromptIncludesHints() {
-        let m = PromptComposer.commandMessages(hints: "Markdown", context: context, transcript: "elenco puntato")
+        let ctx = PromptComposer.CommandContext(appName: "Claude", language: "auto", hints: "Markdown")
+        let m = PromptComposer.commandMessages(context: ctx, transcript: "elenco puntato")
         #expect(m.system.contains("\"actions\""))
-        #expect(m.system.contains("## Note sull'app: Markdown"))
+        #expect(m.system.contains("## App notes: Markdown"))
+        #expect(m.system.contains("CHANNELS: (none)"))
+        #expect(m.system.contains("SELECTION: (none)"))
         #expect(m.user == "elenco puntato")
+    }
+
+    @Test func commandPromptCarriesChannelsSlotsIntentsAndSelection() {
+        let ctx = PromptComposer.CommandContext(
+            appName: "Claude", language: "it", channels: ["Claude · api", "Codex · infra"], slots: ["/compact", "/review"],
+            intents: ["interrupt", "newSession"], selection: String(repeating: "a", count: 3000))
+        let m = PromptComposer.commandMessages(context: ctx, transcript: "passa a codex")
+        #expect(m.system.contains("CHANNELS: \"Claude · api\", \"Codex · infra\""))
+        #expect(m.system.contains("SLOTS: \"/compact\", \"/review\""))
+        #expect(m.system.contains("INTENTS: \"interrupt\", \"newSession\""))
+        #expect(ctx.selection?.count == PromptComposer.CommandContext.maxSelection)
+        #expect(!m.system.contains("(none)\nSELECTION: (none)"))
     }
 
     @Test func cleanStripsThinkingAndQuotes() {

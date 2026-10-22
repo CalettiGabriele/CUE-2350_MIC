@@ -5,7 +5,7 @@ import Foundation
 /// fall back to the defaults below, so a partial file is valid. Schema 1 files (modes/styles)
 /// are migrated on read.
 public struct AppConfig: Codable, Equatable, Sendable {
-    public var schemaVersion = 2
+    public var schemaVersion = 3
     public var audio = Audio()
     public var speech = Speech()
     public var llm = LLM()
@@ -13,6 +13,11 @@ public struct AppConfig: Codable, Equatable, Sendable {
     public var ui = UI()
     public var history = History()
     public var device = Device()
+    /// Destinations the orange button switches between, one red LED each (One-Pager 004 §4).
+    public var channels: [Channel] = []
+    /// Extra apps whose sessions can be told apart and reopened (see `SessionAdapter`); Claude and
+    /// Codex desktop are built in.
+    public var sessionAdapters: [SessionAdapter] = []
     public var profiles: [Profile] = Profile.defaults
 
     public init() {}
@@ -103,7 +108,39 @@ public struct PromptPreset: Codable, Equatable, Sendable {
     }
 }
 
-// MARK: - Interaction modes (orange button, One-Pager 001 §1)
+// MARK: - Channels (orange button, One-Pager 004 §4)
+
+/// A destination for the dictation: an app, a document or a window, bound with a long press on
+/// orange. The app is brought to the front when you talk to the channel.
+public struct Channel: Codable, Equatable, Sendable {
+    public var name: String
+    public var bundleID: String
+    /// `AXDocument` of the window (a `file://` URL), when the app exposes it.
+    public var document: String?
+    /// Window title at binding time: a hint only, titles change.
+    public var title: String?
+    /// Session or thread id for apps that keep several in one window (Claude and Codex desktop).
+    public var session: String?
+
+    public static let maxCount = 4
+
+    public init(name: String, bundleID: String, document: String? = nil, title: String? = nil, session: String? = nil) {
+        self.name = name
+        self.bundleID = bundleID
+        self.document = document
+        self.title = title
+        self.session = session
+    }
+
+    /// Same app and same session/document/window: binding it again moves to that channel.
+    public func sameTarget(as other: Channel) -> Bool {
+        guard bundleID == other.bundleID else { return false }
+        if session != nil || other.session != nil { return session == other.session }
+        return document == other.document && (document != nil || title == other.title)
+    }
+}
+
+// MARK: - Interaction modes (superseded by channels, kept for old config files)
 
 public enum InteractionMode: String, Codable, CaseIterable, Sendable {
     case dictation, enhanced, command, computerUse
@@ -192,7 +229,11 @@ public enum Action: Equatable, Sendable {
     case reinsertLast(raw: Bool)
     case cancel
     case editSelection
-    /// Orange: next interaction mode / back to the profile's default mode.
+    /// Orange: channels. `bindChannel` ties the frontmost window to the current channel.
+    case nextChannel
+    case previousChannel
+    case bindChannel
+    /// Legacy orange actions (interaction modes).
     case cycleMode
     case resetMode
     /// White: slot navigation.
@@ -201,14 +242,17 @@ public enum Action: Equatable, Sendable {
     case clearSlot
     /// Grey: run the selected slot; with no slot selected it presses Return.
     case runSlot
+    /// Does what the active profile's `intents` say for this name (e.g. "interrupt").
+    case intent(String)
     case none
 }
 
 extension Action: Codable {
-    private enum CodingKeys: String, CodingKey { case type, keys, text, variant }
+    private enum CodingKeys: String, CodingKey { case type, keys, text, variant, name }
 
     private static let simple: [String: Action] = [
         "undoLastInsertion": .undoLastInsertion, "cancel": .cancel, "editSelection": .editSelection,
+        "nextChannel": .nextChannel, "previousChannel": .previousChannel, "bindChannel": .bindChannel,
         "cycleMode": .cycleMode, "resetMode": .resetMode, "nextSlot": .nextSlot,
         "previousSlot": .previousSlot, "clearSlot": .clearSlot, "runSlot": .runSlot, "none": .none,
     ]
@@ -225,6 +269,7 @@ extension Action: Codable {
             }
         case "text": self = .text(try c.decode(String.self, forKey: .text))
         case "reinsertLast": self = .reinsertLast(raw: (try? c.decode(String.self, forKey: .variant)) != "processed")
+        case "intent": self = .intent((try? c.decode(String.self, forKey: .name)) ?? "")
         case "cycleStyle": self = .nextSlot   // schema 1: the white button now walks the slots
         default: self = Self.simple[type] ?? .none
         }
@@ -242,6 +287,9 @@ extension Action: Codable {
         case .reinsertLast(let raw):
             try c.encode("reinsertLast", forKey: .type)
             try c.encode(raw ? "raw" : "processed", forKey: .variant)
+        case .intent(let name):
+            try c.encode("intent", forKey: .type)
+            try c.encode(name, forKey: .name)
         default:
             let name = Self.simple.first { $0.value == self }?.key ?? "none"
             try c.encode(name, forKey: .type)
@@ -284,11 +332,14 @@ public struct Profile: Codable, Equatable, Sendable {
     public var interaction = InteractionSettings()
     /// Up to 15 slots, shown in binary on the white LEDs.
     public var slots: [Slot] = []
-    public var orange = ButtonActions(tap: .cycleMode, longPress: .resetMode)
+    public var orange = ButtonActions(tap: .nextChannel, doubleTap: .previousChannel, longPress: .bindChannel)
     public var white = ButtonActions(tap: .nextSlot, doubleTap: .previousSlot, longPress: .clearSlot)
-    public var grey = ButtonActions(tap: .runSlot, doubleTap: .undoLastInsertion, longPress: .reinsertLast(raw: true))
-    /// Grey pressed while the handle is held.
+    public var grey = ButtonActions(tap: .runSlot, doubleTap: .undoLastInsertion, longPress: .intent("interrupt"))
+    /// Grey pressed while the handle is held: the dictation becomes a voice command.
     public var chord: Action = .editSelection
+    /// What the voice command and the buttons mean in this app, by name (One-Pager 004 §6.2).
+    /// "interrupt" is built in; the others (approve, newSession…) are added per profile.
+    public var intents: [String: Action] = ["interrupt": .key(["escape"])]
     public var handle = HandleActions()
     public var shake = ShakeActions()
     /// nil = use `injection.defaultStrategy`.
@@ -356,12 +407,14 @@ extension KeyedDecodingContainer {
 
 extension AppConfig {
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, audio, speech, llm, injection, ui, history, device, profiles
+        case schemaVersion, audio, speech, llm, injection, ui, history, device, channels, sessionAdapters, profiles
     }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = AppConfig()
-        schemaVersion = 2
+        schemaVersion = 3
+        channels = Array(c.value(.channels, [Channel]()).prefix(Channel.maxCount))
+        sessionAdapters = c.value(.sessionAdapters, [SessionAdapter]())
         audio = c.value(.audio, d.audio)
         speech = c.value(.speech, d.speech)
         llm = c.value(.llm, d.llm)
@@ -537,7 +590,7 @@ extension ShakeActions {
 
 extension Profile {
     private enum CodingKeys: String, CodingKey {
-        case id, name, apps, interaction, slots, orange, white, grey, chord, handle, shake, injection, language
+        case id, name, apps, interaction, slots, orange, white, grey, chord, intents, handle, shake, injection, language
         case modes   // schema 1
     }
 
@@ -560,10 +613,18 @@ extension Profile {
         p.white = c.value(.white, defaults.white)
         p.grey = c.value(.grey, defaults.grey)
         if p.grey.tap == .key(["return"]) { p.grey.tap = .runSlot }
-        if p.orange.longPress == .none { p.orange.longPress = .resetMode }
+        // Schema 3: a long press on grey interrupts instead of rewriting the last text.
+        if p.grey.longPress == .reinsertLast(raw: true) { p.grey.longPress = .intent("interrupt") }
+        // Schema 3: the orange button switches channels instead of interaction modes.
+        if p.orange.tap == .cycleMode { p.orange.tap = .nextChannel }
+        if p.orange.tap == .nextChannel {
+            if p.orange.doubleTap == .none { p.orange.doubleTap = .previousChannel }
+            if p.orange.longPress == .none || p.orange.longPress == .resetMode { p.orange.longPress = .bindChannel }
+        }
         if p.white.tap == .nextSlot, p.white.doubleTap == .none { p.white.doubleTap = .previousSlot }
         if p.white.tap == .nextSlot, p.white.longPress == .none { p.white.longPress = .clearSlot }
         p.chord = c.value(.chord, p.chord)
+        p.intents = c.value(.intents, p.intents)
         p.handle = c.value(.handle, p.handle)
         p.shake = c.value(.shake, p.shake)
         p.injection = c.value(.injection, p.injection)
@@ -584,6 +645,7 @@ extension Profile {
         try c.encode(white, forKey: .white)
         try c.encode(grey, forKey: .grey)
         try c.encode(chord, forKey: .chord)
+        try c.encode(intents, forKey: .intents)
         try c.encode(handle, forKey: .handle)
         try c.encode(shake, forKey: .shake)
         try c.encodeIfPresent(injection, forKey: .injection)

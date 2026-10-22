@@ -320,6 +320,7 @@ struct ActionRow: View {
 
     enum Kind: String, CaseIterable, Identifiable {
         case none, key, text, undo, reinsertRaw, reinsertProcessed, cancel, editSelection
+        case nextChannel, previousChannel, bindChannel, interrupt
         case cycleMode, resetMode, nextSlot, previousSlot, clearSlot, runSlot
         var id: String { rawValue }
         var title: String {
@@ -332,6 +333,10 @@ struct ActionRow: View {
             case .reinsertProcessed: return L.t("Rewrite last (processed)")
             case .cancel: return L.t("Cancel dictation")
             case .editSelection: return L.t("Edit selection")
+            case .nextChannel: return L.t("Next channel")
+            case .previousChannel: return L.t("Previous channel")
+            case .bindChannel: return L.t("Bind window to channel")
+            case .interrupt: return L.t("Interrupt (Esc)")
             case .cycleMode: return L.t("Next mode")
             case .resetMode: return L.t("Default mode")
             case .nextSlot: return L.t("Next slot")
@@ -360,6 +365,11 @@ struct ActionRow: View {
         case .reinsertLast(let raw): return raw ? .reinsertRaw : .reinsertProcessed
         case .cancel: return .cancel
         case .editSelection: return .editSelection
+        case .nextChannel: return .nextChannel
+        case .previousChannel: return .previousChannel
+        case .bindChannel: return .bindChannel
+        // Other intent names can only be set in config.json.
+        case .intent: return .interrupt
         case .cycleMode: return .cycleMode
         case .resetMode: return .resetMode
         case .nextSlot: return .nextSlot
@@ -382,6 +392,10 @@ struct ActionRow: View {
             case .reinsertProcessed: action = .reinsertLast(raw: false)
             case .cancel: action = .cancel
             case .editSelection: action = .editSelection
+            case .nextChannel: action = .nextChannel
+            case .previousChannel: action = .previousChannel
+            case .bindChannel: action = .bindChannel
+            case .interrupt: action = .intent("interrupt")
             case .cycleMode: action = .cycleMode
             case .resetMode: action = .resetMode
             case .nextSlot: action = .nextSlot
