@@ -219,3 +219,15 @@ import Testing
         #expect(try JSONDecoder().decode([Action].self, from: data) == [.intent("approve")])
     }
 }
+
+@Suite struct CommandSummaryTests {
+    @Test func everyStepHasAShortDescription() {
+        L.language = .en
+        #expect(CommandStep.keys(["cmd+a", "delete"]).summary == "cmd+a delete")
+        #expect(CommandStep.intent("interrupt").summary == "interrupt")
+        #expect(CommandStep.switchChannel("Codex").summary == "channel Codex")
+        #expect(CommandStep.runSlot("/review").summary == "slot /review")
+        #expect(CommandStep.replaceSelection("x").summary == "replace the selection")
+        #expect(CommandStep.text("- ").summary == "type «- »")
+    }
+}

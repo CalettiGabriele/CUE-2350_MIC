@@ -9,11 +9,12 @@ struct SettingsView: View {
     @State private var chapter: Chapter = .device
 
     enum Chapter: Int, CaseIterable, Identifiable {
-        case device = 1, profiles, audio, speech, llm, history, general
+        case device = 1, channels, profiles, audio, speech, llm, history, general
         var id: Int { rawValue }
         var title: String {
             switch self {
             case .device: return L.t("Device")
+            case .channels: return L.t("Channels")
             case .profiles: return L.t("Profiles")
             case .audio: return L.t("Audio")
             case .speech: return L.t("Transcription")
@@ -25,10 +26,11 @@ struct SettingsView: View {
         var kicker: String {
             switch self {
             case .device: return L.t("Buttons, LEDs and gestures, live")
-            case .profiles: return L.t("Modes, slots and gestures per app")
+            case .channels: return L.t("Orange: where your voice goes")
+            case .profiles: return L.t("White slots, voice command and gestures per app")
             case .audio: return L.t("Input and recording")
             case .speech: return L.t("Whisper, on this Mac")
-            case .llm: return L.t("Local model for Enhanced and Command")
+            case .llm: return L.t("Local model for voice commands and LLM slots")
             case .history: return L.t("Texts kept on this Mac")
             case .general: return L.t("Language, icon, permissions")
             }
@@ -109,6 +111,7 @@ struct SettingsView: View {
     @ViewBuilder private var page: some View {
         switch chapter {
         case .device: DevicePage(model: model) { chapter = .profiles }
+        case .channels: ChannelsTab(model: model)
         case .profiles: ProfilesTab(model: model)
         case .audio: AudioTab(model: model)
         case .speech: SpeechTab(model: model)
@@ -402,7 +405,7 @@ private struct SpeechTab: View {
 
 private struct LLMTab: View {
     @ObservedObject var model: SettingsModel
-    @State private var sample = "hi mark see you tomorrow at three for the meeting about the project"
+    @State private var sample = "new line"
     @State private var output = ""
     @State private var running = false
 
@@ -442,17 +445,22 @@ private struct LLMTab: View {
                 TextEditor(text: $model.draft.llm.baseSystemPrompt)
                     .font(.callout).frame(minHeight: 70)
             }
-            Section(L.t("Test")) {
-                TextField(L.t("Test sentence"), text: $sample, axis: .vertical).lineLimit(1...3)
-                Button(running ? L.t("Running…") : L.t("Test with the \"Enhanced\" instruction")) {
+            Section {
+                HintField(hint: L.t("What you would say, e.g. go to the first channel"), text: $sample, axis: .vertical)
+                    .lineLimit(1...3)
+                Button(running ? L.t("Running…") : L.t("Test as a voice command")) {
                     running = true
                     Task {
-                        output = await model.preview(mode: PromptPreset(name: "Enhanced", prompt: InteractionSettings().enhancePrompt),
-                                                     style: nil, sample: sample)
+                        output = await model.testCommand(sample)
                         running = false
                     }
                 }.disabled(running)
                 if !output.isEmpty { Text(output).textSelection(.enabled).foregroundStyle(.secondary) }
+            } header: {
+                Text(L.t("Test a voice command"))
+            } footer: {
+                Text(L.t("Uses the channels and the skills, commands and intents of the profile in use. Nothing is executed."))
+                    .font(.caption).foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)

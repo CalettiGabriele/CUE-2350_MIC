@@ -264,16 +264,7 @@ final class DictationController {
                 case .switchChannel, .runSlot, .intent: outcome = commandHandler?(step) ?? .failed
                 }
             }
-            let summary = steps.map { step -> String in
-                switch step {
-                case .text(let t): return L.f("type «%@»", t)
-                case .keys(let k): return k.joined(separator: " ")
-                case .replaceSelection: return L.t("replace the selection")
-                case .switchChannel(let name): return L.f("channel %@", name)
-                case .runSlot(let name): return L.f("slot %@", name)
-                case .intent(let name): return name
-                }
-            }.joined(separator: ", ")
+            let summary = steps.map(\.summary).joined(separator: ", ")
             record(raw: raw, processed: summary, context: context)
             let latency = now() - releasedAt
             log.notice("command \(summary, privacy: .public) → \(String(describing: outcome), privacy: .public) in \(latency, format: .fixed(precision: 0), privacy: .public) ms")

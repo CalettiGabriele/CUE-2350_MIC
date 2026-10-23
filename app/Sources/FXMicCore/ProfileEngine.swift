@@ -411,6 +411,20 @@ public enum PromptComposer {
     }
 }
 
+extension CommandStep {
+    /// Short description for the pill, the history and the Settings test.
+    public var summary: String {
+        switch self {
+        case .text(let text): return L.f("type «%@»", text)
+        case .keys(let keys): return keys.joined(separator: " ")
+        case .replaceSelection: return L.t("replace the selection")
+        case .switchChannel(let name): return L.f("channel %@", name)
+        case .runSlot(let name): return L.f("slot %@", name)
+        case .intent(let name): return name
+        }
+    }
+}
+
 /// Finds the channel or slot a spoken name refers to. The model is told to copy names exactly,
 /// but speech and small models drift ("progetto api" for "Claude · progetto-api").
 public enum NameMatcher {

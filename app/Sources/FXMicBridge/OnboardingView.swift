@@ -32,7 +32,7 @@ struct OnboardingView: View {
                         : L.t("Connect the mic with a USB-C data cable and switch it on by pressing the handle. Without the mic you can dictate by holding right Option."),
                      actionTitle: model.deviceConnected ? nil : L.t("Reconnect"), action: { model.onReconnectDevice?() }),
             StepInfo(title: L.t("Local LLM (optional)"), done: model.llmReady,
-                     detail: L.f("The \"Enhanced\" and \"Command\" modes need an OpenAI-compatible server, e.g. Ollama with %@.", model.draft.llm.model) + " " + model.llmStatus,
+                     detail: L.f("Voice commands and LLM slots need an OpenAI-compatible server, e.g. Ollama with %@.", model.draft.llm.model) + " " + model.llmStatus,
                      actionTitle: L.t("Check"), action: { model.onRefreshLLM?() }),
         ]
     }
@@ -111,7 +111,7 @@ struct OnboardingView: View {
             }
             .padding(.bottom, 2)
             bullet(L.t("• Handle: hold and talk · double click = new line"))
-            bullet(L.t("• Orange: interaction mode (red LEDs) · White: slots (white LEDs) · Grey: run slot or Return"))
+            bullet(L.t("• Orange: channels (red LEDs) · White: skills and commands (white LEDs) · Grey: run or Return, and a voice command while you talk"))
             bullet(L.t("• Shake to cancel · shake hard for 2 s to clear everything"))
         }
     }

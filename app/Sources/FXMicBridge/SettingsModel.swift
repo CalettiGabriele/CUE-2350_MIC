@@ -46,20 +46,41 @@ final class SettingsModel: ObservableObject {
     var hasChanges: Bool { draft != saved }
 
     func save() {
-        // At most 15 slots, at least one interaction mode, and at least one profile.
+        // At most 15 slots, at most 4 channels, and at least one profile.
         for i in draft.profiles.indices {
             draft.profiles[i].slots = Array(draft.profiles[i].slots.prefix(Slot.maxCount))
-            if draft.profiles[i].interaction.enabled.isEmpty { draft.profiles[i].interaction.enabled = [.dictation] }
-            if !draft.profiles[i].interaction.enabled.contains(draft.profiles[i].interaction.defaultMode) {
-                draft.profiles[i].interaction.defaultMode = draft.profiles[i].interaction.enabled[0]
-            }
         }
+        draft.channels = Array(draft.channels.prefix(Channel.maxCount))
         if draft.profiles.isEmpty { draft.profiles = Profile.defaults }
         saved = draft
         onApply?(draft)
     }
 
     func revert() { draft = saved }
+
+    /// Runs a sentence as a voice command with the draft LLM settings, on the profile in use, and
+    /// says what would be done (nothing is executed).
+    func testCommand(_ sample: String) async -> String {
+        let profile = draft.profiles.first { $0.id == activeProfileID } ?? draft.profiles.first
+        let context = PromptComposer.CommandContext(
+            appName: profile?.name ?? "Test", language: draft.speech.language, channels: draft.channels.map(\.name),
+            slots: profile?.slots.map(\.name) ?? [],
+            intents: profile?.intents.filter { $0.value != .none }.keys.sorted() ?? [],
+            hints: profile?.interaction.commandHints ?? "")
+        let messages = PromptComposer.commandMessages(context: context, transcript: sample)
+        do {
+            let response = try await LLMClient(settings: draft.llm).complete(system: messages.system, user: messages.user,
+                                                                            temperature: 0)
+            switch CommandParser.parse(response) {
+            case .success(let steps) where steps.isEmpty: return L.t("No action: nothing would be done.")
+            case .success(let steps): return steps.map(\.summary).joined(separator: "\n")
+            case .failure(.forbidden(let key)): return L.f("Blocked: %@", key)
+            case .failure: return L.t("Not understood:") + " " + response.prefix(200)
+            }
+        } catch {
+            return L.f("Error: %@", error.localizedDescription)
+        }
+    }
 
     /// Changes only the language and applies it at once (onboarding picker).
     func setLanguage(_ language: L.Language) {
@@ -82,20 +103,6 @@ final class SettingsModel: ObservableObject {
     func refreshPermissions() {
         accessibilityGranted = TextInjector.isTrusted(prompt: false)
         microphoneGranted = AVCaptureDeviceAuthorization.isAuthorized
-    }
-
-    /// Runs one profile Mode/Style on a sample sentence with the draft LLM settings.
-    func preview(mode: PromptPreset, style: PromptPreset?, sample: String) async -> String {
-        let messages = PromptComposer.messages(
-            base: draft.llm.baseSystemPrompt, mode: mode, style: style,
-            context: .init(appName: "Preview", language: draft.speech.language,
-                           date: Date().formatted(date: .numeric, time: .omitted)),
-            transcript: sample, selection: nil)
-        do {
-            return try await LLMClient(settings: draft.llm).complete(system: messages.system, user: messages.user)
-        } catch {
-            return L.f("Error: %@", error.localizedDescription)
-        }
     }
 
     // MARK: - Profiles import/export

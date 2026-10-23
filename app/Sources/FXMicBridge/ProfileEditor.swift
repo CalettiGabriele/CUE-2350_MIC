@@ -3,54 +3,66 @@ import FXMicCore
 import SwiftUI
 import UniformTypeIdentifiers
 
-/// Profiles tab: list on the left, editor on the right (TDD §3.9 item 5).
+/// Profiles tab: pick a profile at the top, then edit it one part at a time (TDD §3.9 item 5).
 struct ProfilesTab: View {
     @ObservedObject var model: SettingsModel
     @State private var selection: String?
     @State private var notice: String?
 
-    var body: some View {
-        HSplitView {
-            VStack(alignment: .leading, spacing: 6) {
-                List(selection: $selection) {
-                    ForEach(model.draft.profiles, id: \.id) { profile in
-                        VStack(alignment: .leading) {
-                            Text(profile.name)
-                            Text(profile.apps.isEmpty ? L.t("All other apps") : L.f("%d apps", profile.apps.count))
-                                .font(.caption).foregroundStyle(.secondary)
-                        }.tag(Optional(profile.id))
-                    }
-                }
-                HStack(spacing: 4) {
-                    Button { add() } label: { Image(systemName: "plus") }.help(L.t("New profile"))
-                    Button { duplicate() } label: { Image(systemName: "plus.square.on.square") }.help(L.t("Duplicate")).disabled(selection == nil)
-                    Button { remove() } label: { Image(systemName: "minus") }.help(L.t("Delete"))
-                        .disabled(selection == nil || model.draft.profiles.count < 2)
-                    Spacer()
-                    Menu {
-                        Button(L.t("Import profiles…")) { notice = model.importProfiles() }
-                        Button(L.t("Export profiles…")) { model.exportProfiles() }
-                        Divider()
-                        Button(L.t("Restore default profiles")) { model.draft.profiles = Profile.defaults; selection = model.draft.profiles.first?.id }
-                    } label: { Image(systemName: "ellipsis.circle") }
-                    .menuStyle(.borderlessButton).fixedSize()
-                }
-                .buttonStyle(.borderless)
-                if let notice { Text(notice).font(.caption).foregroundStyle(.secondary) }
-            }
-            .frame(minWidth: 180, maxWidth: 220)
+    private var current: Profile? { model.draft.profiles.first { $0.id == selection } }
 
-            Group {
-                if let index = model.draft.profiles.firstIndex(where: { $0.id == selection }) {
-                    ProfileDetail(model: model, profile: $model.draft.profiles[index])
-                        .id(model.draft.profiles[index].id)
-                } else {
-                    Text(L.t("Select a profile")).foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
-                }
+    var body: some View {
+        VStack(spacing: 0) {
+            bar
+            Rectangle().fill(Theme.rule).frame(height: 1)
+            if let index = model.draft.profiles.firstIndex(where: { $0.id == selection }) {
+                ProfileDetail(model: model, profile: $model.draft.profiles[index])
+                    .id(model.draft.profiles[index].id)
+            } else {
+                Text(L.t("Select a profile")).foregroundStyle(.secondary).frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            .frame(minWidth: 480)
         }
         .onAppear { if selection == nil { selection = model.draft.profiles.first?.id } }
+    }
+
+    /// The profile in use for the app in front is chosen by the app; here you choose which one to edit.
+    private var bar: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(spacing: 10) {
+                Kicker(text: L.t("Editing profile"), color: Theme.ink)
+                Picker("", selection: $selection) {
+                    ForEach(model.draft.profiles, id: \.id) { Text($0.name).tag(Optional($0.id)) }
+                }
+                .labelsHidden()
+                .fixedSize()
+                Button { add() } label: { Image(systemName: "plus") }.help(L.t("New profile"))
+                Button { duplicate() } label: { Image(systemName: "plus.square.on.square") }
+                    .help(L.t("Duplicate")).disabled(selection == nil)
+                Button { remove() } label: { Image(systemName: "minus") }
+                    .help(L.t("Delete")).disabled(selection == nil || model.draft.profiles.count < 2)
+                Spacer()
+                Menu {
+                    Button(L.t("Import profiles…")) { notice = model.importProfiles() }
+                    Button(L.t("Export profiles…")) { model.exportProfiles() }
+                    Divider()
+                    Button(L.t("Restore default profiles")) {
+                        model.draft.profiles = Profile.defaults
+                        selection = model.draft.profiles.first?.id
+                    }
+                } label: { Image(systemName: "ellipsis.circle") }
+                .menuStyle(.borderlessButton).fixedSize()
+            }
+            .buttonStyle(.borderless)
+            if let current {
+                Text(current.apps.isEmpty
+                     ? L.t("Used for every app that has no profile of its own.")
+                     : L.f("Used in: %@", current.apps.map(AppLabel.name(for:)).joined(separator: ", ")))
+                    .font(.caption).foregroundStyle(.secondary).lineLimit(2)
+            }
+            if let notice { Text(notice).font(.caption).foregroundStyle(.secondary) }
+        }
+        .padding(.horizontal, 24)
+        .padding(.vertical, 10)
     }
 
     private func uniqueID(_ base: String) -> String {
@@ -61,7 +73,7 @@ struct ProfilesTab: View {
     }
 
     private func add() {
-        var profile = Profile(id: uniqueID("profile"), name: L.t("New profile"))
+        let profile = Profile(id: uniqueID("profile"), name: L.t("New profile"))
         model.draft.profiles.append(profile)
         selection = profile.id
     }
@@ -82,82 +94,122 @@ struct ProfilesTab: View {
     }
 }
 
+/// One profile, edited a part at a time so every page stays short and readable.
 private struct ProfileDetail: View {
     @ObservedObject var model: SettingsModel
     @Binding var profile: Profile
-    @State private var sample = "hi mark see you tomorrow at three for the meeting about the project"
-    @State private var previewOutput = ""
-    @State private var previewing = false
+    @State private var part: Part = .profile
 
-    var body: some View {
-        Form {
-            Section(L.t("Profile")) {
-                TextField(L.t("Name"), text: $profile.name)
-                Picker(L.t("Language"), selection: $profile.language) {
-                    Text(L.t("Same as Transcription")).tag(String?.none)
-                    Text(L.t("Automatic")).tag(String?.some("auto"))
-                    Text("Italiano").tag(String?.some("it"))
-                    Text("English").tag(String?.some("en"))
-                }
-                Picker(L.t("Writing text"), selection: $profile.injection) {
-                    Text(L.t("Same as general setting")).tag(InjectionStrategy?.none)
-                    Text(L.t("Paste")).tag(InjectionStrategy?.some(.paste))
-                    Text(L.t("Accessibility")).tag(InjectionStrategy?.some(.ax))
-                    Text(L.t("Typing")).tag(InjectionStrategy?.some(.type))
-                }
-            }
-
-            Section {
-                if profile.apps.isEmpty {
-                    Text(L.t("No apps: this profile is used for every app not assigned to another one.")).foregroundStyle(.secondary)
-                }
-                ForEach(profile.apps, id: \.self) { bundleID in
-                    HStack {
-                        AppLabel(bundleID: bundleID)
-                        Spacer()
-                        Button { profile.apps.removeAll { $0 == bundleID } } label: { Image(systemName: "minus.circle") }
-                            .buttonStyle(.borderless)
-                    }
-                }
-                Button(L.t("Add app…")) { addApp() }
-            } header: { Text(L.t("Apps")) }
-
-            ModesSection(interaction: $profile.interaction)
-
-            Section(L.t("Preview of \"Enhanced\"")) {
-                TextField(L.t("Test sentence"), text: $sample, axis: .vertical).lineLimit(1...3)
-                Button(previewing ? L.t("Running…") : L.t("Test")) { runPreview() }.disabled(previewing)
-                if !previewOutput.isEmpty { Text(previewOutput).textSelection(.enabled).foregroundStyle(.secondary) }
-            }
-
-            SlotsSection(slots: $profile.slots)
-
-            Section(L.t("Gestures")) {
-                ActionRow(label: L.t("Orange · tap"), action: $profile.orange.tap)
-                ActionRow(label: L.t("Orange · double tap"), action: $profile.orange.doubleTap)
-                ActionRow(label: L.t("Orange · long press"), action: $profile.orange.longPress)
-                ActionRow(label: L.t("White · tap"), action: $profile.white.tap)
-                ActionRow(label: L.t("White · double tap"), action: $profile.white.doubleTap)
-                ActionRow(label: L.t("White · long press"), action: $profile.white.longPress)
-                ActionRow(label: L.t("Grey · tap"), action: $profile.grey.tap)
-                ActionRow(label: L.t("Grey · double tap"), action: $profile.grey.doubleTap)
-                ActionRow(label: L.t("Grey · long press"), action: $profile.grey.longPress)
-                ActionRow(label: L.t("Grey while dictating"), action: $profile.chord)
-                ActionRow(label: L.t("Handle · double click"), action: $profile.handle.doubleClick)
-                ActionRow(label: L.t("Short shake"), action: $profile.shake.short)
-                ActionRow(label: L.t("Long shake (2 s)"), action: $profile.shake.hold)
+    enum Part: String, CaseIterable, Identifiable {
+        case profile, skills, voice, buttons
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .profile: return L.t("Profile")
+            case .skills: return L.t("White: skills")
+            case .voice: return L.t("Voice command")
+            case .buttons: return L.t("Buttons")
             }
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
+        /// What the page is for, in plain words.
+        var intro: String {
+            switch self {
+            case .profile:
+                return L.t("A profile holds the settings for one or more apps. The one for the app in front is used; a profile with no apps covers all the others.")
+            case .skills:
+                return L.t("White button: tap = next skill or command, double tap = previous, long press = none. The 4 white LEDs show the number in binary. The list follows the channel, so it is the one of the channel's app.")
+            case .voice:
+                return L.t("Hold the handle, press grey once and say what to do, in any language: write, edit the selected text, switch channel, run a skill or an intent. Here you tell the model about this app.")
+            case .buttons:
+                return L.t("What each gesture does in this profile. Orange switches channels, white walks through the skills, grey runs and interrupts.")
+            }
+        }
     }
 
-    private func runPreview() {
-        previewing = true
-        Task {
-            previewOutput = await model.preview(mode: PromptPreset(name: "Enhanced", prompt: profile.interaction.enhancePrompt),
-                                                style: nil, sample: sample)
-            previewing = false
+    var body: some View {
+        VStack(spacing: 0) {
+            VStack(alignment: .leading, spacing: 8) {
+                Picker("", selection: $part) {
+                    ForEach(Part.allCases) { Text($0.title).tag($0) }
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                Text(part.intro)
+                    .font(.callout).foregroundStyle(Theme.muted)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 12)
+            .padding(.bottom, 4)
+
+            Form {
+                switch part {
+                case .profile: profilePart
+                case .skills: SlotsSection(slots: $profile.slots)
+                case .voice: VoiceCommandSection(hints: $profile.interaction.commandHints, intents: $profile.intents)
+                case .buttons: buttonsPart
+                }
+            }
+            .formStyle(.grouped)
+            .scrollContentBackground(.hidden)
+        }
+    }
+
+    @ViewBuilder private var profilePart: some View {
+        Section {
+            TextField(L.t("Name"), text: $profile.name)
+            Picker(L.t("Language"), selection: $profile.language) {
+                Text(L.t("Same as Transcription")).tag(String?.none)
+                Text(L.t("Automatic")).tag(String?.some("auto"))
+                Text("Italiano").tag(String?.some("it"))
+                Text("English").tag(String?.some("en"))
+            }
+            Picker(L.t("Writing text"), selection: $profile.injection) {
+                Text(L.t("Same as general setting")).tag(InjectionStrategy?.none)
+                Text(L.t("Paste")).tag(InjectionStrategy?.some(.paste))
+                Text(L.t("Accessibility")).tag(InjectionStrategy?.some(.ax))
+                Text(L.t("Typing")).tag(InjectionStrategy?.some(.type))
+            }
+        } header: { Text(L.t("Profile")) }
+
+        Section {
+            if profile.apps.isEmpty {
+                Text(L.t("No apps: this profile is used for every app not assigned to another one.")).foregroundStyle(.secondary)
+            }
+            ForEach(profile.apps, id: \.self) { bundleID in
+                HStack {
+                    AppLabel(bundleID: bundleID)
+                    Spacer(minLength: 8)
+                    Button { profile.apps.removeAll { $0 == bundleID } } label: { Image(systemName: "minus.circle") }
+                        .buttonStyle(.borderless)
+                }
+            }
+            Button(L.t("Add app…")) { addApp() }
+        } header: { Text(L.t("Apps")) }
+    }
+
+    /// Every gesture, grouped by button, with short labels.
+    @ViewBuilder private var buttonsPart: some View {
+        Section(L.t("Orange · channels")) {
+            ActionRow(label: L.t("tap"), action: $profile.orange.tap)
+            ActionRow(label: L.t("double tap"), action: $profile.orange.doubleTap)
+            ActionRow(label: L.t("long press"), action: $profile.orange.longPress)
+        }
+        Section(L.t("White · skills and commands")) {
+            ActionRow(label: L.t("tap"), action: $profile.white.tap)
+            ActionRow(label: L.t("double tap"), action: $profile.white.doubleTap)
+            ActionRow(label: L.t("long press"), action: $profile.white.longPress)
+        }
+        Section(L.t("Grey")) {
+            ActionRow(label: L.t("tap"), action: $profile.grey.tap)
+            ActionRow(label: L.t("double tap"), action: $profile.grey.doubleTap)
+            ActionRow(label: L.t("long press"), action: $profile.grey.longPress)
+            ActionRow(label: L.t("while talking"), action: $profile.chord)
+        }
+        Section(L.t("Handle and shake")) {
+            ActionRow(label: L.t("Handle · double click"), action: $profile.handle.doubleClick)
+            ActionRow(label: L.t("Short shake"), action: $profile.shake.short)
+            ActionRow(label: L.t("Long shake (2 s)"), action: $profile.shake.hold)
         }
     }
 
@@ -176,98 +228,107 @@ private struct ProfileDetail: View {
     }
 }
 
-/// Orange button: which interaction modes the profile offers (One-Pager 001 §1).
-private struct ModesSection: View {
-    @Binding var interaction: InteractionSettings
+/// Grey pressed while talking: the dictation is a voice command (One-Pager 004 §6). What the
+/// model should know about the app, and the intents: actions with a name ("interrupt",
+/// "newSession") that the profile turns into keys.
+private struct VoiceCommandSection: View {
+    @Binding var hints: String
+    @Binding var intents: [String: Action]
+    @State private var newName = ""
+
+    private var names: [String] { intents.keys.sorted() }
+
+    private var newNameIsValid: Bool {
+        newName.range(of: "^[A-Za-z][A-Za-z0-9]{0,29}$", options: .regularExpression) != nil && intents[newName] == nil
+    }
 
     var body: some View {
         Section {
-            ForEach(InteractionMode.allCases, id: \.self) { mode in
-                Toggle(isOn: Binding(
-                    get: { interaction.enabled.contains(mode) },
-                    set: { on in
-                        if on {
-                            interaction.enabled = InteractionMode.allCases.filter { interaction.enabled.contains($0) || $0 == mode }
-                        } else if interaction.enabled.count > 1 {
-                            interaction.enabled.removeAll { $0 == mode }
-                        }
-                    })) {
-                    HStack(spacing: 10) {
-                        Rectangle().fill(mode == interaction.defaultMode ? Theme.accent : Color.clear).frame(width: 3, height: 18)
-                        LEDDot(on: interaction.enabled.contains(mode), red: true, size: 9)
-                        Text(Theme.chapter("8.\(mode.ledIndex + 1)"))
-                            .font(Theme.mono(10, semibold: true)).foregroundStyle(Theme.muted)
-                        Text(L.t(mode.label).lowercased()).font(Theme.display(15, .extrabold))
-                        if !mode.isAvailable { Kicker(text: L.t("not available yet")) }
-                    }
+            HintField(hint: L.t("e.g. the field accepts Markdown; Return sends"), text: $hints, axis: .vertical)
+                .lineLimit(2...4)
+        } header: {
+            Text(L.t("Notes for the model about this app"))
+        }
+
+        Section {
+            ForEach(names, id: \.self) { name in
+                HStack(alignment: .top, spacing: 8) {
+                    ActionRow(label: name, action: Binding(get: { intents[name] ?? .none }, set: { intents[name] = $0 }))
+                    // "interrupt" is the one the grey long press uses: it stays.
+                    Button { intents[name] = nil } label: { Image(systemName: "minus.circle") }
+                        .buttonStyle(.borderless).disabled(name == "interrupt")
                 }
             }
-            Picker(L.t("Default mode"), selection: $interaction.defaultMode) {
-                ForEach(interaction.enabled, id: \.self) { Text(L.t($0.label)).tag($0) }
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(L.t("Instruction for \"Enhanced\"")).font(.callout)
-                TextField("", text: $interaction.enhancePrompt, axis: .vertical).lineLimit(2...5)
-            }
-            VStack(alignment: .leading, spacing: 4) {
-                Text(L.t("App notes for \"Command\"")).font(.callout)
-                TextField(L.t("e.g. the field accepts Markdown; Return sends"), text: $interaction.commandHints, axis: .vertical)
-                    .lineLimit(2...4)
+            HStack {
+                HintField(hint: L.t("New intent name, e.g. newSession"), text: $newName)
+                Button(L.t("Add intent")) {
+                    intents[newName] = .key(["return"])
+                    newName = ""
+                }
+                .disabled(!newNameIsValid)
             }
         } header: {
-            Text(L.t("Interaction modes (orange, red LEDs)"))
+            Text(L.t("Intents"))
         } footer: {
-            Text(L.t("Tap: next mode · long press: back to the default. While recording the red LEDs run the KITT animation."))
+            Text(L.t("An intent is a named action, like \"stop\" or \"new session\". Say it in a voice command and this profile turns it into the keys you choose here. interrupt is also the long press on grey."))
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
 }
 
-/// White button: up to 15 slots shown in binary on the white LEDs (One-Pager 001 §2).
+/// White button: up to 15 skills and commands, shown in binary on the white LEDs.
 private struct SlotsSection: View {
     @Binding var slots: [Slot]
 
     var body: some View {
         Section {
-            ForEach(slots.indices, id: \.self) { i in
-                VStack(alignment: .leading, spacing: 4) {
-                    HStack {
-                        Text(String(format: "%02d", i + 1)).font(Theme.mono(11, semibold: true)).foregroundStyle(Theme.muted).frame(width: 22)
-                        BinaryLEDs(number: i + 1)
-                        TextField(L.t("Name"), text: $slots[i].name)
-                        Picker("", selection: $slots[i].kind) {
-                            Text(L.t("Run")).tag(SlotKind.run)
-                            Text(L.t("Template")).tag(SlotKind.template)
-                            Text("LLM").tag(SlotKind.llm)
-                        }
-                        .labelsHidden().frame(width: 110)
-                        Button { move(i, by: -1) } label: { Image(systemName: "chevron.up") }.disabled(i == 0)
-                        Button { move(i, by: 1) } label: { Image(systemName: "chevron.down") }.disabled(i == slots.count - 1)
-                        Button { slots.remove(at: i) } label: { Image(systemName: "minus.circle") }
-                    }
-                    .buttonStyle(.borderless)
-                    switch slots[i].kind {
-                    case .run:
-                        ActionRow(label: L.t("Action (grey)"), action: $slots[i].action)
-                    case .template:
-                        TextField(L.t("Text with {{testo}} in place of the dictation"), text: $slots[i].template, axis: .vertical)
-                            .lineLimit(1...4).font(.callout)
-                    case .llm:
-                        TextField(L.t("LLM instruction applied to the dictation"), text: $slots[i].template, axis: .vertical)
-                            .lineLimit(1...4).font(.callout)
-                    }
-                }
-                .padding(.vertical, 2)
+            if slots.isEmpty {
+                Text(L.t("No skills or commands yet.")).foregroundStyle(.secondary)
             }
+            ForEach(slots.indices, id: \.self) { i in row(i) }
             if slots.count < Slot.maxCount {
-                Button(L.t("Add slot")) { slots.append(.run(L.t("New slot"), .key(["return"]))) }
+                Button(L.t("Add skill or command")) { slots.append(.run(L.t("New slot"), .key(["return"]))) }
             }
         } header: {
-            Text(L.f("Slots (white, white LEDs in binary) — %d/%d", slots.count, Slot.maxCount))
+            Text(L.f("Skills and commands — %d/%d", slots.count, Slot.maxCount))
         } footer: {
-            Text(L.t("White: tap = next slot, double tap = previous, long press = none. Run: grey launches it. Template and LLM: they apply to the next dictation. After use the selection goes back to \"no slot\"."))
+            Text(L.t("Command: grey runs it on the spot (keys or text, e.g. /compact). Skill / template and LLM rewrite apply to the next thing you dictate; after use the selection goes back to \"no slot\". The names are also what you say in a voice command."))
                 .font(.caption).foregroundStyle(.secondary)
         }
+    }
+
+    /// Line 1: number, LEDs, name, type, order. Line 2, full width: what it does.
+    private func row(_ i: Int) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                Text(String(format: "%02d", i + 1)).font(Theme.mono(11, semibold: true)).foregroundStyle(Theme.muted)
+                BinaryLEDs(number: i + 1)
+                HintField(hint: L.t("Name"), text: $slots[i].name)
+                Picker("", selection: $slots[i].kind) {
+                    Text(L.t("Command")).tag(SlotKind.run)
+                    Text(L.t("Skill / template")).tag(SlotKind.template)
+                    Text(L.t("LLM rewrite")).tag(SlotKind.llm)
+                }
+                .labelsHidden().frame(width: 150)
+                Button { move(i, by: -1) } label: { Image(systemName: "chevron.up") }.disabled(i == 0)
+                Button { move(i, by: 1) } label: { Image(systemName: "chevron.down") }.disabled(i == slots.count - 1)
+                Button { slots.remove(at: i) } label: { Image(systemName: "minus.circle") }
+            }
+            .buttonStyle(.borderless)
+            switch slots[i].kind {
+            case .run:
+                ActionRow(label: "", action: $slots[i].action)
+            case .template:
+                HintField(hint: L.t("Text with {{text}} where the dictation goes, e.g. a skill prompt"),
+                          text: $slots[i].template, axis: .vertical)
+                    .lineLimit(1...4).font(.callout)
+            case .llm:
+                HintField(hint: L.t("What the LLM should do with the dictation, e.g. rewrite as an email"),
+                          text: $slots[i].template, axis: .vertical)
+                    .lineLimit(1...4).font(.callout)
+            }
+        }
+        .padding(.vertical, 4)
     }
 
     private func move(_ i: Int, by delta: Int) {
@@ -295,20 +356,27 @@ private struct BinaryLEDs: View {
 }
 
 /// App name and icon for a bundle identifier.
-private struct AppLabel: View {
+struct AppLabel: View {
     let bundleID: String
+
+    /// "Claude", "Terminal"… for a bundle identifier; the identifier itself if the app is not installed.
+    static func name(for bundleID: String) -> String {
+        if let name = SessionLocator.displayName(bundleID: bundleID) { return name }
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return bundleID }
+        return FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: "")
+    }
 
     var body: some View {
         let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID)
         HStack {
             if let url {
                 Image(nsImage: NSWorkspace.shared.icon(forFile: url.path)).resizable().frame(width: 18, height: 18)
-                Text(FileManager.default.displayName(atPath: url.path).replacingOccurrences(of: ".app", with: ""))
+                Text(Self.name(for: bundleID)).lineLimit(1)
             } else {
                 Image(systemName: "app.dashed")
-                Text(bundleID)
+                Text(bundleID).lineLimit(1)
             }
-            Text(bundleID).font(.caption).foregroundStyle(.secondary)
+            Text(bundleID).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
         }
     }
 }
@@ -332,13 +400,13 @@ struct ActionRow: View {
             case .reinsertRaw: return L.t("Rewrite last (raw)")
             case .reinsertProcessed: return L.t("Rewrite last (processed)")
             case .cancel: return L.t("Cancel dictation")
-            case .editSelection: return L.t("Edit selection")
+            case .editSelection: return L.t("Voice command")
             case .nextChannel: return L.t("Next channel")
             case .previousChannel: return L.t("Previous channel")
             case .bindChannel: return L.t("Bind window to channel")
             case .interrupt: return L.t("Interrupt (Esc)")
-            case .cycleMode: return L.t("Next mode")
-            case .resetMode: return L.t("Default mode")
+            case .cycleMode: return L.t("Next mode (old)")
+            case .resetMode: return L.t("Default mode (old)")
             case .nextSlot: return L.t("Next slot")
             case .previousSlot: return L.t("Previous slot")
             case .clearSlot: return L.t("No slot")
@@ -428,23 +496,60 @@ struct ActionRow: View {
     }
 
     var body: some View {
-        HStack {
-            Text(label).frame(width: 190, alignment: .leading)
-            Picker("", selection: kind) {
-                ForEach(Kind.allCases) { Text($0.title).tag($0) }
+        if label.isEmpty {
+            // Inside a slot there is room: the type and its keys or text share one line.
+            HStack(spacing: 8) {
+                picker
+                parameterField
             }
-            .labelsHidden()
-            .frame(width: 220)
-            switch action {
-            case .key:
-                TextField(L.t("e.g. cmd+a delete"), text: parameter)
-                    .foregroundStyle(invalidKeys ? .red : .primary)
-                    .help(L.t("Combinations separated by spaces. Modifiers: cmd, shift, opt, ctrl. Keys: letters, digits, return, tab, space, delete, escape, arrows."))
-            case .text:
-                TextField(L.t("e.g. /clear\\n"), text: parameter).help(L.t("trailing \\n = also press Return"))
-            default:
-                Spacer()
+        } else {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack {
+                    Text(label)
+                    Spacer(minLength: 8)
+                    picker
+                }
+                // The keys or the text go on their own line: the page is narrow.
+                parameterField
             }
         }
+    }
+
+    // The old interaction-mode actions are only listed for a profile that still has one.
+    private var picker: some View {
+        Picker("", selection: kind) {
+            ForEach(Kind.allCases.filter { ![.cycleMode, .resetMode].contains($0) || $0 == Self.kind(of: action) }) {
+                Text($0.title).tag($0)
+            }
+        }
+        .labelsHidden()
+        .fixedSize()
+    }
+
+    @ViewBuilder private var parameterField: some View {
+        switch action {
+        case .key:
+            HintField(hint: L.t("e.g. cmd+a delete"), text: parameter)
+                .foregroundStyle(invalidKeys ? .red : .primary)
+                .help(L.t("Combinations separated by spaces. Modifiers: cmd, shift, opt, ctrl. Keys: letters, digits, return, tab, space, delete, escape, arrows."))
+        case .text:
+            HintField(hint: L.t("e.g. /clear\\n"), text: parameter).help(L.t("trailing \\n = also press Return"))
+        default:
+            EmptyView()
+        }
+    }
+}
+
+/// A text field with its hint inside the field. In a grouped Form a titled field puts the title
+/// on the left and the typed text on the right, which squeezes long texts.
+struct HintField: View {
+    let hint: String
+    @Binding var text: String
+    var axis: Axis = .horizontal
+
+    var body: some View {
+        TextField("", text: $text, prompt: Text(hint), axis: axis)
+            .labelsHidden()
+            .multilineTextAlignment(.leading)
     }
 }
