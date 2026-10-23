@@ -1,8 +1,8 @@
 ---
 format: 1080x1080
-duration: 21s
+duration: 26s
 message: "Your FX-MIC, now a voice remote for your coding agent"
-arc: "Demo Loop — hook (chapter title) → hold+talk → pick a skill → send to agent → brand"
+arc: "Demo Loop — hook (chapter title) → channels → talk where you are → voice command → pick a skill → send to agent → brand"
 audience: "software engineers running agentic workflows (Claude Code), tinkerers — LinkedIn feed"
 mode: collaborative
 music: "lo-fi electronic, mechanical, playful, upbeat, ~105 bpm, punchy start"
@@ -31,14 +31,14 @@ curiosity for everyone else. Paper register, technical uppercase chrome, no prod
 - Scene 2 (0.4–1.9s): "((8))" lands, then the title types on with an orange caret → `discrete-text-sequence` + `context-sensitive-cursor`.
 - Scene 3 (1.8–2.5s): hold, caret blink only.
 
-## Frame 2 — ((8.1)) Pick a mode
+## Frame 2 — ((8.1)) Channels (revision 2: replaces "Pick a mode")
 
 - scene: Guide-style table of the 4 interaction modes beside the mic; each row lights with its red LED, then two presses of the orange button settle on "enhanced"
 - duration: 4s
 - poster: 3.4s
 - transition_in: cut
 - status: animated
-- src: compositions/frames/02-modes.html
+- src: compositions/frames/02-channels.html
 - blueprint: fixed-anchor-cycle
 - voiceover: none
 - onscreen: chrome "((8.1)) orange button" / "mode n / 4" · rows "dictate — as spoken", "enhanced — polished by a local llm", "command — voice → shortcuts", "computer use — coming soon" · callout "PRESS"
@@ -79,6 +79,14 @@ FXMic Bridge while recording), and the Dynamic-Island-style pill confirms the re
 - Scene 4 (2.2–3.0s): caption types "dictate anywhere on your mac".
 - Scene 5 (3.4–4.0s): handle releases, KITT stops on LED 2 (mode: enhanced), pill text swaps to "written ✓".
 
+## Frame 3b — ((8.2)) Say what to do (revision 2, new)
+
+- scene: Mic on the left; the handle goes down, grey is pressed once; the pill reads "voice command"; "“translate it into italian”" types on; the selected sentence in a note ("see you tomorrow at three.") is replaced by "ci vediamo domani alle tre."
+- duration: 4.5s
+- src: compositions/frames/04-voice.html
+- onscreen: chrome "((8.2)) grey while you talk · voice command" / "any language" · callout "GREY" · caption "the sentence becomes actions"
+- sfx: click (handle), click (grey), typing, click-soft (release), chime (replaced)
+
 ## Frame 4 — Pick a skill
 
 - scene: PRESS callout jumps to the white button; the 4 white LEDs count in binary 0001→0010→0011 while the slot name swaps /compact → /clear → /review
@@ -86,7 +94,7 @@ FXMic Bridge while recording), and the Dynamic-Island-style pill confirms the re
 - poster: 2.8s
 - transition_in: cut
 - status: animated
-- src: compositions/frames/04-slot.html
+- src: compositions/frames/05-slot.html
 - blueprint: fixed-anchor-cycle
 - voiceover: none
 - onscreen: callout "PRESS" on white button · slot label cycles "/compact", "/clear", "/review" · caption "15 slots per app, in 4 LEDs"
@@ -109,7 +117,7 @@ on the beat. Lands on "/review".
 - poster: 3.6s
 - transition_in: cut
 - status: animated
-- src: compositions/frames/05-agent.html
+- src: compositions/frames/06-agent.html
 - blueprint: prompt-type-submit-generate
 - voiceover: none
 - onscreen: callout "PRESS" on grey button · terminal "> /review" · agent lines "reviewing 4 files…", "✓ 2 suggestions" · caption "no keyboard. just the mic."
@@ -127,14 +135,14 @@ for the square feed.
 - Scene 4 (1.8–3.6s): agent status lines appear one by one, spinner dot pulses (finite), then "✓ 2 suggestions" lands in green → `dynamic-content-sequencing`.
 - Scene 5 (3.4–4.5s): caption "no keyboard. just the mic." types; hold.
 
-## Frame 6 — FXMic Bridge
+## Frame 6 — cue-2350 mic.
 
 - scene: Back to the paper page; "FXMic Bridge" wordmark locks up with the mic silhouette, tagline and open-source line, small unofficial line at the bottom
 - duration: 3.5s
 - poster: 2.6s
 - transition_in: cut
 - status: animated
-- src: compositions/frames/06-brand.html
+- src: compositions/frames/07-brand.html
 - blueprint: titlecard-reveal
 - voiceover: none
 - onscreen: "FXMic Bridge" · "voice + gestures for your coding agent" · "open source · macOS" · footer "unofficial · not affiliated with teenage engineering"

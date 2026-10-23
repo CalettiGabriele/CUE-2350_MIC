@@ -7,7 +7,7 @@ destination: linkedin-feed
 aspect: 1080x1080
 language: en
 audience: "software engineers running agentic workflows (Claude Code), tinkerers"
-length: 20-21s
+length: 26s
 angle: "Chapter 8 — an unofficial new chapter of the EP-2350 user guide"
 ---
 
@@ -41,6 +41,12 @@ Must read well muted (LinkedIn autoplays silent): callouts and on-screen text te
   new scene "((8.1)) orange button" shows the 4 interaction modes (dictate, enhanced,
   command, computer use — coming soon) with the red LEDs.
 - Music bed from the HeyGen library (lo-fi electronic), fade-out at the end.
+- Revision 2 (2026-10-23, new UX of the app, renamed CUE-2350 MIC): the orange scene now
+  shows **channels** (claude code, claude chat, codex, notes; one red LED each; "free" with
+  all red LEDs off), the talk scene runs free ("your words land where you are"), a new scene
+  shows the **voice command** (grey pressed while talking: the selected sentence is
+  translated in place), white shows **skills & commands**, the end card reads "cue-2350 mic."
+  Length 26 s: the 22 s music bed is extended by a crossfaded second pass (`bgm-tail`).
 
 ## Notes
 
@@ -51,5 +57,6 @@ Must read well muted (LinkedIn autoplays silent): callouts and on-screen text te
 - Terminal commands large and short (max 2–3 words per line) for the square format.
 - Product facts source: docs/GESTURES.md (profiles: Agente di coding → /compact, /clear,
   /review, bug report, commit message; grey tap = run slot / Enter; shake = cancel;
-  handle hold = dictate; red LEDs = 4 modes; white LEDs = slot number in binary).
+  handle hold = dictate; red LEDs = 4 channels, all off when free; white LEDs = skill number
+  in binary; grey while talking = voice command). Vocabulary: One-Pager 004 §15.
 - Project is open source.
