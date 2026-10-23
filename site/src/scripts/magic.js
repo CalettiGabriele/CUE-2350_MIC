@@ -1,7 +1,7 @@
 // "The magic": a pinned stage whose every frame is a pure function of the scroll position `t`
 // (0 → END, one unit per scene), so the story scrubs back and forth without drift.
-//   A 0–1 hold. talk.   B 1–2 the ai listens.   C 2–3 the ai cleans up.
-//   D 3–4 send it.      E 4–5 one button, any skill.
+//   A 0–1 hold. talk.   B 1–2 written where you are.   C 2–3 say what to do (voice command).
+//   D 3–4 send it.      E 4–5 one button, any skill.   F 5–6 jump to the next agent (channel 2).
 import gsap from 'gsap';
 import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import { islandDriver } from './island.js';
@@ -9,7 +9,7 @@ import { seg, easeInOut, easeOut, hash, glyph, kitt, ledDriver, prefersReducedMo
 
 gsap.registerPlugin(ScrollTrigger);
 
-const END = 5.25;
+const END = 6.25;
 const SLOTS = ['/compact', '/clear', '/review'];
 const TYPE_A = 1.05, TYPE_B = 1.85; // raw dictation types in during B
 
@@ -34,6 +34,8 @@ export function initMagic() {
   const in1 = $('[data-in1]'), in2 = $('[data-in2]');
   const cur1 = $('[data-cur1]'), cur2 = $('[data-cur2]');
   const cmd = $('[data-cmd]');
+  const raw = $('[data-raw]');
+  const term2 = $('[data-term2]');
   const lines = $$('[data-l]');
   const canvas = $('[data-fx]');
   const ctx = canvas.getContext('2d');
@@ -128,22 +130,25 @@ export function initMagic() {
       c.style.opacity = k;
       c.style.transform = `translateY(${(1 - k) * (t < i + 0.5 ? 18 : -18)}px)`;
     });
-    const scene = Math.min(4, Math.floor(t));
+    const scene = Math.min(caps.length - 1, Math.floor(t));
     steps.forEach((s, i) => { s.style.setProperty('--p', seg(t, i, i + 1)); s.classList.toggle('on', i === scene); });
 
     // ---- mic: handle, buttons, LEDs
-    mic.classList.toggle('held', t > 0.12 && t < 0.95);
-    press(btn.orange, t, 2.08);
+    // handle held to dictate (A) and to give the voice command (C, with grey pressed once)
+    mic.classList.toggle('held', (t > 0.12 && t < 0.95) || (t > 2.0 && t < 2.5));
+    press(btn.grey, t, 2.1);
     press(btn.grey, t, 3.1);
+    press(btn.orange, t, 5.1);
     press(btn.white, t, 4.1); if (t >= 4.22 && t < 4.28) btn.white.classList.add('pressed'); if (t >= 4.34 && t < 4.4) btn.white.classList.add('pressed');
     if (t >= 4.5 && t < 4.56) btn.grey.classList.add('pressed');
 
     const thinking = (x) => (Math.floor(x * 18) % 2 ? 0b0101 : 0b1010);
-    let red = 0b0001, white = 0;
+    // red: the channel you are on (1 = this Claude Code session, 2 = Codex after the jump)
+    let red = t >= 5.1 ? 0b0010 : 0b0001, white = 0;
     if (t > 0.12 && t < 0.95) red = 1 << kitt(Math.floor(seg(t, 0.12, 0.95) * 30));
     else if (t >= 0.95 && t < 1.9) red = thinking(t);
-    else if (t >= 2.1) red = 0b0010;
-    if (t >= 2.25 && t < 2.92) red = thinking(t);
+    if (t > 2.0 && t < 2.5) red = 1 << kitt(Math.floor(seg(t, 2.0, 2.5) * 18));
+    if (t >= 2.5 && t < 2.92) red = thinking(t);
     const slot = t >= 4.62 ? 0 : t >= 4.34 ? 3 : t >= 4.22 ? 2 : t >= 4.1 ? 1 : 0;
     white = slot;
     leds(red, white);
@@ -156,22 +161,26 @@ export function initMagic() {
 
     // ---- island
     if (t < 0.12) setIsland('', '');
-    else if (t < 0.95) setIsland('rec', 'recording · dictate', `0:0${Math.min(4, Math.floor(seg(t, 0.12, 0.95) * 5))}`);
+    else if (t < 0.95) setIsland('rec', 'recording · claude · shop', `0:0${Math.min(4, Math.floor(seg(t, 0.12, 0.95) * 5))}`);
     else if (t < 1.9) setIsland('think', 'transcribing');
-    else if (t < 2.08) setIsland('done', 'written ✓ 0.9 s');
-    else if (t < 2.25) setIsland('done', 'mode 2/4 · enhanced');
-    else if (t < 2.92) setIsland('think', 'enhanced · thinking');
-    else if (t < 3.1) setIsland('done', 'written ✓ 1.2 s');
+    else if (t < 2.0) setIsland('done', 'written ✓ 0.9 s');
+    else if (t < 2.5) setIsland('rec', 'voice command', `0:0${Math.min(1, Math.floor(seg(t, 2.0, 2.5) * 2))}`);
+    else if (t < 2.92) setIsland('think', 'voice command · thinking');
+    else if (t < 3.1) setIsland('done', 'replaced the selection ✓');
     else if (t < 3.35) setIsland('done', 'sent ⏎');
     else if (t < 4.08) setIsland('', '');
     else if (t < 4.5) setIsland('', slot ? `slot ${slot} · ${SLOTS[slot - 1]}` : 'slot');
     else if (t < 5.05) setIsland('done', 'run · /review');
+    else if (t < 5.1) setIsland('', '');
+    else if (t < 5.75) setIsland('done', 'channel 2/3 · codex');
     else setIsland('', '');
 
     // ---- terminal: raw dictation decodes in (B)
     const shown = seg(t, TYPE_A, TYPE_B) * nChars;
     const tick = Math.floor(t * 60);
-    const cleaning = t >= 2.25;
+    const cleaning = t >= 2.5;
+    // C: the sentence is selected while the voice command is given
+    raw.classList.toggle('sel', t > 2.0 && t < 2.55);
     for (const k of toks) {
       if (!cleaning) {
         let s = '';
@@ -191,7 +200,7 @@ export function initMagic() {
     // ---- terminal: the model rewrites it (C)
     if (cleaning) {
       dropOrder.forEach((k, j) => {
-        const a = 2.27 + j * 0.05;
+        const a = 2.52 + j * 0.04;
         const s = seg(t, a, a + 0.16), c = easeInOut(seg(t, a + 0.2, a + 0.38));
         k.el.textContent = k.t;
         k.el.classList.add('strike');
@@ -201,7 +210,7 @@ export function initMagic() {
         k.el.style.color = s > 0 ? 'var(--muted)' : '';
       });
       swapOrder.forEach((k, j) => {
-        const a = 2.5 + j * 0.06;
+        const a = 2.66 + j * 0.05;
         const m = seg(t, a, a + 0.22);
         let s;
         if (m <= 0) s = k.t;
@@ -231,6 +240,11 @@ export function initMagic() {
     in2.classList.toggle('focus', t >= 4.0 && t < 4.64);
     in2.classList.toggle('sent', t >= 4.64);
     show(lines[3], t, 4.72); show(lines[4], t, 4.92);
+
+    // ---- F: orange jumps to channel 2, a Codex thread slides over the terminal
+    const jump = easeOut(seg(t, 5.12, 5.42));
+    term2.style.opacity = jump;
+    term2.style.transform = `translateX(${(1 - jump) * 8}%)`;
 
     drawParticles(t);
   }
@@ -282,7 +296,7 @@ export function initMagic() {
       scrollTrigger: {
         trigger: stage,
         start: 'top top',
-        end: () => `+=${window.innerHeight * (window.innerWidth < 860 ? 4.2 : 5)}`,
+        end: () => `+=${window.innerHeight * (window.innerWidth < 860 ? 5 : 6)}`,
         pin: true,
         scrub: 0.6,
         invalidateOnRefresh: true,

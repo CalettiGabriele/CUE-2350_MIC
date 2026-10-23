@@ -2,17 +2,18 @@
 import Mic from '../components/Mic.astro';
 import MacScreen from '../components/MacScreen.astro';
 
-// The scroll story: one pinned stage, five scenes. scripts/magic.js drives every frame from the
+// The scroll story: one pinned stage, six scenes. scripts/magic.js drives every frame from the
 // scroll position, so the story can be scrubbed back and forth.
 const scenes = [
   { n: '8.1', short: 'talk', title: 'hold. talk.', line: 'Squeeze the handle and just say it. The red LEDs sweep while the mic listens.' },
-  { n: '8.2', short: 'listen', title: 'the ai listens.', line: 'Speech becomes text on your Mac, written right where your cursor is.' },
-  { n: '8.3', short: 'clean up', title: 'the ai cleans up.', line: 'Orange switches to enhanced: a local model turns rambling into a clear request.' },
+  { n: '8.2', short: 'listen', title: 'written where you are.', line: 'Speech becomes text on your Mac, right where your cursor is. No jumps.' },
+  { n: '8.3', short: 'say it', title: 'say what to do.', line: 'Grey while you talk: “clean it up”. A local model rewrites the selection, in any language.' },
   { n: '8.4', short: 'send', title: 'send it.', line: 'Grey presses Return. Your agent is already on it. Hands never leave the mic.' },
-  { n: '8.5', short: 'skills', title: 'one button, any skill.', line: 'White picks a slot — /compact, /clear, /review — and the LEDs count it in binary. Grey runs it.' },
+  { n: '8.5', short: 'skills', title: 'one button, any skill.', line: 'White picks a skill or a command — /compact, /clear, /review — and the LEDs count it in binary. Grey runs it.' },
+  { n: '8.6', short: 'channels', title: 'jump to the next agent.', line: 'Orange takes you to your next channel: another Claude Code session, a Claude chat, a Codex thread.' },
 ];
 
-// Raw dictation → enhanced text. drop: the model removes it; to: the model rewrites it.
+// Raw dictation → the version the voice command asks for. drop: the model removes it; to: it rewrites it.
 const tokens: { t: string; drop?: boolean; to?: string }[] = [
   { t: 'ehm', drop: true }, { t: 'so', drop: true }, { t: 'the', drop: true }, { t: 'the', to: 'The' },
   { t: 'login' }, { t: 'page' }, { t: 'crashes' }, { t: 'when' }, { t: 'like', drop: true },
@@ -45,7 +46,8 @@ const sp = (i: number) => (i < tokens.length - 1 ? ' ' : '');
 
       <div class="magic-right">
         <MacScreen class="magic-mac">
-          <div class="term" role="img" aria-label="A terminal: the dictated sentence is cleaned up by the AI and sent to the coding agent, which fixes the bug; then the /review skill runs.">
+          <div class="screens">
+          <div class="term" role="img" aria-label="A terminal: the dictated sentence is cleaned up by a voice command and sent to the coding agent, which fixes the bug; then the /review command runs, and orange jumps to a Codex thread.">
             <div class="term-bar"><i></i><i></i><i></i><span>claude code — ~/shop</span></div>
             <div class="term-body">
               <p class="tl dim">✻ coding agent ready · ~/shop</p>
@@ -68,6 +70,16 @@ const sp = (i: number) => (i < tokens.length - 1 ? ' ' : '');
               <p class="tl" data-l="3"><b class="acc">●</b> reviewing 2 changed files</p>
               <p class="tl ok" data-l="4">✓ 2 suggestions · 0 issues</p>
             </div>
+          </div>
+          <div class="term term2" data-term2 aria-hidden="true">
+            <div class="term-bar"><i></i><i></i><i></i><span>codex — ~/infra · channel 2</span></div>
+            <div class="term-body">
+              <p class="tl dim">✻ codex · ~/infra</p>
+              <div class="tin sent"><span class="pr">&gt;</span><span class="tin-text">plan the terraform upgrade for staging</span></div>
+              <p class="tl"><b class="acc">●</b> reading main.tf, variables.tf</p>
+              <p class="tl ok">✓ plan ready · 3 changes</p>
+            </div>
+          </div>
           </div>
         </MacScreen>
       </div>
@@ -144,6 +156,13 @@ const sp = (i: number) => (i < tokens.length - 1 ? ' ' : '');
   .tcur.on { opacity: 1; animation: blink 1s steps(1) infinite; }
   @keyframes blink { 50% { opacity: 0; } }
   [data-in2] { opacity: 0; }
+  /* the dictated sentence, selected before the voice command rewrites it */
+  [data-raw].sel { background: color-mix(in srgb, var(--accent) 32%, transparent); border-radius: 2px; }
+  /* channel 2: a second agent slides over the first one */
+  /* flow-root: the terminal's top margin stays inside, so the overlay lines up with it */
+  .screens { position: relative; display: flow-root; }
+  .term2 { position: absolute; top: 0; left: 0; right: 0; opacity: 0; z-index: 1; }
+  .term2 .tl { opacity: 1; }
 
   /* ---- reduced motion / no pin: the final state with every caption listed ---- */
   .magic.static .magic-stage { height: auto; min-height: 0; padding: 96px 0; }
@@ -153,6 +172,7 @@ const sp = (i: number) => (i < tokens.length - 1 ? ' ' : '');
   .magic.static .magic-grid { align-items: start; }
   .magic.static .magic-right { position: sticky; top: 110px; }
   .magic.static .term { height: auto; }
+  .magic.static .term2 { display: none; }
   .magic.static .magic-left { grid-template-rows: auto auto; height: auto; }
   .magic.static .magic-mic-wrap { justify-content: flex-start; }
   .magic.static .magic-mic-wrap :global(.magic-mic) { height: auto; width: 220px; }

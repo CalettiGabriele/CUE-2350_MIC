@@ -7,11 +7,19 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'What hardware and software do I need?',
-    a: 'A Mac with Apple silicon on macOS 14 or later, an EP-2350 FX-MIC (sometimes written EP2350 or FX MIC) and a USB-C data cable. For the enhanced and command modes, a local model server such as Ollama.',
+    a: 'A Mac with Apple silicon on macOS 14 or later, an EP-2350 FX-MIC (sometimes written EP2350 or FX MIC) and a USB-C data cable. For voice commands and LLM rewrites, a local model server such as Ollama.',
   },
   {
     q: 'Does it work with Claude Code and other coding agents?',
-    a: 'Yes. It types into any text field, so it works with the terminal where Claude Code or any other agent runs. Buttons and slots follow the app in front: /compact, /clear and /review in the terminal, “rewrite as email” everywhere else.',
+    a: 'Yes. It types into any text field, so it works with Claude Code, Codex and any other agent, in the terminal or in their desktop apps. The white button’s skills and commands follow the app in front: /compact, /clear and /review in the terminal, “rewrite as email” everywhere else.',
+  },
+  {
+    q: 'What are channels?',
+    a: 'Up to four places you keep going back to, on the orange button, one red LED each: a Claude Code session, a Claude chat or project, a Codex thread, a document or an app. Tap orange to jump to the next one; long-press to add the window in front. On any other app you are free: the words go where your cursor is, with no jump. Hold orange for 3 seconds to clear all four.',
+  },
+  {
+    q: 'What is a voice command?',
+    a: 'Press grey once while you talk and the sentence is not written: a local model turns it into actions — keys, a rewrite of the selected text (“translate it into English”), a jump to a channel (“go to Codex”), a skill (“run the review”). It works in any language, with nothing to memorise, and does nothing if the request is not clear.',
   },
   {
     q: 'Is my voice sent to the cloud?',

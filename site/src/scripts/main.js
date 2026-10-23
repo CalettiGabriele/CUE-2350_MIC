@@ -59,16 +59,16 @@ function initHero() {
     at(1400, () => {
       mic.classList.add('held', 'talking');
       start = performance.now();
-      island.set({ open: true, cls: 'rec', text: 'recording · enhanced', time: '0:00' });
+      island.set({ open: true, cls: 'rec', text: 'recording · claude · api', time: '0:00' });
       ivl = setInterval(() => {
         leds(1 << kitt(step++));
-        island.set({ open: true, cls: 'rec', text: 'recording · enhanced', time: `0:0${Math.floor((performance.now() - start) / 1000)}` });
+        island.set({ open: true, cls: 'rec', text: 'recording · claude · api', time: `0:0${Math.floor((performance.now() - start) / 1000)}` });
       }, 125);
     });
     at(4300, () => {
       clearInterval(ivl);
       mic.classList.remove('held', 'talking');
-      island.set({ open: true, cls: 'think', text: 'thinking' });
+      island.set({ open: true, cls: 'think', text: 'transcribing' });
       let k = 0;
       ivl = setInterval(() => leds(k++ % 2 ? 0b0101 : 0b1010), 110);
     });
