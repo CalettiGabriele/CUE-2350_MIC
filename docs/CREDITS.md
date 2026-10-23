@@ -24,7 +24,7 @@ the same MIT license.
 |---|---|---|---|
 | [WhisperKit](https://github.com/argmaxinc/WhisperKit) | Argmax | speech-to-text, on your Mac | MIT |
 | [Whisper](https://github.com/openai/whisper) models | OpenAI | the speech models WhisperKit runs | MIT |
-| [Ollama](https://ollama.com) | Ollama | default local server for *enhanced*, *command* and LLM slots | MIT |
+| [Ollama](https://ollama.com) | Ollama | default local server for the voice command and LLM slots | MIT |
 | [Barlow](https://github.com/jpt/barlow) | The Barlow Project Authors | titles and display type | SIL OFL 1.1 |
 | [IBM Plex Mono](https://github.com/IBM/plex) | IBM Corp. | chrome: labels, numerals, status | SIL OFL 1.1 |
 

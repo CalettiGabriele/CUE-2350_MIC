@@ -1,6 +1,7 @@
 # One-Pager 003 — Sito web di presentazione di CUE-2350 MIC
 
 > Data: 2026-10-19 (rev. 2: contenuto più sintetico, animazioni allo scorrimento) · Stato: **Implementato in `site/` (v1), da rivedere** · Punti aperti in §9
+> Nota (2026-10-23): le modalità dell'arancione sono state sostituite dai canali e dal comando vocale (One-Pager 004). Il sito è aggiornato; le scene e i numeri citati qui sotto descrivono la v1.
 > Riferimenti: `README.md`, `docs/GESTURES.md`, `videos/fxmic-bridge-teaser/frame.md` e `BRIEF.md` (identità visiva "Chapter 8"), `app/Sources/FXMicBridge/Theme.swift` (token), `docs/CREDITS.md`
 
 ## 1. Obiettivi, in ordine di priorità
