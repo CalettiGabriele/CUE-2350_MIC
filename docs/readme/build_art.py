@@ -324,7 +324,7 @@ def hero():
             '<g clip-path="url(#l2)">' + display(76, 512, f"your agent<tspan fill='{ORANGE}'>.</tspan>", 168) + '</g>',
             f'<g opacity="0">{tween("opacity", [(0, 0), (1.1, 0), (1.6, 1)], 1.6, once=True)}',
             display(82, 600, "hold the handle. talk. release.", 40, color=INK, weight=600),
-            display(82, 650, "your words land where the cursor is — or in your coding agent.", 30, color=MUTED, weight=600),
+            display(82, 650, "your words land where you are. four channels take you to your agents.", 30, color=MUTED, weight=600),
             stub(82, 712), kicker(132, 722, "local whisper · local llm · nothing leaves your mac", color=INK),
             f'<rect x="82" y="770" width="330" height="58" fill="{ORANGE}"/>',
             f'<text x="247" y="808" text-anchor="middle" class="m" font-weight="600" font-size="22" fill="{INK}">CUE-2350 MIC</text>',
@@ -333,8 +333,8 @@ def hero():
             mic(1090, 150, 0.92, P, masks, handle_frames=handle, uid="h"),
             callout(930, 250, "HOLD + TALK", (1060, 300), P, [(0.6, 3.8)], side="right"),
             island(800, P, 0.9, 5.6, masks, width=440, rows=[
-                (0.9, 3.7, "RECORDING · ENHANCED", "#FFFFFF"),
-                (3.7, 4.7, "PROCESSING · ENHANCED", "#DADAD6"),
+                (0.9, 3.7, "RECORDING · CLAUDE · API", "#FFFFFF"),
+                (3.7, 4.7, "TRANSCRIBING", "#DADAD6"),
                 (4.7, 6.0, "WRITTEN (1.2 S)", "#FFFFFF")],
                 timer=[(0.9, 1.9, "0:00"), (1.9, 2.9, "0:01"), (2.9, 3.7, "0:02")], flash_at=4.75)]
     return svg(W, H, "".join(body), title="CUE-2350 MIC — talking to your agent")
@@ -342,17 +342,18 @@ def hero():
 
 def talk():
     W, H, P = 1600, 640, 9.0
-    masks = led_masks(P, [(0, 1.0, "idle", 0b0001), (1.0, 4.0, "kitt", 0), (4.0, 4.8, "idle", 0b0001), (4.8, P, "idle", 0b0001)])
+    # free: no channel in front, so the red LEDs stay off and the words go where the cursor is
+    masks = led_masks(P, [(0, 1.0, "idle", 0), (1.0, 4.0, "kitt", 0), (4.0, P, "idle", 0)])
     handle = [(0, -12), (0.85, -12), (1.05, -3), (3.9, -3), (4.1, -12)]
     sentence = "refactor the auth middleware and add tests for expired tokens."
     steps_ui = [("01", "hold", 0.8, 1.2), ("02", "talk", 1.2, 3.9), ("03", "release", 3.9, 6.5)]
     body = [f'<rect width="{W}" height="{H}" fill="{PAPER}"/>',
             chapter_bar(80, 60, "8.1", 330),
             display(80, 175, "hold. talk. release.", 76),
-            kicker(82, 222, "dictate anywhere on your mac — terminal, editor, browser, chat"),
+            kicker(82, 222, "the words go where your cursor is — no jumps, nothing to set up"),
             mic(120, 270, 0.44, P, masks, handle_frames=handle, uid="t"),
             island(1010, P, 1.0, 5.6, masks, width=400, rows=[
-                (1.0, 4.0, "RECORDING · DICTATION", "#FFFFFF"), (4.0, 6.0, "WRITTEN (0.8 S)", "#FFFFFF")],
+                (1.0, 4.0, "RECORDING · FREE · NOTES", "#FFFFFF"), (4.0, 6.0, "WRITTEN (0.8 S)", "#FFFFFF")],
                 timer=[(1.0, 2.0, "0:00"), (2.0, 3.0, "0:01"), (3.0, 4.0, "0:02")], flash_at=4.05)]
     # the three steps, lighting in turn
     for i, (num, word, start, end) in enumerate(steps_ui):
@@ -377,45 +378,96 @@ def talk():
     return svg(W, H, "".join(body), title="Hold the handle, talk, release")
 
 
-def modes():
-    W, H, P = 1600, 640, 9.6
-    rows = [("dictate", "as spoken, word for word", "“see you at three”", True),
-            ("enhanced", "polished by a local llm", "“See you at 3 p.m.”", True),
-            ("command", "voice becomes keystrokes", "“make it a bullet list”", True),
-            ("computer use", "coming soon", "—", False)]
-    # one press every 2.4 s, cycling the 4 modes
+def channels():
+    W, H, P = 1600, 640, 10.4
+    rows = [("claude code", "a session", "api-backend"),
+            ("claude chat", "a conversation", "release notes draft"),
+            ("codex", "a thread", "infra · terraform"),
+            ("notes", "a document", "TODO.md")]
+    # one tap every 2 s jumps to the next channel, then you click on another app: free
     phases, press = [], []
     for i in range(4):
-        start = i * 2.4
-        phases.append((start, start + 2.4, "idle", 1 << i))
+        start = i * 2.0
+        phases.append((start, start + 2.0, "idle", 1 << i))
         press += [(start + 0.05, 0), (start + 0.15, -10), (start + 0.35, 0)]
+    phases.append((8.0, P, "idle", 0))
     masks = led_masks(P, phases)
     body = [f'<rect width="{W}" height="{H}" fill="{PAPER}"/>',
             chapter_bar(80, 60, "8.2", 330),
-            display(80, 175, "four modes.", 76),
-            kicker(82, 222, "orange button · one red led for each mode"),
+            display(80, 175, "four channels.", 76),
+            kicker(82, 222, "orange button · one red led for each channel · tap to jump there"),
             mic(110, 250, 0.44, P, masks, press={"orange": press}, uid="o"),
-            callout(330, 262, "PRESS", button_point(110, 250, 0.44, "orange"), P, [(0.0, P)])]
-    top = 270
-    for i, (name, lead, example, available) in enumerate(rows):
-        y = top + i * 88
-        active = [(i * 2.4, i * 2.4 + 2.4)]
+            callout(330, 262, "TAP", button_point(110, 250, 0.44, "orange"), P, [(0.0, 8.0)])]
+    top = 256
+    for i, (name, lead, example) in enumerate(rows):
+        y = top + i * 64
+        active = [(i * 2.0, i * 2.0 + 2.0)]
         body.append(f'<line x1="470" y1="{y}" x2="1520" y2="{y}" stroke="{RULE}" stroke-width="1.5"/>')
-        body.append(f'<rect x="470" y="{y + 10}" width="6" height="66" fill="{ORANGE}" opacity="0">{fade_between(active, P, 0.15)}</rect>')
-        body.append(kicker(500, y + 50, f"((8.2.{i + 1}))", color=MUTED, size=14))
-        color = INK if available else MUTED
-        body.append(f'<g opacity="0.45">{steps("opacity", [(0, 0.45)] + [(s, 1) for s, _ in active] + [(e, 0.45) for _, e in active], P)}'
-                    + display(640, y + 58, name, 46, color=color, weight=800)
-                    + kicker(960, y + 40, lead, color=INK if available else MUTED, size=15)
-                    + f'<text x="960" y="{y + 66}" class="d" font-weight="600" font-size="22" fill="{MUTED}">{example}</text>'
+        body.append(f'<rect x="470" y="{y + 8}" width="6" height="48" fill="{ORANGE}" opacity="0">{fade_between(active, P, 0.15)}</rect>')
+        # the channel's red LED, as on the mic
+        body.append(f'<circle cx="512" cy="{y + 32}" r="9" fill="{RED_OFF}">'
+                    f'{steps("fill", [(0, RED_OFF), (active[0][0], RED), (active[0][1], RED_OFF)], P)}</circle>')
+        body.append(f'<g opacity="0.4">{steps("opacity", [(0, 0.4), (active[0][0], 1), (active[0][1], 0.4)], P)}'
+                    + display(560, y + 45, name, 40, weight=800)
+                    + kicker(900, y + 30, lead, color=INK, size=15)
+                    + f'<text x="900" y="{y + 54}" class="d" font-weight="600" font-size="22" fill="{MUTED}">{example}</text>'
                     + '</g>')
-    body.append(f'<line x1="470" y1="{top + 4 * 88}" x2="1520" y2="{top + 4 * 88}" stroke="{RULE}" stroke-width="1.5"/>')
-    return svg(W, H, "".join(body), title="Four modes on the orange button")
+    y = top + 4 * 64
+    body.append(f'<line x1="470" y1="{y}" x2="1520" y2="{y}" stroke="{RULE}" stroke-width="1.5"/>')
+    # free: no red LED, the voice goes where the cursor is
+    free = [(8.0, P)]
+    body.append(f'<rect x="470" y="{y + 8}" width="6" height="48" fill="{INK}" opacity="0">{fade_between(free, P, 0.15)}</rect>')
+    body.append(f'<circle cx="512" cy="{y + 32}" r="9" fill="none" stroke="{MUTED}" stroke-width="2" stroke-dasharray="3 3"/>')
+    body.append(f'<g opacity="0.4">{steps("opacity", [(0, 0.4), (8.0, 1)], P)}'
+                + display(560, y + 45, "free", 40, weight=800, color=INK)
+                + kicker(900, y + 30, "any other app", color=INK, size=15)
+                + f'<text x="900" y="{y + 54}" class="d" font-weight="600" font-size="22" fill="{MUTED}">the voice goes where you are</text>'
+                + '</g>')
+    body.append(kicker(1520, 615, "long press adds the window in front · hold 3 s clears all four", color=MUTED, size=13, anchor="end"))
+    return svg(W, H, "".join(body), title="Four channels on the orange button, and free everywhere else")
 
 
-def slots():
+def voice():
+    W, H, P = 1600, 640, 9.0
+    masks = led_masks(P, [(0, 0.8, "idle", 0), (0.8, 3.4, "kitt", 0), (3.4, 4.4, "think", 0), (4.4, P, "idle", 0)])
+    handle = [(0, -12), (0.65, -12), (0.85, -3), (3.3, -3), (3.5, -12)]
+    press = [(1.3, 0), (1.4, -12), (1.65, 0)]
+    before, after = "see you tomorrow at three.", "ci vediamo domani alle tre."
+    body = [f'<rect width="{W}" height="{H}" fill="{PAPER}"/>',
+            chapter_bar(80, 60, "8.3", 330),
+            display(80, 175, "say what to do.", 76),
+            kicker(82, 222, "grey while you talk · the sentence becomes actions · any language"),
+            mic(110, 250, 0.44, P, masks, handle_frames=handle, press={"grey": press}, uid="v"),
+            callout(330, 410, "GREY", button_point(110, 250, 0.44, "grey"), P, [(1.0, 2.2)]),
+            island(1010, P, 0.8, 6.4, masks, width=460, rows=[
+                (0.8, 1.35, "RECORDING · FREE · NOTES", "#FFFFFF"),
+                (1.35, 3.4, "VOICE COMMAND", "#FFFFFF"),
+                (3.4, 4.4, "PROCESSING", "#DADAD6"),
+                (4.4, 6.8, "COMMAND: REPLACE THE SELECTION", "#FFFFFF")],
+                timer=[(0.8, 1.8, "0:00"), (1.8, 2.8, "0:01"), (2.8, 3.4, "0:02")], flash_at=4.45)]
+    # what you say
+    body.append(f'<g opacity="0">{fade_between([(1.6, 4.2)], P, 0.2)}'
+                + kicker(470, 300, "you say", color=MUTED, size=14)
+                + display(470, 348, "“translate it into italian”", 40, weight=800)
+                + '</g>')
+    # the note with the selected sentence, rewritten in place
+    body.append(f'<rect x="470" y="400" width="1050" height="150" fill="#FFFFFF" stroke="{RULE}" stroke-width="1.5"/>'
+                + kicker(494, 432, "notes.md · selected text", color=MUTED, size=13))
+    sel_w = round(len(before) * 0.41 * 38) + 12
+    body.append(f'<rect x="488" y="458" width="{sel_w}" height="54" fill="{ORANGE}" opacity="0.28">'
+                f'{tween("opacity", [(0, 0.28), (4.4, 0.28), (4.6, 0), (8.4, 0), (8.8, 0.28)], P)}</rect>')
+    body.append(f'<g>{tween("opacity", [(0, 1), (4.4, 1), (4.6, 0), (8.4, 0), (8.8, 1)], P)}'
+                + display(494, 498, before, 38, weight=600) + '</g>')
+    body.append(f'<g opacity="0">{tween("opacity", [(0, 0), (4.5, 0), (4.8, 1), (8.2, 1), (8.5, 0)], P)}'
+                + display(494, 498, after, 38, weight=600) + '</g>')
+    body.append(kicker(1520, 615, "also: “go to codex” · “run the review” · “new line” · “stop”", color=MUTED, size=13, anchor="end"))
+    return svg(W, H, "".join(body), title="Grey while you talk: say what to do")
+
+
+def skills():
     W, H, P = 1600, 640, 9.0
     names = ["/compact", "/clear", "/review", "bug report", "commit message"]
+    kinds = ["command", "command", "command", "skill · template", "llm rewrite"]
     phases, press = [], []
     for i in range(5):
         start = i * 1.8
@@ -423,9 +475,9 @@ def slots():
         press += [(start + 0.05, 0), (start + 0.15, -10), (start + 0.35, 0)]
     masks = led_masks(P, phases)
     body = [f'<rect width="{W}" height="{H}" fill="{PAPER}"/>',
-            chapter_bar(80, 60, "8.3", 330),
-            display(80, 175, "fifteen slots.", 76),
-            kicker(82, 222, "white button · the white leds count in binary"),
+            chapter_bar(80, 60, "8.4", 330),
+            display(80, 175, "skills &amp; commands.", 76),
+            kicker(82, 222, "white button · the white leds count in binary · grey runs a command"),
             mic(110, 250, 0.44, P, masks, press={"white": press}, uid="s"),
             callout(330, 312, "PRESS", button_point(110, 250, 0.44, "white"), P, [(0.0, P)])]
     # big binary readout
@@ -445,9 +497,10 @@ def slots():
         body.append(f'<rect x="700" y="{y - 26}" width="6" height="52" fill="{ORANGE}" opacity="0">{fade_between(active, P, 0.12)}</rect>')
         body.append(kicker(730, y + 6, f"{i + 1:02d}", color=MUTED, size=14))
         body.append(f'<g opacity="0.4">{steps("opacity", [(0, 0.4), (active[0][0], 1), (active[0][1], 0.4)], P)}'
-                    + display(800, y + 14, name, 40, weight=800) + '</g>')
-    body.append(kicker(1520, 610, "slots change with the app in front · coding agent profile", color=MUTED, size=13, anchor="end"))
-    return svg(W, H, "".join(body), title="Fifteen slots on the white button")
+                    + display(800, y + 14, name, 40, weight=800)
+                    + kicker(1520, y + 6, kinds[i], color=MUTED, size=14, anchor="end") + '</g>')
+    body.append(kicker(1520, 610, "the list follows the app in front · coding agent profile", color=MUTED, size=13, anchor="end"))
+    return svg(W, H, "".join(body), title="Skills and commands on the white button")
 
 
 def send():
@@ -455,9 +508,9 @@ def send():
     masks = led_masks(P, [(0, 1.2, "idle", 0b0011_0010), (1.2, P, "idle", 0b0010)])
     press = [(1.0, 0), (1.1, -12), (1.35, 0)]
     body = [f'<rect width="{W}" height="{H}" fill="{PAPER}"/>',
-            chapter_bar(80, 60, "8.4", 330),
+            chapter_bar(80, 60, "8.5", 330),
             display(80, 175, "send it.", 76),
-            kicker(82, 222, "grey button · runs the slot, or presses return"),
+            kicker(82, 222, "grey button · runs the command, or presses return · long press interrupts"),
             mic(110, 250, 0.44, P, masks, press={"grey": press}, uid="g"),
             callout(330, 410, "PRESS", button_point(110, 250, 0.44, "grey"), P, [(0.4, 1.6)])]
     # terminal, ink register
@@ -477,8 +530,41 @@ def send():
                     f'{tween("width", [(0, 0), (start, 0), (start + 0.45, 980), (6.8, 980), (7.1, 0)], P, ease=LINEAR)}</rect></clipPath>'
                     f'<text x="{tx + 34}" y="{y}" clip-path="url(#{cid})" class="m" font-weight="{weight}" '
                     f'font-size="{size}" letter-spacing="1" style="text-transform:none" fill="{color}">{text}</text>')
-    body.append(kicker(1520, 615, "slot 1 on the white leds, then grey: the command is sent", color=MUTED, size=13, anchor="end"))
-    return svg(W, H, "".join(body), title="Send the slot with the grey button")
+    body.append(kicker(1520, 615, "/review picked with white, then grey: the command is sent", color=MUTED, size=13, anchor="end"))
+    return svg(W, H, "".join(body), title="Send the command with the grey button")
+
+
+def social():
+    """Static 1280x640 card for the repository's social preview (rendered to PNG by main)."""
+    W, H = 1280, 640
+    mask = 0b0010                       # on channel 2, recording: one red LED
+    # the LED fills only change through animation: lit from 0 s, captured at once by the screenshot
+    masks = [(0, mask), (59, 0)]
+    body = [f'<rect width="{W}" height="{H}" fill="{PAPER}"/>',
+            f'<text x="80" y="82" class="m" font-weight="600" font-size="17" fill="{ORANGE}">((8))'
+            f'<tspan fill="#4E4E4B" dx="10">EP–2350 FX–MIC · unofficial chapter</tspan></text>',
+            display(72, 238, "talk to", 120),
+            display(72, 352, f"your agent<tspan fill='{ORANGE}'>.</tspan>", 120),
+            display(80, 420, "four channels on the orange button:", 26, color=INK, weight=600),
+            display(80, 454, "claude code, claude chats, codex — and free everywhere else.", 26, color=MUTED, weight=600),
+            stub(80, 488),
+            f'<text x="80" y="548" class="m" font-weight="600" font-size="16" fill="{INK}">CUE-2350 <tspan fill="{ORANGE}">MIC</tspan>'
+            f'<tspan dx="22">/</tspan><tspan dx="22">OPEN SOURCE</tspan><tspan dx="22">/</tspan><tspan dx="22">MACOS</tspan>'
+            f'<tspan dx="22">/</tspan><tspan dx="22">LOCAL AI</tspan></text>',
+            kicker(80, 578, "unofficial · not affiliated with teenage engineering", color=MUTED, size=13)]
+    # a screen edge with the status island, then the mic
+    body.append(f'<path d="M754 200 V64 a28 28 0 0 1 28 -28 H1190 a28 28 0 0 1 28 28 V200" fill="none" stroke="{INK}" stroke-width="12"/>'
+                f'<rect x="852" y="36" width="262" height="68" rx="16" fill="#000"/>')
+    for bit in range(8):
+        col, row = bit // 4, bit % 4
+        on = mask & (1 << bit)
+        body.append(f'<circle cx="{873 + col * 9}" cy="{58 + row * 7}" r="2.6" fill="{RED if on else (RED_OFF if bit < 4 else WHITE_OFF)}"/>')
+    body.append(f'<text x="1078" y="76" text-anchor="middle" class="m" font-weight="600" font-size="13" fill="#DADAD6">0:03</text>'
+                f'<text x="983" y="96" text-anchor="middle" class="m" font-weight="600" font-size="12" fill="#FFFFFF">RECORDING · CLAUDE · API</text>')
+    for cx, cy, r in [(919, 143, 6), (962, 136, 4), (987, 151, 3), (940, 168, 5), (977, 177, 4), (931, 195, 5), (952, 212, 4), (992, 202, 2.5)]:
+        body.append(f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{ORANGE}"/>')
+    body.append(mic(870, 205, 0.58, 60, masks, uid="sp"))
+    return svg(W, H, "".join(body), title="CUE-2350 MIC — talk to your agent")
 
 
 def end_card():
@@ -520,13 +606,30 @@ def end_card():
 
 
 def main():
-    scenes = {"hero.svg": hero, "talk.svg": talk, "modes.svg": modes, "slots.svg": slots,
-              "send.svg": send, "end.svg": end_card}
+    scenes = {"hero.svg": hero, "talk.svg": talk, "channels.svg": channels, "voice.svg": voice,
+              "skills.svg": skills, "send.svg": send, "end.svg": end_card}
     for name, build in scenes.items():
         path = os.path.join(HERE, name)
         with open(path, "w", encoding="utf-8") as f:
             f.write(build())
         print(f"wrote {os.path.relpath(path, ROOT)} ({os.path.getsize(path) // 1024} KB)")
+    # The social preview is a PNG (GitHub wants a bitmap): headless Chrome renders the static card
+    # with its embedded fonts at exactly 1280x640.
+    import subprocess
+    import tempfile
+    chrome = "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"
+    if not os.path.exists(chrome):
+        print("skipped docs/readme/social-preview.png (Google Chrome not found)")
+        return
+    with tempfile.TemporaryDirectory() as tmp:
+        card = os.path.join(tmp, "social-preview.svg")
+        with open(card, "w", encoding="utf-8") as f:
+            f.write(social())
+        out = os.path.join(HERE, "social-preview.png")
+        subprocess.run([chrome, "--headless", "--disable-gpu", "--hide-scrollbars", f"--user-data-dir={tmp}/profile",
+                        "--window-size=1280,640", f"--screenshot={out}", "file://" + card],
+                       check=True, capture_output=True)
+    print("wrote docs/readme/social-preview.png")
 
 
 if __name__ == "__main__":
