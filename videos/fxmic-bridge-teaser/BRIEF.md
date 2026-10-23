@@ -55,7 +55,7 @@ Must read well muted (LinkedIn autoplays silent): callouts and on-screen text te
 - Must include the line "unofficial · not affiliated with teenage engineering".
 - Product name may be used descriptively ("for the EP-2350 FX-MIC").
 - Terminal commands large and short (max 2–3 words per line) for the square format.
-- Product facts source: docs/GESTURES.md (profiles: Agente di coding → /compact, /clear,
+- Product facts source: docs/GESTURES.md (profiles: Coding agent → /compact, /clear,
   /review, bug report, commit message; grey tap = run slot / Enter; shake = cancel;
   handle hold = dictate; red LEDs = 4 channels, all off when free; white LEDs = skill number
   in binary; grey while talking = voice command). Vocabulary: One-Pager 004 §15.

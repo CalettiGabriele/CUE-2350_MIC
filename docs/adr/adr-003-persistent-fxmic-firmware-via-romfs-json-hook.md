@@ -1,41 +1,41 @@
-# ADR-003: Firmware FXMic persistente nella partizione ROMFS tramite `/rom/json.py`
+# ADR-003: Persistent FXMic firmware in the ROMFS partition through `/rom/json.py`
 
-**Data:** 2026-10-16
-**Stato:** Proposto. Fattibilità verificata sul dispositivo (T2, T3, T4 superati il 2026-10-16); resta da rifare la via di fuga (T1).
+**Date:** 2026-10-16
+**Status:** Proposed. Feasibility verified on the device (T2, T3, T4 passed on 2026-10-16); the escape hatch (T1) still has to be redone.
 
-## Contesto
-Per usare FX MIC solo con il jack, il mic deve emettere un codice acustico a ogni gesto (ADR-002). Serve quindi codice nostro sul dispositivo, attivo a ogni accensione e senza USB.
+## Context
+To use the FX MIC with the jack only, the mic must emit an acoustic code for every gesture (ADR-002). So we need our own code on the device, active at every power-on and without USB.
 
-ADR-001 vietava modifiche permanenti. Ora l'utente chiede esplicitamente un'installazione permanente, purché sia reversibile dalle Impostazioni dell'app.
+ADR-001 forbade permanent changes. Now the user explicitly asks for a permanent installation, as long as it can be reversed from the app's Settings.
 
-I test del 2026-10-16 (`logs/TEST_NOTES.md`) hanno mostrato quattro cose:
-- la partizione `/rom` (ROMFS, 128 KB) si riscrive e si verifica via REPL USB in 6–10 s, e si rimonta senza riavvio;
-- il firmware 1.0.9 all'avvio esegue sempre il modulo integrato `teenage`. `/rom/main.py`, `/rom/boot.py` e `boot.py`/`main.py`/`teenage.py` sul disco **non** vengono eseguiti;
-- `teenage` esegue `import json` come seconda istruzione, e un `json.py` in `/rom` prende il posto del modulo integrato: **viene eseguito a ogni accensione**;
-- un ciclo avviato da lì riceve gli eventi dei pulsanti e lascia sempre interrompibile la console (Ctrl-C).
+The tests of 2026-10-16 (`logs/TEST_NOTES.md`) showed four things:
+- the `/rom` partition (ROMFS, 128 KB) can be rewritten and verified over the USB REPL in 6–10 s, and remounted without a reboot;
+- at startup, firmware 1.0.9 always runs the built-in `teenage` module. `/rom/main.py`, `/rom/boot.py` and `boot.py`/`main.py`/`teenage.py` on the disk are **not** run;
+- `teenage` runs `import json` as its second statement, and a `json.py` in `/rom` takes the place of the built-in module: **it runs at every power-on**;
+- a loop started from there receives the button events and always leaves the console interruptible (Ctrl-C).
 
-Alternative valutate:
-- firmware UF2 ricostruito: mancano i sorgenti dei moduli audio di Teenage Engineering;
-- agente in RAM caricato via USB a ogni accensione: costringe a collegare la USB ogni volta;
-- file sul disco FX MIC DISK: non vengono eseguiti, e il disco si è dimostrato fragile.
+Alternatives considered:
+- a rebuilt UF2 firmware: the sources of teenage engineering's audio modules are not available;
+- a RAM agent loaded over USB at every power-on: it forces you to plug in USB every time;
+- files on the FX MIC DISK: they are not run, and the disk proved fragile.
 
-## Decisione
-Abbiamo deciso di installare, **solo su richiesta esplicita dalle Impostazioni**, un firmware FXMic composto da file aggiunti alla partizione ROMFS (`json.py`, `fxmic.py`, `fxmic_cfg.py`, `fxmic_factory.mpy`), lasciando invariati i file di fabbrica.
-- `json.py` è l'aggancio di avvio. Registra il `json` integrato, avvia FXMic e interrompe il codice di fabbrica con un'eccezione dedicata, così il callback resta a FXMic (T2).
-- L'app scrive la ROMFS solo dopo aver controllato la versione del firmware, l'impronta della partizione e la memoria libera. Salva la partizione di fabbrica del dispositivo prima della prima scrittura, rilegge tutta la partizione per verificarla e non usa mai il riavvio software.
-- "Ripristina fabbrica" riscrive l'immagine salvata (impronta 264e54d4…f1a1c4 per la 1.0.9).
-- I 4 simboli audio stanno in `/fat/.fxmic/`, perché `spl.load_wav` accetta solo file FAT (T4). Li scrive il Mac durante l'installazione e li rimuove il ripristino; il firmware FXMic non scrive mai sul disco.
-- La via di fuga è l'arancione tenuto premuto nei primi 3 secondi dopo l'accensione: FXMic esegue allora la logica di fabbrica precompilata. La lettura dei pulsanti nell'istante dell'avvio non funziona (T1).
+## Decision
+We decided to install, **only on explicit request from Settings**, an FXMic firmware made of files added to the ROMFS partition (`json.py`, `fxmic.py`, `fxmic_cfg.py`, `fxmic_factory.mpy`), leaving the factory files unchanged.
+- `json.py` is the boot hook. It registers the built-in `json`, starts FXMic and stops the factory code with a dedicated exception, so the callback stays with FXMic (T2).
+- The app writes the ROMFS only after checking the firmware version, the partition fingerprint and the free memory. It saves the device's factory partition before the first write, reads the whole partition back to verify it and never uses the soft reboot.
+- "Restore factory" rewrites the saved image (fingerprint 264e54d4…f1a1c4 for 1.0.9).
+- The 4 audio symbols live in `/fat/.fxmic/`, because `spl.load_wav` only accepts FAT files (T4). The Mac writes them during installation and the restore removes them; the FXMic firmware never writes to the disk.
+- The escape hatch is orange held during the first 3 seconds after power-on: FXMic then runs the precompiled factory logic. Reading the buttons at the very moment of boot does not work (T1).
 
-## Conseguenze
+## Consequences
 
 **Positive**
-- Il mic funziona solo col jack a ogni accensione, senza USB, e il codice gira sul mic stesso: gesti e LED locali.
-- Si torna alla fabbrica in pochi secondi dall'app, oppure temporaneamente con l'arancione all'accensione.
-- I file di fabbrica restano intatti e non si riflasha il firmware; sul disco si aggiunge solo la cartella nascosta `.fxmic`.
+- The mic works with the jack alone at every power-on, without USB, and the code runs on the mic itself: local gestures and LEDs.
+- You can go back to factory in a few seconds from the app, or temporarily with orange at power-on.
+- The factory files stay intact and the firmware is not reflashed; the disk only gains the hidden `.fxmic` folder.
 
 **Negative**
-- Dipende da un dettaglio interno del firmware 1.0.9: l'ordine degli import di `teenage` e il fatto che ROMFS preceda i moduli integrati. Un aggiornamento ufficiale può romperlo; l'app rifiuta le versioni sconosciute.
-- Heap di soli 64 KB e niente `gc`: il firmware deve essere minimale, e le scritture vanno fatte a blocchi piccoli e subito dopo un'accensione.
-- Con FXMic attivo il mic perde l'uso autonomo come microfono a effetti: campioni e `config.json` di fabbrica non sono usati.
-- Rischio di firmware non avviabile in caso di bug: mitigato dalla via di fuga con l'arancione, dalla console sempre interrompibile e, in ultima istanza, da BOOTSEL con il file UF2 ufficiale, ancora da procurare.
+- It depends on an internal detail of firmware 1.0.9: the import order of `teenage` and the fact that ROMFS comes before the built-in modules. An official update can break it; the app refuses unknown versions.
+- A heap of only 64 KB and no `gc`: the firmware must be minimal, and writes must be done in small blocks right after a power-on.
+- With FXMic active the mic loses its standalone use as an effects microphone: the factory samples and `config.json` are not used.
+- Risk of an unbootable firmware in case of a bug: mitigated by the orange escape hatch, the always-interruptible console and, as a last resort, BOOTSEL with the official UF2 file, still to be obtained.

@@ -48,104 +48,104 @@ Must read well muted (LinkedIn autoplays silent): callouts and on-screen text te
   /review, bug report, commit message; grey tap = run slot / Enter; shake = cancel;
   handle hold = dictate; red LEDs = 4 modes; white LEDs = slot number in binary).
 - Project is open source.
-# Gesti e comandi di FXMic Bridge
+# FXMic Bridge gestures and commands
 
-> Riferimento unico per i gesti di EP-2350 FX MIC e per le azioni collegate.
-> Versione dell'app: 0.3.0 (One-Pager 001), aggiornato il 2026-10-16.
-> **Lingua dell'interfaccia:** inglese per impostazione predefinita, modificabile in Impostazioni › Generale › Lingua (English, Italiano, Français, Español, Português, Deutsch, 中文, 日本語, Русский) o in `config.json` (`ui.language`).
-> Tutto si configura **per profilo** in Impostazioni › Profili (oppure in `~/Library/Application Support/FXMicBridge/config.json`). Questo file descrive i **valori predefiniti**. Il codice di riferimento è `app/Sources/FXMicCore/Config.swift` (`Profile.defaults`) e `GestureRecognizer.swift` (`GestureSettings`).
+> The single reference for the EP-2350 FX MIC gestures and the actions behind them.
+> App version: 0.3.0 (One-Pager 001), updated 2026-10-16.
+> **Interface language:** English by default, changeable in Settings › General › Language (English, Italiano, Français, Español, Português, Deutsch, 中文, 日本語, Русский) or in `config.json` (`ui.language`).
+> Everything is configured **per profile** in Settings › Profiles (or in `~/Library/Application Support/FXMicBridge/config.json`). This file describes the **defaults**. The reference code is `app/Sources/FXMicCore/Config.swift` (`Profile.defaults`) and `GestureRecognizer.swift` (`GestureSettings`).
 
-## Cosa passa da ciascun collegamento
+## What each connection carries
 
-| Collegamento | Cosa trasporta | Cosa abilita |
+| Connection | What it carries | What it enables |
 |---|---|---|
-| **USB-C** (dati) | Console seriale MicroPython, più alimentazione | Tutti i gesti e i LED. L'app installa un agente solo in RAM (ADR-001). |
-| **Jack 3,5 mm** | Solo audio analogico | Solo la voce, tramite una scheda audio USB (Impostazioni › Audio). **Nessun gesto** (proposta per i gesti via codici acustici: [One-Pager 002](design-docs/onepager-002-jack-only-transport.md)). |
-| **Tastiera del Mac** | — | Push-to-talk di riserva: **Opzione destro** tenuto premuto. |
+| **USB-C** (data) | MicroPython serial console, plus power | All gestures and LEDs. The app installs a RAM-only agent (ADR-001). |
+| **3.5 mm jack** | Analogue audio only | Voice only, through a USB audio interface (Settings › Audio). **No gestures** (a proposal for gestures via acoustic codes: [One-Pager 002](design-docs/onepager-002-jack-only-transport.md)). |
+| **Mac keyboard** | — | Fallback push-to-talk: hold **right Option**. |
 
-## I tre pulsanti
+## The three buttons
 
-### Arancione: modalità di interazione (LED rossi, uno per modalità)
-| LED rosso | Modalità | La dettatura… |
+### Orange: interaction modes (red LEDs, one per mode)
+| Red LED | Mode | The dictation… |
 |---|---|---|
-| 1 | **Dettato** | viene scritta così com'è. |
-| 2 | **Migliorato** | passa dall'LLM locale con l'istruzione "Migliorato" del profilo. |
-| 3 | **Comando** | diventa un'azione: "fai un elenco puntato", "vai a capo", "cancella l'ultima parola"…. L'LLM restituisce tasti e testo da un elenco chiuso; scorciatoie pericolose come ⌘Q e ⌘W sono bloccate. |
-| 4 | **Computer Use** | *non ancora disponibile*: la dettatura finisce solo in cronologia. |
+| 1 | **Dictate** | is typed as spoken. |
+| 2 | **Enhanced** | goes through the local LLM with the profile's "Enhanced" instruction. |
+| 3 | **Command** | becomes an action: "make a bullet list", "new line", "delete the last word"…. The LLM returns keys and text from a closed list; dangerous shortcuts such as ⌘Q and ⌘W are blocked. |
+| 4 | **Computer Use** | *not available yet*: the dictation only ends up in the history. |
 
-**Tocco:** modalità successiva (solo quelle abilitate nel profilo). **Pressione lunga:** torna alla modalità predefinita del profilo.
+**Tap:** next mode (only those enabled in the profile). **Long press:** back to the profile's default mode.
 
-### Bianco: slot di comandi e skill (LED bianchi in binario)
-Fino a **15 slot per profilo**. I 4 LED bianchi mostrano il numero dello slot in binario, con il LED in alto = 1, poi 2, 4, 8. **Tutti spenti = nessuno slot.** L'isola mostra sempre il nome dello slot.
+### White: command and skill slots (white LEDs in binary)
+Up to **15 slots per profile**. The 4 white LEDs show the slot number in binary, with the top LED = 1, then 2, 4, 8. **All off = no slot.** The island always shows the slot's name.
 
-| Tipo di slot | Cosa succede |
+| Slot type | What happens |
 |---|---|
-| **Esegui** | Il **grigio** lancia subito l'azione: tasti, testo come `/compact` + Invio, e così via. |
-| **Modello** | La **prossima dettatura** viene inserita nel testo dello slot al posto di `{{testo}}` (per esempio "Riassumi: {{testo}}"). |
-| **LLM** | La **prossima dettatura** viene trasformata dall'LLM con l'istruzione dello slot (per esempio "Riscrivi come email"). |
+| **Run** | **Grey** runs the action at once: keys, text such as `/compact` + Return, and so on. |
+| **Template** | The **next dictation** is placed into the slot's text in place of `{{text}}` (for example "Summarize: {{text}}"). |
+| **LLM** | The **next dictation** is transformed by the LLM with the slot's instruction (for example "Rewrite as an email"). |
 
-- **Tocco:** slot successivo (nessuno → 1 → 2 → … → nessuno).
-- **Doppio tocco:** slot precedente.
-- **Pressione lunga:** nessuno slot.
-- **Dopo l'uso** la selezione torna a "nessuno slot".
-- **In modalità Comando** gli slot Modello e LLM vengono ignorati.
+- **Tap:** next slot (none → 1 → 2 → … → none).
+- **Double tap:** previous slot.
+- **Long press:** no slot.
+- **After use** the selection goes back to "no slot".
+- **In Command mode** Template and LLM slots are ignored.
 
-### Grigio
-- **Tocco:** esegue lo slot "Esegui" selezionato; se non c'è nessuno slot preme **Invio**.
-- **Doppio tocco:** annulla l'ultimo inserimento (⌘Z, entro 30 s, stessa app).
-- **Pressione lunga:** riscrive l'ultimo testo grezzo; nei terminali preme **Esc**.
-- **Premuto durante la dettatura:** **modifica della selezione**, cioè l'istruzione dettata viene applicata al testo selezionato.
+### Grey
+- **Tap:** runs the selected "Run" slot; with no slot it presses **Return**.
+- **Double tap:** undoes the last insertion (⌘Z, within 30 s, same app).
+- **Long press:** retypes the last raw text; in terminals it presses **Esc**.
+- **Pressed during dictation:** **edit the selection**, that is the dictated instruction is applied to the selected text.
 
-## Maniglia e accelerometro
-| Gesto | Azione |
+## Handle and accelerometer
+| Gesture | Action |
 |---|---|
-| Tieni premuta la maniglia, parla, rilascia | Dettatura, elaborata secondo la modalità e lo slot attivi |
-| Doppio clic rapido sulla maniglia | Nuova riga (⇧↩) |
-| Scuotimento breve | Annulla la dettatura in corso |
-| Scuotimento forte per almeno 2 s | Cancella tutto (⌘A ⌫; nei terminali Ctrl+E Ctrl+U) |
+| Hold the handle, talk, release | Dictation, processed according to the active mode and slot |
+| Quick double click on the handle | New line (⇧↩) |
+| Short shake | Cancels the dictation in progress |
+| Strong shake for at least 2 s | Clears everything (⌘A ⌫; in terminals Ctrl+E Ctrl+U) |
 
-## Pillola di stato e icona
+## Status pill and icon
 
-- **Pillola in alto:**
-  - **MacBook (notch, stile Dynamic Island, senza bordo):**
-    - a sinistra del notch il puntino di stato: rosso con effetto **radar** in registrazione, bianco pulsante in elaborazione;
-    - a destra il **tempo registrato**;
-    - sotto una riga, per esempio "Registrazione · Migliorato · Riassumi".
-  - **Altri schermi:** pillola nera sotto la barra dei menu con bordo chiaro sottile: [puntino] testo [tempo].
-  - Gli avvisi (cambio di modalità o slot, "Scritto", errori) mostrano solo il testo. Comparsa e scomparsa con una dissolvenza.
-- **Icona nella barra dei menu:** è **sempre quella scelta** (menu › Icona barra dei menu) e non cambia durante la registrazione, perché macOS mostra già il suo indicatore del microfono. Lo stato si legge nel tooltip e nella prima riga del menu.
+- **Pill at the top:**
+  - **MacBook (notch, Dynamic Island style, no border):**
+    - left of the notch, the status dot: red with a **radar** effect while recording, pulsing white while processing;
+    - on the right, the **recorded time**;
+    - below, a line, for example "Recording · Enhanced · Summarize".
+  - **Other screens:** a black pill under the menu bar with a thin light border: [dot] text [time].
+  - Notices (mode or slot change, "Written", errors) show only the text. They fade in and out.
+- **Menu bar icon:** it is **always the one you chose** (menu › Menu bar icon) and does not change while recording, because macOS already shows its own microphone indicator. The status is in the tooltip and in the first line of the menu.
 
-## LED
-| Stato | LED rossi | LED bianchi |
+## LEDs
+| State | Red LEDs | White LEDs |
 |---|---|---|
-| Inattivo | Modalità corrente (un LED) | Slot in binario, oppure spenti |
-| Registrazione | **KITT**: un LED che scorre su e giù | Invariati |
-| Trascrizione ed elaborazione | Alternanza 1+3 / 2+4 | Invariati |
-| Errore | Lampeggio dei 4 rossi per circa 1 s | — |
+| Idle | Current mode (one LED) | Slot in binary, or off |
+| Recording | **KITT**: one LED sweeping up and down | Unchanged |
+| Transcribing and processing | Alternating 1+3 / 2+4 | Unchanged |
+| Error | The 4 red LEDs blink for about 1 s | — |
 
-- **Mappa dei LED:** `device.ledMap` in `config.json` indica quale indice fisico corrisponde a [rosso 1…4, bianco 1…4]. Il valore predefinito `[0,1,2,3,4,5,6,7]` è stato verificato sul dispositivo il 2026-10-16. Impostazioni › Dispositivo › **Prova LED** accende i LED uno alla volta in quest'ordine logico, così si capisce se la mappa è giusta.
-- **Velocità delle animazioni:** si regola con `device.ledAnimationMs`, predefinito 120 ms.
+- **LED map:** `device.ledMap` in `config.json` says which physical index matches [red 1…4, white 1…4]. The default `[0,1,2,3,4,5,6,7]` was verified on the device on 2026-10-16. Settings › Device › **Test LEDs** lights the LEDs one at a time in this logical order, so you can tell whether the map is right.
+- **Animation speed:** set with `device.ledAnimationMs`, 120 ms by default.
 
-## Profili predefiniti
-| Profilo | App | Slot |
+## Default profiles
+| Profile | Apps | Slots |
 |---|---|---|
-| **Claude** | App Claude desktop | Nuova chat ⌘N · Interrompi Esc · Riassumi · Traduci in inglese · Spiega semplice · Brainstorming |
-| **Agente di coding** | Terminale, iTerm2, Ghostty, VS Code, Warp | /compact · /clear · /review · Bug report · Commit message (LLM) |
-| **Generale** | Tutte le altre | Email · Traduci EN · Elenco puntato · Più breve (tutti LLM) |
+| **Claude** | Claude desktop app | New chat ⌘N · Interrupt Esc · Summarize · Translate to English · Explain simply · Brainstorm |
+| **Coding agent** | Terminal, iTerm2, Ghostty, VS Code, Warp | /compact · /clear · /review · Bug report · Commit message (LLM) |
+| **General** | All the others | Email · Translate EN · Bullet list · Shorter (all LLM) |
 
-## Azioni configurabili
-| `type` | Effetto |
+## Configurable actions
+| `type` | Effect |
 |---|---|
-| `key` (`keys`: lista) | Invia combinazioni come `cmd+a`, `shift+return`, `escape` |
-| `text` (`text`) | Scrive il testo; un `\n` finale preme anche Invio |
-| `cycleMode` / `resetMode` | Modalità successiva / predefinita |
-| `nextSlot` / `previousSlot` / `clearSlot` | Navigazione degli slot |
-| `runSlot` | Esegue lo slot "Esegui", altrimenti Invio |
-| `undoLastInsertion`, `reinsertLast`, `cancel`, `editSelection`, `none` | Come in precedenza |
+| `key` (`keys`: list) | Sends combinations such as `cmd+a`, `shift+return`, `escape` |
+| `text` (`text`) | Types the text; a trailing `\n` also presses Return |
+| `cycleMode` / `resetMode` | Next / default mode |
+| `nextSlot` / `previousSlot` / `clearSlot` | Slot navigation |
+| `runSlot` | Runs the "Run" slot, otherwise Return |
+| `undoLastInsertion`, `reinsertLast`, `cancel`, `editSelection`, `none` | As before |
 
-## Soglie dei gesti
-| Parametro | Valore |
+## Gesture thresholds
+| Parameter | Value |
 |---|---|
 | `tapMaxMs` · `doubleTapMs` · `longPressMs` | 450 · 300 · 600 ms |
 | `handleClickMaxMs` · `handleDoubleClickGapMs` | 280 · 400 ms |
-| `shakeThreshold` · `shakeHoldMs` · `shakeHoldToleranceMs` | 0,5 · 2000 ms · 400 ms |
+| `shakeThreshold` · `shakeHoldMs` · `shakeHoldToleranceMs` | 0.5 · 2000 ms · 400 ms |

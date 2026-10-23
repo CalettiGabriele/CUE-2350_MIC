@@ -1,120 +1,120 @@
-# One-Pager 002 — Collegamento solo jack: firmware FXMic installabile e codici acustici
+# One-Pager 002 — Jack-only connection: installable FXMic firmware and acoustic codes
 
-> Data: 2026-10-16 (rev. 2, dopo i test ROMFS) · Stato: **Bozza, in attesa di revisione** · Nessun codice dell'app implementato
-> Riferimenti: ADR-001, ADR-002, ADR-003, TDD v1 §3.6, `docs/GESTURES.md`, `logs/TEST_NOTES.md` (sezioni "ROMFS feasibility probe" e seguenti), `backup/rom/`
+> Date: 2026-10-16 (rev. 2, after the ROMFS tests) · Status: **Draft, awaiting review** · No app code implemented
+> References: ADR-001, ADR-002, ADR-003, TDD v1 §3.6, `docs/GESTURES.md`, `logs/TEST_NOTES.md` (sections "ROMFS feasibility probe" and following), `backup/rom/`
 
-## 1. Obiettivo
-Usare FX MIC collegato al Mac **solo con il jack 3,5 mm** e mantenere tutte le funzioni attuali. Si accetta di perdere solo i LED pilotati dal Mac.
+## 1. Goal
+Use the FX MIC connected to the Mac **with the 3.5 mm jack only** and keep every current feature. Losing only the Mac-driven LEDs is acceptable.
 
-Ogni pulsante e ogni gesto emette un **suono codificato**, impossibile da produrre con la voce, che l'app riconosce come comando. Lo stato (modalità corrente, slot selezionato) lo tiene l'app, come oggi.
+Every button and gesture emits an **encoded sound**, impossible to produce with a voice, that the app recognises as a command. The state (current mode, selected slot) is kept by the app, as today.
 
-Requisiti dell'utente:
-- dalle **Impostazioni** si installa il firmware FXMic sul mic e si torna al firmware di fabbrica, via USB-C, in modo semplice e reversibile;
-- l'app passa da sola dalla modalità USB-C alla modalità jack in base a cosa è collegato, e la scelta si può anche forzare a mano.
+User requirements:
+- from **Settings** you install the FXMic firmware on the mic and go back to the factory firmware, over USB-C, in a simple and reversible way;
+- the app switches by itself from USB-C mode to jack mode depending on what is connected, and the choice can also be forced by hand.
 
-## 2. Cosa hanno dimostrato i test (2026-10-16)
-| Domanda | Esito | Dettaglio |
+## 2. What the tests showed (2026-10-16)
+| Question | Result | Detail |
 |---|---|---|
-| La partizione `/rom` è riscrivibile via USB? | **Sì** | ROMFS da 128 KB (32 blocchi da 4 KB); cancellazione + scrittura + rilettura completa verificata con SHA-256, 6–10 s. `/rom` si rimonta senza riavvio. |
-| Modificare `/rom/main.py` cambia il comportamento? | No | All'avvio il firmware esegue la copia di fabbrica **integrata** (`teenage`); `/rom/main.py` è solo leggibile. |
-| `boot.py` / `main.py` in `/rom` o sul disco vengono eseguiti? | No | Provati `/rom/boot.py`, `/fat/boot.py`, `/fat/main.py`, `/fat/teenage.py`. |
-| Esiste un punto di avvio permanente? | **Sì: `/rom/json.py`** | Il codice di fabbrica fa `import json` come seconda istruzione; un `json.py` in `/rom` prende il posto del modulo integrato e viene eseguito a **ogni accensione**. |
-| Il nostro codice può girare senza bloccare il mic? | **Sì** | Un ciclo avviato da `json.py` riceve tutti i pulsanti; Ctrl-C via USB lo interrompe sempre e la console torna libera. |
-| Il firmware manda eventi periodici? | **Sì** (T3) | Con il nostro callback registrato arrivano di continuo messaggi di tipo 3, circa ogni 16 ms (12–26 ms a riposo), più i tipi 16–20 (ADC). Il callback fa da timer: niente ciclo in primo piano, la console resta libera. |
-| Il nostro codice prende il controllo all'avvio? | **Sì** (T2) | `json.py` avvia FXMic e interrompe il codice di fabbrica con un'eccezione: callback nostro, tutti i pulsanti ricevuti, disco montato, primo LED rosso acceso. |
-| I simboli si caricano da `/rom`? | **No** (T4) | `spl.load_wav` rifiuta i file ROMFS e `BytesIO`; accetta i file FAT (≈0,5 ms ciascuno). I simboli vanno in `/fat/.fxmic/`, scritti dal Mac. |
-| La via di fuga "arancione premuto all'accensione" funziona? | **No** (T1) | Quando `json.py` parte i pulsanti non risultano ancora premuti. Il ritorno alla logica di fabbrica eseguendo `/rom/main.py` invece funziona. |
-| Limiti di memoria | 64 KB di heap | Senza modulo `gc`. Trasferimenti a blocchi di 256 B, niente strutture che crescono nei callback. |
+| Is the `/rom` partition rewritable over USB? | **Yes** | 128 KB ROMFS (32 blocks of 4 KB); erase + write + full read-back verified with SHA-256, 6–10 s. `/rom` remounts without a reboot. |
+| Does changing `/rom/main.py` change the behaviour? | No | At startup the firmware runs the **built-in** factory copy (`teenage`); `/rom/main.py` is only readable. |
+| Are `boot.py` / `main.py` in `/rom` or on the disk run? | No | Tried `/rom/boot.py`, `/fat/boot.py`, `/fat/main.py`, `/fat/teenage.py`. |
+| Is there a permanent boot hook? | **Yes: `/rom/json.py`** | The factory code runs `import json` as its second statement; a `json.py` in `/rom` takes the place of the built-in module and runs at **every power-on**. |
+| Can our code run without blocking the mic? | **Yes** | A loop started from `json.py` receives every button; Ctrl-C over USB always stops it and the console is free again. |
+| Does the firmware send periodic events? | **Yes** (T3) | With our callback registered, type 3 messages arrive continuously, about every 16 ms (12–26 ms at rest), plus types 16–20 (ADC). The callback acts as a timer: no foreground loop, the console stays free. |
+| Does our code take control at startup? | **Yes** (T2) | `json.py` starts FXMic and stops the factory code with an exception: our callback, every button received, disk mounted, first red LED lit. |
+| Do the symbols load from `/rom`? | **No** (T4) | `spl.load_wav` refuses ROMFS files and `BytesIO`; it accepts FAT files (≈0.5 ms each). The symbols go in `/fat/.fxmic/`, written by the Mac. |
+| Does the "orange held at power-on" escape hatch work? | **No** (T1) | When `json.py` starts, the buttons do not read as pressed yet. Going back to the factory logic by running `/rom/main.py` does work. |
+| Memory limits | 64 KB heap | No `gc` module. Transfers in 256 B blocks, no structures that grow inside callbacks. |
 
-Lezioni da rispettare:
-- **mai il riavvio software (Ctrl-D):** il modulo di avvio `_boot_fat` va in errore e il disco non viene montato;
-- **mai scrivere sul disco FX MIC DISK dal mic** mentre può essere montato sul Mac: il disco si è già danneggiato una volta (riparato dal backup);
-- scrivere `/rom` solo con memoria sufficiente, cioè subito dopo un'accensione.
+Lessons to respect:
+- **never the soft reboot (Ctrl-D):** the `_boot_fat` boot module fails and the disk is not mounted;
+- **never write to the FX MIC DISK from the mic** while it may be mounted on the Mac: the disk already got corrupted once (repaired from the backup);
+- write `/rom` only with enough memory, that is right after a power-on.
 
-## 3. Soluzione
+## 3. Solution
 
-### 3.1 Il firmware FXMic (sul mic)
-È un piccolo programma MicroPython che vive nella partizione `/rom`, accanto ai file di fabbrica, che restano intatti:
+### 3.1 The FXMic firmware (on the mic)
+It is a small MicroPython program that lives in the `/rom` partition, next to the factory files, which stay intact:
 
-| File in `/rom` | Ruolo |
+| File in `/rom` | Role |
 |---|---|
-| `README.md`, `main.py` | invariati, quelli di fabbrica |
-| `json.py` | **aggancio di avvio**: rimette a disposizione il `json` integrato, controlla la via di fuga, avvia `fxmic` |
-| `fxmic.py` | logica: riconoscimento dei gesti, invio dei codici, LED locali, battito |
-| `fxmic_cfg.py` | soglie dei gesti e versione del codebook, generate dall'app al momento dell'installazione |
-| `fxmic_factory.mpy` | copia precompilata di `main.py`, per tornare alla logica di fabbrica senza compilare 6,6 KB al volo (34 KB di heap) |
+| `README.md`, `main.py` | unchanged, the factory ones |
+| `json.py` | **boot hook**: makes the built-in `json` available again, checks the escape hatch, starts `fxmic` |
+| `fxmic.py` | logic: gesture recognition, sending the codes, local LEDs, heartbeat |
+| `fxmic_cfg.py` | gesture thresholds and codebook version, generated by the app at install time |
+| `fxmic_factory.mpy` | precompiled copy of `main.py`, to go back to the factory logic without compiling 6.6 KB on the fly (34 KB of heap) |
 
-I 4 simboli acustici (`s0.wav` … `s3.wav`, circa 60 ms, 48 kHz, 16 bit mono) stanno invece **sul disco**, in `/fat/.fxmic/`, perché `spl.load_wav` accetta solo file FAT (T4). Li scrive il Mac durante l'installazione e li cancella col ripristino; il mic li legge soltanto.
+The 4 acoustic symbols (`s0.wav` … `s3.wav`, about 60 ms, 48 kHz, 16-bit mono) live instead **on the disk**, in `/fat/.fxmic/`, because `spl.load_wav` only accepts FAT files (T4). The Mac writes them during installation and deletes them on restore; the mic only reads them.
 
-**Avvio.** All'accensione il codice di fabbrica importa `json`: parte il nostro `json.py`.
-- `json.py` registra il `json` integrato in `sys.modules`, avvia `fxmic` e interrompe il codice di fabbrica con un'eccezione dedicata, così questo non sovrascrive il callback (verificato in T2).
-- `fxmic` carica i 4 simboli da `/fat/.fxmic/`, imposta il preset pulito per la voce, accende il primo LED rosso e registra il proprio callback. Gli eventi periodici (circa ogni 16 ms) gli fanno da timer.
-- **Via di fuga:** se l'**arancione resta premuto nei primi 3 secondi** dopo l'accensione con la leva, `fxmic` si ferma ed esegue la logica di fabbrica (`fxmic_factory`) fino allo spegnimento. La lettura dell'arancione nell'istante dell'avvio non funziona (T1).
+**Startup.** At power-on the factory code imports `json`: our `json.py` starts.
+- `json.py` registers the built-in `json` in `sys.modules`, starts `fxmic` and stops the factory code with a dedicated exception, so the factory code does not overwrite the callback (verified in T2).
+- `fxmic` loads the 4 symbols from `/fat/.fxmic/`, sets the clean voice preset, lights the first red LED and registers its own callback. The periodic events (about every 16 ms) act as its timer.
+- **Escape hatch:** if **orange stays pressed during the first 3 seconds** after switching on with the lever, `fxmic` stops and runs the factory logic (`fxmic_factory`) until power-off. Reading orange at the very moment of boot does not work (T1).
 
-**Cosa fa a regime.**
-- **Riconosce i gesti sul mic** con le stesse regole e soglie di `GestureRecognizer` (copiate in `fxmic_cfg.py`): tocco, doppio tocco e pressione lunga di arancione, bianco e grigio; inizio e fine della maniglia; doppio clic della maniglia; scuotimento breve e lungo (2 s); grigio premuto a maniglia premuta.
+**What it does in steady state.**
+- **It recognises gestures on the mic** with the same rules and thresholds as `GestureRecognizer` (copied into `fxmic_cfg.py`): tap, double tap and long press of orange, white and grey; start and end of the handle; handle double click; short and long shake (2 s); grey pressed while the handle is held.
 
-  Va fatto sul mic perché ogni codice dura circa 180 ms: se il Mac ricevesse pressioni e rilasci separati, i tempi tra un evento e l'altro si allungherebbero e i doppi tocchi non si riconoscerebbero più.
-- **Invia un codice per ogni gesto.** Nessuno stato sul mic: il Mac tiene modalità e slot, quindi un codice perso equivale a un tasto non premuto, senza disallineamenti.
-- **Battito** ogni 5 s a riposo, che contiene la versione del firmware. Serve al Mac per sapere che il mic è collegato via jack e acceso.
-- **LED locali**, facoltativi:
-  - KITT mentre la maniglia è premuta;
-  - un breve lampeggio a ogni codice inviato, come conferma.
+  This has to happen on the mic because each code lasts about 180 ms: if the Mac received separate presses and releases, the time between events would stretch and double taps could no longer be recognised.
+- **It sends one code per gesture.** No state on the mic: the Mac keeps mode and slot, so a lost code is the same as a button not pressed, with nothing falling out of step.
+- **Heartbeat** every 5 s at rest, carrying the firmware version. The Mac uses it to know that the mic is connected through the jack and switched on.
+- **Local LEDs**, optional:
+  - KITT while the handle is held;
+  - a short blink for every code sent, as confirmation.
 
-  Modalità e slot non si possono mostrare sui LED, perché lo stato è sul Mac e il jack non porta dati verso il mic.
+  Mode and slot cannot be shown on the LEDs, because the state is on the Mac and the jack carries no data to the mic.
 
-### 3.2 Il canale acustico (ADR-002)
-- Banda 12–19 kHz, sopra quella usata da Whisper (16 kHz di campionamento, quindi tutto sopra 8 kHz viene scartato): nessun disturbo alla trascrizione.
-- 4 simboli a due toni. Un messaggio è composto da 3 simboli (circa 180 ms): fino a 64 messaggi, ne servono circa 20. Il primo simbolo fa da sincronismo, gli altri due identificano il messaggio, più un controllo di parità.
-- Il Mac registra di continuo dall'ingresso scelto (48 kHz), decodifica i codici e taglia la voce tra "maniglia premuta" e "maniglia rilasciata". Il pre-roll viene da solo.
-- Frequenze, durate e soglie si fissano in J1, con la scheda audio.
+### 3.2 The acoustic channel (ADR-002)
+- 12–19 kHz band, above the one Whisper uses (16 kHz sampling, so everything above 8 kHz is discarded): no interference with transcription.
+- 4 two-tone symbols. A message is made of 3 symbols (about 180 ms): up to 64 messages, about 20 are needed. The first symbol is the sync, the other two identify the message, plus a parity check.
+- The Mac records continuously from the chosen input (48 kHz), decodes the codes and cuts the voice between "handle pressed" and "handle released". Pre-roll comes for free.
+- Frequencies, durations and thresholds are fixed in J1, with the audio interface.
 
-### 3.3 L'app (Mac)
-**Impostazioni › Dispositivo › Firmware del mic** (richiede la USB-C dati):
+### 3.3 The app (Mac)
+**Settings › Device › Mic firmware** (needs the USB-C data cable):
 
-| Elemento | Comportamento |
+| Element | Behaviour |
 |---|---|
-| Stato | **Fabbrica** (impronta 264e54d4…), **FXMic vX.Y**, oppure **Sconosciuto** (impronta mostrata, nessuna scrittura consentita) |
-| **Installa FXMic** | Vedi la procedura sotto |
-| **Ripristina fabbrica** | Scrive l'immagine di fabbrica salvata, verifica e rimonta. Chiede uno spegnimento e riaccensione, perché il codice di fabbrica integrato riparta da zero. |
-| Aggiorna | Quando la versione installata è più vecchia di quella inclusa nell'app, o quando cambiano le soglie dei gesti |
+| Status | **Factory** (fingerprint 264e54d4…), **FXMic vX.Y**, or **Unknown** (fingerprint shown, no writing allowed) |
+| **Install FXMic** | See the procedure below |
+| **Restore factory** | Writes the saved factory image, verifies and remounts. Asks for a power cycle, so that the built-in factory code starts from scratch. |
+| Update | When the installed version is older than the one bundled with the app, or when the gesture thresholds change |
 
-Procedura di **Installa FXMic**:
-1. controlla firmware 1.0.9, impronta della partizione nota e memoria libera (blocco libero più grande ≥ 2 KB; altrimenti chiede di spegnere e riaccendere);
-2. **la prima volta** copia la partizione attuale in `~/Library/Application Support/FXMicBridge/firmware/factory-1.0.9.bin` e ne verifica l'impronta;
-3. costruisce l'immagine (file di fabbrica + file FXMic), la scrive a blocchi di 256 B, rilegge tutta la partizione e confronta l'impronta, poi rimonta `/rom`;
-4. chiede di spegnere e riaccendere il mic per attivare il firmware.
+The **Install FXMic** procedure:
+1. checks firmware 1.0.9, a known partition fingerprint and free memory (largest free block ≥ 2 KB; otherwise it asks for a power cycle);
+2. **the first time** copies the current partition to `~/Library/Application Support/FXMicBridge/firmware/factory-1.0.9.bin` and verifies its fingerprint;
+3. builds the image (factory files + FXMic files), writes it in 256 B blocks, reads the whole partition back and compares the fingerprint, then remounts `/rom`;
+4. asks to switch the mic off and on to activate the firmware.
 
-**Collegamento: Automatico / Solo USB-C / Solo jack** (Impostazioni › Dispositivo):
+**Connection: Automatic / USB-C only / Jack only** (Settings › Device):
 
-| Situazione | Automatico |
+| Situation | Automatic |
 |---|---|
-| Porta seriale del mic presente | **USB-C**, come oggi. Se è installato FXMic, l'app lo mette in pausa e installa il suo agente in RAM (LED pilotati dal Mac compresi). |
-| USB-C staccata, battito presente sull'ingresso audio | **Jack**: arriva il battito o un codice valido |
-| Né l'una né l'altro | "Mic non collegato"; resta la dettatura di riserva con Opzione destro |
+| The mic's serial port is present | **USB-C**, as today. If FXMic is installed, the app pauses it and installs its RAM agent (Mac-driven LEDs included). |
+| USB-C unplugged, heartbeat present on the audio input | **Jack**: the heartbeat or a valid code arrives |
+| Neither | "Mic not connected"; the fallback dictation with right Option remains |
 
-- **Solo USB-C:** ignora i codici acustici.
-- **Solo jack:** non apre la porta seriale, utile con un caricatore o se si vuole provare il jack con il cavo collegato.
+- **USB-C only:** ignores the acoustic codes.
+- **Jack only:** does not open the serial port, useful with a charger or to try the jack with the cable connected.
 
-**Passaggio da USB a jack senza riaccendere.** Quando l'app chiude la sessione USB, il suo agente riavvia FXMic. Se il cavo viene staccato all'improvviso, l'agente se ne accorge perché il Mac smette di interrogarlo: dopo 3 s senza richieste riavvia FXMic da solo. Il tempo è misurato con gli eventi periodici del firmware (test T3 e T6).
+**Switching from USB to jack without a power cycle.** When the app closes the USB session, its agent restarts FXMic. If the cable is pulled suddenly, the agent notices because the Mac stops polling it: after 3 s without requests it restarts FXMic by itself. The time is measured with the firmware's periodic events (tests T3 and T6).
 
-**Feedback senza LED.** In jack l'isola sul notch resta l'unico feedback per modalità, slot, elaborazione ed errori. Già oggi mostra tutto.
+**Feedback without LEDs.** With the jack, the island on the notch is the only feedback for mode, slot, processing and errors. It already shows all of them today.
 
-## 4. Cosa si conserva in jack (con FXMic installato)
-| Funzione | Jack | Note |
+## 4. What is kept with the jack (with FXMic installed)
+| Feature | Jack | Notes |
 |---|---|---|
-| Dettatura push-to-talk | ✅ | inizio e fine dai codici della maniglia; la voce passa dallo stesso cavo |
-| Doppio clic della maniglia → nuova riga | ✅ | riconosciuto sul mic |
-| Scuotimento breve → annulla, lungo → cancella tutto | ✅ | riconosciuto sul mic |
-| Arancione: modalità successiva, pressione lunga → predefinita | ✅ | stato sul Mac |
-| Bianco: slot successivo/precedente/nessuno, fino a 15 | ✅ | stato sul Mac |
-| Grigio: tocco, doppio tocco, pressione lunga, durante la dettatura | ✅ | |
-| Modalità, slot, profili per app, LLM, isola, cronologia | ✅ | invariati, solo sul Mac |
-| LED di modalità, slot, elaborazione ed errore | ❌ | accettato; restano KITT e lampeggio di conferma gestiti dal mic |
-| Latenza dei comandi | ⚠️ | circa 180 ms in più per il codice, più la finestra del doppio tocco come oggi |
+| Push-to-talk dictation | ✅ | start and end from the handle codes; the voice goes through the same cable |
+| Handle double click → new line | ✅ | recognised on the mic |
+| Short shake → cancel, long → clear all | ✅ | recognised on the mic |
+| Orange: next mode, long press → default | ✅ | state on the Mac |
+| White: next/previous/no slot, up to 15 | ✅ | state on the Mac |
+| Grey: tap, double tap, long press, during dictation | ✅ | |
+| Modes, slots, per-app profiles, LLM, island, history | ✅ | unchanged, on the Mac only |
+| Mode, slot, processing and error LEDs | ❌ | accepted; KITT and the confirmation blink handled by the mic remain |
+| Command latency | ⚠️ | about 180 ms more for the code, plus the double-tap window as today |
 
-## 5. Modifiche al modello dati
-`config.json` schema 3, solo aggiunte con valori predefiniti:
+## 5. Data model changes
+`config.json` schema 3, additions only, with defaults:
 ```json
 "device": {
   "transport": "auto",
@@ -122,46 +122,46 @@ Procedura di **Installa FXMic**:
   "firmware": { "install": "fxmic", "factoryBackup": "firmware/factory-1.0.9.bin" }
 }
 ```
-- `transport`: `auto` (predefinito), `usb`, `jack`.
-- Le soglie dei gesti restano in `GestureSettings` e vengono copiate in `fxmic_cfg.py` a ogni installazione o aggiornamento.
+- `transport`: `auto` (default), `usb`, `jack`.
+- The gesture thresholds stay in `GestureSettings` and are copied into `fxmic_cfg.py` at every install or update.
 
-## 6. Nuovi contratti
-- **Codebook `fxmic-v1`:** simboli, preambolo e tabella messaggio → gesto. È un unico file nel repository (`firmware/fxmic/codebook.json`), da cui si generano sia i WAV e `fxmic_cfg.py` sia la tabella del decoder sul Mac.
-- **Messaggi (circa 20):** `hello(version)`, `heartbeat`, `handleDown`, `handleUp`, `handleDoubleClick`, `tap|doubleTap|longPress` × arancione/bianco/grigio, `greyDuringPTT`, `shakeShort`, `shakeHold`.
-- **API del firmware via REPL** (solo in USB): `fxmic.version()`, `fxmic.pause()`, `fxmic.resume()`.
-- **Agente USB:** il ripristino non presuppone più `python_callback`. Con FXMic installato si ripristina con `fxmic.resume()`, con il firmware di fabbrica come oggi.
+## 6. New contracts
+- **Codebook `fxmic-v1`:** symbols, preamble and the message → gesture table. It is a single file in the repository (`firmware/fxmic/codebook.json`), from which both the WAVs and `fxmic_cfg.py` and the decoder table on the Mac are generated.
+- **Messages (about 20):** `hello(version)`, `heartbeat`, `handleDown`, `handleUp`, `handleDoubleClick`, `tap|doubleTap|longPress` × orange/white/grey, `greyDuringPTT`, `shakeShort`, `shakeHold`.
+- **Firmware API over the REPL** (USB only): `fxmic.version()`, `fxmic.pause()`, `fxmic.resume()`.
+- **USB agent:** restoring no longer assumes `python_callback`. With FXMic installed it restores with `fxmic.resume()`, with the factory firmware as today.
 - **App:**
-  - astrazione `DeviceTransport` con `UsbSerialTransport` (l'attuale `DeviceService`) e `JackTransport` (decoder in `FXMicCore`, testabile con WAV sintetici);
-  - un selettore automatico tra i due trasporti;
-  - `FirmwareManager`, che fa lettura, verifica, scrittura e rimontaggio della ROMFS.
+  - a `DeviceTransport` abstraction with `UsbSerialTransport` (the current `DeviceService`) and `JackTransport` (decoder in `FXMicCore`, testable with synthetic WAVs);
+  - an automatic selector between the two transports;
+  - `FirmwareManager`, which reads, verifies, writes and remounts the ROMFS.
 
-## 7. Compatibilità all'indietro
-- **Senza FXMic installato:** nulla cambia; USB-C funziona come oggi.
-- **Con FXMic installato:**
-  - il mic non funziona più come microfono a effetti autonomo: i campioni di fabbrica sono sostituiti in RAM dai simboli e `config.json` sul disco viene ignorato. Basta l'arancione tenuto premuto all'accensione o "Ripristina fabbrica";
-  - sul disco FX MIC DISK l'app aggiunge solo la cartella nascosta `.fxmic` con i 4 simboli, scritta dal Mac e rimossa dal ripristino. Il mic non scrive mai sul disco.
-- **Ultima risorsa:** reinstallare il firmware ufficiale con la modalità BOOTSEL dell'RP2350, che non si può cancellare. Resta da procurarsi il file UF2 1.0.9 e da verificare se ripristina anche `/rom` (test T9).
+## 7. Backward compatibility
+- **Without FXMic installed:** nothing changes; USB-C works as today.
+- **With FXMic installed:**
+  - the mic no longer works as a standalone effects microphone: the factory samples are replaced in RAM by the symbols and `config.json` on the disk is ignored. Orange held at power-on or "Restore factory" is enough to get it back;
+  - on the FX MIC DISK the app only adds the hidden `.fxmic` folder with the 4 symbols, written by the Mac and removed by the restore. The mic never writes to the disk.
+- **Last resort:** reinstall the official firmware with the RP2350's BOOTSEL mode, which cannot be erased. The 1.0.9 UF2 file still has to be obtained, and whether it also restores `/rom` still has to be checked (test T9).
 
-## 8. Test rimasti
-| ID | Test | Serve | Criterio di uscita |
+## 8. Remaining tests
+| ID | Test | Needs | Exit criterion |
 |---|---|---|---|
-| T1 | Via di fuga. Prima versione (arancione letto all'avvio) **fallita**; il ritorno alla fabbrica via `/rom/main.py` è verificato. Da ripetere con la finestra di 3 s | USB | 3 prove su 3; senza arancione FXMic parte |
-| T2 | Avvio: **superato** in 2 accensioni su 2. Resta da ripetere fino a 10 su 10 con il firmware vero | USB | callback di FXMic attivo dopo 10 accensioni su 10 |
-| T3 | Eventi periodici: **superato**, circa 16 ms (12–26 ms a riposo, fino a 119 ms durante l'avvio) | USB | — |
-| T4 | Simboli: da `/rom` **no**, da `/fat/.fxmic/` **sì** (≈0,5 ms ciascuno); `spl.trigger` non blocca (0,05–0,2 ms). Continuità della sequenza da verificare sul jack in T5 | USB / scheda audio | sequenza senza vuoti > 5 ms |
-| T5 | J0 + J1 con scheda audio: banda passante, livelli, riconoscimento, falsi positivi, codici durante il parlato | scheda audio | ≥ 99 % su 200 gesti; 0 falsi positivi in 30 min di voce, musica e rumore |
-| T6 | Coesistenza USB: pausa e ripresa, agente adattato, ripresa automatica dopo il distacco del cavo | USB | jack attivo entro 5 s dal distacco, 5 prove su 5 |
-| T7 | Installa e ripristina dall'app, fino in fondo, compreso il controllo della memoria | USB | 5 cicli completi con impronta verificata |
-| T8 | Batteria: risparmio energetico dopo 5 min e spegnimento dopo 20 con FXMic attivo; il Mac rileva l'assenza del battito | jack | stato "in standby" mostrato entro 10 s |
-| T9 | Recupero estremo: file UF2 ufficiale, cosa ripristina BOOTSEL | — | procedura documentata |
+| T1 | Escape hatch. First version (orange read at startup) **failed**; going back to factory through `/rom/main.py` is verified. To be repeated with the 3 s window | USB | 3 out of 3 tries; without orange FXMic starts |
+| T2 | Startup: **passed** in 2 power-ons out of 2. To be repeated up to 10 out of 10 with the real firmware | USB | FXMic callback active after 10 power-ons out of 10 |
+| T3 | Periodic events: **passed**, about 16 ms (12–26 ms at rest, up to 119 ms during startup) | USB | — |
+| T4 | Symbols: from `/rom` **no**, from `/fat/.fxmic/` **yes** (≈0.5 ms each); `spl.trigger` does not block (0.05–0.2 ms). Continuity of the sequence to be checked on the jack in T5 | USB / audio interface | sequence with no gaps > 5 ms |
+| T5 | J0 + J1 with the audio interface: passband, levels, recognition, false positives, codes during speech | audio interface | ≥ 99 % over 200 gestures; 0 false positives in 30 min of voice, music and noise |
+| T6 | USB coexistence: pause and resume, adapted agent, automatic resume after unplugging the cable | USB | jack active within 5 s of unplugging, 5 tries out of 5 |
+| T7 | Install and restore from the app, end to end, including the memory check | USB | 5 full cycles with a verified fingerprint |
+| T8 | Battery: power saving after 5 min and power-off after 20 with FXMic active; the Mac notices the missing heartbeat | jack | "standby" status shown within 10 s |
+| T9 | Extreme recovery: the official UF2 file, what BOOTSEL restores | — | documented procedure |
 
-Stato al 2026-10-16: T2, T3 superati; T4 superato con i simboli sul disco; T1 da ripetere con la nuova via di fuga durante l'implementazione. T5 e T8 quando arriva la scheda audio; T6 e T7 durante l'implementazione.
+Status on 2026-10-16: T2, T3 passed; T4 passed with the symbols on the disk; T1 to be repeated with the new escape hatch during implementation. T5 and T8 when the audio interface arrives; T6 and T7 during implementation.
 
-## 9. Rischi
-- **Aggiornamento ufficiale del firmware:** potrebbe cambiare l'ordine degli import o togliere ROMFS. L'app riconosce le versioni e rifiuta di scrivere su quelle sconosciute.
-- **Memoria (64 KB):** il firmware FXMic deve restare piccolo, con buffer fissi e nessuna allocazione nei callback.
-- **Falsi positivi** da toni acuti esterni: preambolo, parità e soglie, misurati in T5.
-- **Autonomia a batterie:** con FXMic attivo potrebbe ridursi. Si misura in T8.
+## 9. Risks
+- **Official firmware update:** it could change the import order or remove ROMFS. The app recognises versions and refuses to write to unknown ones.
+- **Memory (64 KB):** the FXMic firmware must stay small, with fixed buffers and no allocation inside callbacks.
+- **False positives** from external high-pitched tones: preamble, parity and thresholds, measured in T5.
+- **Battery life:** it could drop with FXMic active. Measured in T8.
 
 ---
-**ADR collegati:** ADR-003 (firmware persistente in `/rom/json.py`), ADR-002 (canale acustico con gesti riconosciuti sul mic), ADR-001 (agente in RAM, che resta per la modalità USB).
+**Related ADRs:** ADR-003 (persistent firmware in `/rom/json.py`), ADR-002 (acoustic channel with gestures recognised on the mic), ADR-001 (RAM agent, which stays for USB mode).

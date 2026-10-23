@@ -1,85 +1,85 @@
-# One-Pager 001 — Modalità di interazione (arancione), slot di comandi (bianco) e LED di stato
+# One-Pager 001 — Interaction modes (orange), command slots (white) and status LEDs
 
-> Data: 2026-10-16 · Stato: **Superato** dal [One-Pager 004](onepager-004-channels-and-commands.md) (2026-10-22): l'arancione sceglie i canali, non più le modalità; il comando vocale è sul grigio. Restano validi gli slot del bianco (ora "skill e comandi") e i LED manuali. Implementato in app 0.3.0, mappa dei LED verificata il 2026-10-16 · Riferimenti: TDD v1 §3.2–3.3, `docs/GESTURES.md`
+> Date: 2026-10-16 · Status: **Superseded** by [One-Pager 004](onepager-004-channels-and-commands.md) (2026-10-22): orange picks channels, no longer modes; the voice command is on grey. The white button's slots (now "skills and commands") and the manual LEDs still apply. Implemented in app 0.3.0, LED map verified on 2026-10-16 · References: TDD v1 §3.2–3.3, `docs/GESTURES.md`
 
-## Problema
-L'uso attuale di arancione e bianco (Modalità × Stile, mostrati come barre di LED) non convince:
-- i LED indicano solo un numero e non permettono di capire cosa è attivo;
-- gli Stili servono poco;
-- manca la possibilità di **lanciare comandi e skill**, che era l'obiettivo iniziale;
-- serve **massima personalizzazione** da parte dell'utente.
+## Problem
+The current use of orange and white (Mode × Style, shown as LED bars) is not convincing:
+- the LEDs only show a number and do not tell you what is active;
+- Styles are of little use;
+- there is no way to **launch commands and skills**, which was the original goal;
+- the user needs **maximum customisation**.
 
-Mancano anche un feedback sul mic durante la registrazione e un'azione al posto della semplice selezione di prompt. Lo strumento più usato è l'**app Claude desktop**.
+There is also no feedback on the mic while recording, and no action instead of a plain prompt selection. The most used tool is the **Claude desktop app**.
 
-## Proposta
+## Proposal
 
-### 1. Arancione = modalità di interazione (4 modalità, un LED rosso ciascuna)
-| LED rosso | Modalità | Cosa succede alla dettatura |
+### 1. Orange = interaction mode (4 modes, one red LED each)
+| Red LED | Mode | What happens to the dictation |
 |---|---|---|
-| 1 | **Dettato** | Trascrizione grezza, come l'attuale Raw. Nessun LLM. |
-| 2 | **Migliorato** | Trascrizione più LLM con il prompt di miglioramento del profilo (punteggiatura, chiarezza…). |
-| 3 | **Comando** | Ciò che dici diventa un'**azione** e non un testo. Per esempio "fai un elenco puntato" inserisce "- ", "vai a capo" invia ⇧↩, "cancella l'ultima frase" invia i tasti relativi. L'LLM restituisce azioni strutturate da un vocabolario chiuso: testo, tasti, ripeti, seleziona. |
-| 4 | **Computer Use** | Riservata: un agente AI usa il Mac al tuo posto. **Non implementata ora**: selezionarla mostra "non ancora disponibile". |
+| 1 | **Dictate** | Raw transcription, like the current Raw. No LLM. |
+| 2 | **Enhanced** | Transcription plus LLM with the profile's enhancement prompt (punctuation, clarity…). |
+| 3 | **Command** | What you say becomes an **action**, not text. For example "make a bullet list" inserts "- ", "new line" sends ⇧↩, "delete the last sentence" sends the matching keys. The LLM returns structured actions from a closed vocabulary: text, keys, repeat, select. |
+| 4 | **Computer Use** | Reserved: an AI agent uses the Mac for you. **Not implemented now**: selecting it shows "not available yet". |
 
-- **Tocco:** passa alla modalità successiva.
-- **Pressione lunga:** torna a Dettato.
-- **Per profilo:** si sceglie quali modalità sono attive (per esempio Comando solo dove serve) e qual è la predefinita.
+- **Tap:** moves to the next mode.
+- **Long press:** goes back to Dictate.
+- **Per profile:** you choose which modes are enabled (for example Command only where it is useful) and which is the default.
 
-### 2. Bianco = slot di comandi e skill (fino a 15 per app, codificati in binario sui 4 LED)
-Ogni combinazione dei 4 LED bianchi è uno slot: spenti = nessuno slot, poi 1…15 in binario. **L'isola mostra sempre il nome dello slot**, perché la codifica binaria a occhio non si legge.
-- **Navigazione:** tocco = slot successivo, doppio tocco = precedente, pressione lunga = nessuno slot.
-- **Due tipi di slot, scelti slot per slot:**
-  - **Esegui:** il grigio invia subito testo, tasti o una sequenza. Per esempio "Nuova chat" (⌘N), "Interrompi" (Esc), un testo come `/compact` con Invio, o il testo che lancia una skill.
-  - **Modello:** la prossima dettatura viene inserita nel modello, per esempio `Usa la skill "riassunto" su: {{testo}}` oppure `Traduci in inglese: {{testo}}`.
-- **Dopo l'uso:** la selezione torna a "nessuno slot", e i LED bianchi si spengono.
-- **Grigio:** tocco = esegue lo slot selezionato; se non c'è nessuno slot, Invio come ora.
+### 2. White = command and skill slots (up to 15 per app, encoded in binary on the 4 LEDs)
+Each combination of the 4 white LEDs is a slot: off = no slot, then 1…15 in binary. **The island always shows the slot's name**, because the binary code cannot be read at a glance.
+- **Navigation:** tap = next slot, double tap = previous, long press = no slot.
+- **Two kinds of slot, chosen slot by slot:**
+  - **Run:** grey sends text, keys or a sequence at once. For example "New chat" (⌘N), "Interrupt" (Esc), a text such as `/compact` with Return, or the text that launches a skill.
+  - **Template:** the next dictation is placed into the template, for example `Use the "summary" skill on: {{text}}` or `Translate into English: {{text}}`.
+- **After use:** the selection goes back to "no slot", and the white LEDs turn off.
+- **Grey:** tap = runs the selected slot; with no slot, Return as now.
 
-### 3. LED di stato
-| Stato | LED rossi | LED bianchi |
+### 3. Status LEDs
+| State | Red LEDs | White LEDs |
 |---|---|---|
-| Inattivo | Modalità corrente (1 LED) | Slot corrente (binario) o spenti |
-| Registrazione | **"KITT"**: un LED che scorre avanti e indietro, circa 8 passi al secondo | Invariati |
-| Elaborazione LLM | Lampeggio alternato 1+3 / 2+4 *(proposta)* | Invariati |
-| Errore | 3 lampeggi di tutti i rossi *(proposta)* | — |
+| Idle | Current mode (1 LED) | Current slot (binary) or off |
+| Recording | **"KITT"**: one LED sweeping back and forth, about 8 steps per second | Unchanged |
+| LLM processing | Alternating blink 1+3 / 2+4 *(proposal)* | Unchanged |
+| Error | 3 blinks of all the red LEDs *(proposal)* | — |
 
-## Design (sintesi)
-- **LED in modalità manuale.** Si usa `ui.led_control(0)` con `ui.led_level(i, livello)`, e l'app pilota singolarmente gli 8 LED. Le barre di `ui.leds()` non bastano più. Le animazioni vengono generate dal Mac (timer a circa 8 Hz, pochi byte per passo) oppure da una funzione dell'agente in RAM, per non intasare la seriale. **Prerequisito:** mappare quale indice da 0 a 7 corrisponde a quale LED fisico, con un test guidato dal pulsante grigio di circa 1 minuto.
-- **Configurazione (schema v2).** Per profilo:
-  - `interaction`: modalità abilitate, predefinita, prompt di miglioramento e suggerimenti per Comando;
-  - `slots`: fino a 15 elementi `{name, kind: run|template, action | template}`.
-  
-  Gli Stili non sono più usati, e i vecchi `modes`/`styles` vengono letti e convertiti automaticamente (il primo prompt diventa quello di "Migliorato").
-- **Modalità Comando:**
-  - risposta JSON con `{"actions":[{"type":"text","text":"- "}, {"type":"key","keys":["shift+return"]}]}`, validata;
-  - sono ammessi solo i tasti dell'elenco consentito, senza ⌘Q, ⌘W o simili;
-  - se la risposta non è valida non viene eseguito nulla e compare un avviso;
-  - il profilo può aggiungere suggerimenti specifici, per esempio "in Claude desktop il campo accetta Markdown".
-- **Editor nelle Impostazioni:** scheda Profili con le sezioni "Modalità" e "Slot", con riordino, test dello slot e importazione/esportazione.
-- **Profilo predefinito per Claude desktop** (`com.anthropic.claudefordesktop`), con slot di esempio:
-  - Esegui: Nuova chat ⌘N, Interrompi Esc;
-  - Modello: "Riassumi: {{testo}}", "Traduci in inglese: {{testo}}", "Spiegami come a un principiante: {{testo}}".
+## Design (summary)
+- **LEDs in manual mode.** It uses `ui.led_control(0)` with `ui.led_level(i, level)`, and the app drives the 8 LEDs one by one. The bars of `ui.leds()` are no longer enough. Animations are generated by the Mac (a timer at about 8 Hz, a few bytes per step) or by a function of the RAM agent, so as not to clog the serial line. **Prerequisite:** map which index from 0 to 7 matches which physical LED, with a test of about 1 minute guided by the grey button.
+- **Configuration (schema v2).** Per profile:
+  - `interaction`: enabled modes, default, enhancement prompt and hints for Command;
+  - `slots`: up to 15 items `{name, kind: run|template, action | template}`.
 
-## Alternative considerate
-- **Barre come ora:** scartate su tua indicazione (si accende solo il LED dello slot).
-- **Solo 4 slot, uno per LED:** scartato a favore delle 15 combinazioni, al costo di affidarsi all'isola per leggere il nome.
-- **Selezione a voce dello slot** ("slot traduci"): rimandata come estensione.
-- **Menu sull'isola con scorrimento per inclinazione:** rimandato; potrà convivere con la navigazione a tocchi.
+  Styles are no longer used, and the old `modes`/`styles` are read and converted automatically (the first prompt becomes the "Enhanced" one).
+- **Command mode:**
+  - JSON answer such as `{"actions":[{"type":"text","text":"- "}, {"type":"key","keys":["shift+return"]}]}`, validated;
+  - only keys from the allow list are accepted, without ⌘Q, ⌘W or similar;
+  - if the answer is invalid nothing runs and a notice appears;
+  - the profile can add specific hints, for example "in Claude desktop the field accepts Markdown".
+- **Editor in Settings:** Profiles tab with "Modes" and "Slots" sections, with reordering, slot testing and import/export.
+- **Default profile for Claude desktop** (`com.anthropic.claudefordesktop`), with example slots:
+  - Run: New chat ⌘N, Interrupt Esc;
+  - Template: "Summarize: {{text}}", "Translate into English: {{text}}", "Explain it to me like a beginner: {{text}}".
 
-## Rischi e punti aperti
-1. **15 slot da scorrere a tocchi** sono tanti: andare dall'1 al 15 richiede 15 tocchi. Mitigazioni:
-   - doppio tocco per tornare indietro;
-   - pressione lunga per azzerare;
-   - eventuale scorrimento rapido tenendo premuto. **Da confermare.**
-2. **Mappa e luminosità dei LED** ancora sconosciute: serve il test guidato. Se la luminosità non è regolabile, l'animazione di elaborazione resta un lampeggio on/off.
-3. **Affidabilità della modalità Comando:** dipende dal modello locale (qwen3.5:4b). Si parte con un vocabolario piccolo e un'anteprima nelle Impostazioni.
-4. **Computer Use:** richiede un agente esterno (per esempio Claude con computer use). Va valutato a parte (sicurezza, permessi, costi). Per ora è un segnaposto.
-5. **Compatibilità:** i `config.json` esistenti vengono migrati; il backup `config.json.bak` viene creato al primo salvataggio.
+## Alternatives considered
+- **Bars as now:** rejected at your request (only the slot's LED lights up).
+- **Only 4 slots, one per LED:** rejected in favour of the 15 combinations, at the cost of relying on the island to read the name.
+- **Picking the slot by voice** ("slot translate"): deferred as an extension.
+- **Menu on the island with tilt scrolling:** deferred; it can live alongside tap navigation.
 
-## Piano
-1. Test di mappatura dei LED (interattivo, circa 1 minuto).
-2. Schema v2, migrazione e test unitari.
-3. LED manuali: modalità, slot binari, animazioni KITT, elaborazione ed errore.
-4. Arancione → modalità (Dettato, Migliorato, Comando; Computer Use come segnaposto).
-5. Bianco → slot Esegui/Modello, grigio = esegui.
-6. Editor nelle Impostazioni e profilo Claude desktop di esempio.
-7. Aggiornamento di `GESTURES.md` e del TDD, poi verifica sul dispositivo.
+## Risks and open points
+1. **15 slots to scroll through by tapping** is a lot: going from 1 to 15 takes 15 taps. Mitigations:
+   - double tap to go back;
+   - long press to reset;
+   - possibly fast scrolling while held. **To be confirmed.**
+2. **LED map and brightness** still unknown: the guided test is needed. If brightness cannot be set, the processing animation stays an on/off blink.
+3. **Reliability of Command mode:** it depends on the local model (qwen3.5:4b). We start with a small vocabulary and a preview in Settings.
+4. **Computer Use:** it needs an external agent (for example Claude with computer use). It must be assessed separately (security, permissions, costs). For now it is a placeholder.
+5. **Compatibility:** existing `config.json` files are migrated; the `config.json.bak` backup is created on the first save.
+
+## Plan
+1. LED mapping test (interactive, about 1 minute).
+2. Schema v2, migration and unit tests.
+3. Manual LEDs: mode, binary slots, KITT animations, processing and error.
+4. Orange → modes (Dictate, Enhanced, Command; Computer Use as a placeholder).
+5. White → Run/Template slots, grey = run.
+6. Settings editor and an example Claude desktop profile.
+7. Update `GESTURES.md` and the TDD, then verify on the device.

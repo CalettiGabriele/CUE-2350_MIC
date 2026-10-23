@@ -1,33 +1,33 @@
-# ADR-002: Canale di controllo acustico a 12–19 kHz, con gesti riconosciuti sul mic
+# ADR-002: Acoustic control channel at 12–19 kHz, with gestures recognised on the mic
 
-**Data:** 2026-10-16 (rev. 2)
-**Stato:** Proposto, subordinato ai test T4 e T5 del One-Pager 002
+**Date:** 2026-10-16 (rev. 2)
+**Status:** Proposed, subject to tests T4 and T5 of One-Pager 002
 
-## Contesto
-ADR-001 porta eventi e LED sulla seriale USB. L'utente vuole poter usare FX MIC collegato al Mac **solo con il jack 3,5 mm**, che trasporta un unico segnale audio dal mic al Mac: deve portare sia la voce sia i comandi.
+## Context
+ADR-001 carries events and LEDs over the USB serial line. The user wants to be able to use the FX MIC connected to the Mac **with the 3.5 mm jack only**, which carries a single audio signal from the mic to the Mac: it must carry both the voice and the commands.
 
-Con il firmware di fabbrica solo il grigio emette un suono, mentre arancione e bianco sono muti. Con il firmware FXMic (ADR-003) il mic può invece far suonare un campione a ogni gesto.
+With the factory firmware only the grey button makes a sound, while orange and white are silent. With the FXMic firmware (ADR-003), instead, the mic can play a sample for every gesture.
 
-Whisper lavora a 16 kHz e scarta tutto sopra 8 kHz. Ogni codice dura circa 180 ms: se il mic inviasse pressioni e rilasci grezzi, il Mac li riceverebbe in ritardo e accodati, e doppi tocchi e pressioni lunghe non si riconoscerebbero più.
+Whisper works at 16 kHz and discards everything above 8 kHz. Each code lasts about 180 ms: if the mic sent raw presses and releases, the Mac would receive them late and queued up, and double taps and long presses could no longer be recognised.
 
-## Decisione
-Abbiamo deciso che nel collegamento solo jack:
-- **i gesti vengono riconosciuti sul mic** dal firmware FXMic, con le stesse regole e soglie di `GestureRecognizer`, copiate al momento dell'installazione;
-- ogni gesto (e un battito periodico con la versione) viene inviato come **messaggio acustico** di 3 simboli a due toni nella banda **12–19 kHz**, scelti fra 4 simboli caricati nelle posizioni campione del mic;
-- **lo stato resta sul Mac** (modalità, slot, profili): il mic non tiene stato, quindi un messaggio perso equivale a un tasto non premuto;
-- il Mac registra di continuo a 48 kHz, decodifica i messaggi e passa la voce a Whisper senza filtri aggiuntivi;
-- un unico codebook versionato genera i WAV dei simboli, la configurazione del firmware e la tabella del decoder;
-- il trasporto si sceglie in automatico (USB se c'è la seriale, jack se arriva il battito) oppure a mano (`device.transport`).
+## Decision
+We decided that with the jack-only connection:
+- **gestures are recognised on the mic** by the FXMic firmware, with the same rules and thresholds as `GestureRecognizer`, copied at install time;
+- each gesture (and a periodic heartbeat carrying the version) is sent as an **acoustic message** of 3 two-tone symbols in the **12–19 kHz** band, chosen from 4 symbols loaded into the mic's sample positions;
+- **state stays on the Mac** (mode, slot, profiles): the mic keeps no state, so a lost message is the same as a button not pressed;
+- the Mac records continuously at 48 kHz, decodes the messages and passes the voice to Whisper without extra filters;
+- a single versioned codebook generates the symbol WAVs, the firmware configuration and the decoder table;
+- the transport is chosen automatically (USB if the serial line is there, jack if the heartbeat arrives) or by hand (`device.transport`).
 
-## Conseguenze
+## Consequences
 
 **Positive**
-- Tutte le funzioni dei gesti e della dettatura restano disponibili col solo jack; si perdono solo i LED pilotati dal Mac.
-- I codici sono fuori dalla banda di Whisper e la loro struttura (preambolo, due toni, parità) non si può ottenere con la voce.
-- Il Mac riusa profili, modalità, slot, LLM e isola senza modifiche, tramite un adattatore dai messaggi alle azioni.
+- Every gesture and dictation feature stays available with the jack alone; only the Mac-driven LEDs are lost.
+- The codes are outside Whisper's band, and their structure (preamble, two tones, parity) cannot be produced by a voice.
+- The Mac reuses profiles, modes, slots, LLM and the island unchanged, through an adapter from messages to actions.
 
 **Negative**
-- Canale in una sola direzione: modalità, slot, elaborazione ed errori non si vedono sui LED, ma solo nell'isola.
-- Circa 180 ms di latenza in più per comando, e le soglie dei gesti richiedono di reinstallare il firmware quando cambiano.
-- Registrazione sempre attiva sul Mac in modalità jack: consumo continuo e indicatore del microfono di macOS sempre acceso.
-- Dipende dalla risposta in frequenza della catena audio del mic e della scheda audio, ancora da misurare (T5).
+- One-way channel: mode, slot, processing and errors are not shown on the LEDs, only in the island.
+- About 180 ms of extra latency per command, and the gesture thresholds require reinstalling the firmware when they change.
+- Recording always on on the Mac in jack mode: continuous power use and the macOS microphone indicator always lit.
+- It depends on the frequency response of the mic's and the audio interface's audio chain, still to be measured (T5).
