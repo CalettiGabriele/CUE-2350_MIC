@@ -132,6 +132,18 @@ public struct Channel: Codable, Equatable, Sendable {
         self.session = session
     }
 
+    /// How narrowly the channel points: a session, a document, a window title or the whole app.
+    public var specificity: Int { session != nil ? 3 : (document != nil ? 2 : (title != nil ? 1 : 0)) }
+
+    /// True when `window`, the description of the window in front, is what this channel points to.
+    public func matches(window: Channel) -> Bool {
+        guard bundleID == window.bundleID else { return false }
+        if let session { return session == window.session }
+        if let document { return document == window.document }
+        if let title { return title == window.title }
+        return true
+    }
+
     /// Same app and same session/document/window: binding it again moves to that channel.
     public func sameTarget(as other: Channel) -> Bool {
         guard bundleID == other.bundleID else { return false }
@@ -233,6 +245,8 @@ public enum Action: Equatable, Sendable {
     case nextChannel
     case previousChannel
     case bindChannel
+    /// Unbinds all four channels (orange held for 3 s).
+    case clearChannels
     /// Legacy orange actions (interaction modes).
     case cycleMode
     case resetMode
@@ -253,6 +267,7 @@ extension Action: Codable {
     private static let simple: [String: Action] = [
         "undoLastInsertion": .undoLastInsertion, "cancel": .cancel, "editSelection": .editSelection,
         "nextChannel": .nextChannel, "previousChannel": .previousChannel, "bindChannel": .bindChannel,
+        "clearChannels": .clearChannels,
         "cycleMode": .cycleMode, "resetMode": .resetMode, "nextSlot": .nextSlot,
         "previousSlot": .previousSlot, "clearSlot": .clearSlot, "runSlot": .runSlot, "none": .none,
     ]
@@ -301,10 +316,13 @@ public struct ButtonActions: Codable, Equatable, Sendable {
     public var tap: Action = .none
     public var doubleTap: Action = .none
     public var longPress: Action = .none
-    public init(tap: Action = .none, doubleTap: Action = .none, longPress: Action = .none) {
+    /// Held for 3 s: a deliberate gesture for things that must not happen by accident.
+    public var veryLongPress: Action = .none
+    public init(tap: Action = .none, doubleTap: Action = .none, longPress: Action = .none, veryLongPress: Action = .none) {
         self.tap = tap
         self.doubleTap = doubleTap
         self.longPress = longPress
+        self.veryLongPress = veryLongPress
     }
 }
 
@@ -332,7 +350,8 @@ public struct Profile: Codable, Equatable, Sendable {
     public var interaction = InteractionSettings()
     /// Up to 15 slots, shown in binary on the white LEDs.
     public var slots: [Slot] = []
-    public var orange = ButtonActions(tap: .nextChannel, doubleTap: .previousChannel, longPress: .bindChannel)
+    public var orange = ButtonActions(tap: .nextChannel, doubleTap: .previousChannel, longPress: .bindChannel,
+                                      veryLongPress: .clearChannels)
     public var white = ButtonActions(tap: .nextSlot, doubleTap: .previousSlot, longPress: .clearSlot)
     public var grey = ButtonActions(tap: .runSlot, doubleTap: .undoLastInsertion, longPress: .intent("interrupt"))
     /// Grey pressed while the handle is held: the dictation becomes a voice command.
@@ -561,12 +580,13 @@ extension Slot {
 }
 
 extension ButtonActions {
-    private enum CodingKeys: String, CodingKey { case tap, doubleTap, longPress }
+    private enum CodingKeys: String, CodingKey { case tap, doubleTap, longPress, veryLongPress }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         tap = c.value(.tap, .none)
         doubleTap = c.value(.doubleTap, .none)
         longPress = c.value(.longPress, .none)
+        veryLongPress = c.value(.veryLongPress, .none)
     }
 }
 
@@ -620,6 +640,7 @@ extension Profile {
         if p.orange.tap == .nextChannel {
             if p.orange.doubleTap == .none { p.orange.doubleTap = .previousChannel }
             if p.orange.longPress == .none || p.orange.longPress == .resetMode { p.orange.longPress = .bindChannel }
+            if p.orange.veryLongPress == .none { p.orange.veryLongPress = .clearChannels }
         }
         if p.white.tap == .nextSlot, p.white.doubleTap == .none { p.white.doubleTap = .previousSlot }
         if p.white.tap == .nextSlot, p.white.longPress == .none { p.white.longPress = .clearSlot }

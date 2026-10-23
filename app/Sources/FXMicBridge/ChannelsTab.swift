@@ -7,6 +7,7 @@ import SwiftUI
 /// renamed, reordered and removed, and whole apps can be added.
 struct ChannelsTab: View {
     @ObservedObject var model: SettingsModel
+    @State private var confirmClear = false
 
     private var channels: [Channel] { model.draft.channels }
 
@@ -28,10 +29,18 @@ struct ChannelsTab: View {
                     }
                     .menuStyle(.borderlessButton).fixedSize()
                 }
+                if !channels.isEmpty {
+                    Button(L.t("Clear all channels…"), role: .destructive) { confirmClear = true }
+                        .confirmationDialog(L.t("Clear all channels?"), isPresented: $confirmClear) {
+                            Button(L.t("Clear all"), role: .destructive) { model.draft.channels.removeAll() }
+                        } message: {
+                            Text(L.t("They are removed when you press Save. Windows and sessions are not touched."))
+                        }
+                }
             } header: {
                 Text(L.f("Channels (orange, red LEDs) — %d/%d", channels.count, Channel.maxCount))
             } footer: {
-                Text(L.t("Orange: tap = next channel, double tap = previous, long press = bind the window in front to the selected channel. Talking goes to the selected channel: its window comes forward first. After the last channel there is an empty position, where the voice goes to the app in front."))
+                Text(L.t("Talking goes where you are: on the window of a channel it is that channel, anywhere else it is free and the voice goes where your cursor is, with no jump. Orange: tap = go to the next channel, double tap = previous, long press = add the window in front as a channel (the next free one; with four taken it replaces the one you are on), hold 3 s = clear all channels."))
                     .font(.caption).foregroundStyle(.secondary)
             }
 

@@ -12,6 +12,8 @@ enum ChannelNavigator {
     static func capture(_ app: NSRunningApplication) -> Channel? {
         guard let bundleID = app.bundleIdentifier else { return nil }
         let element = AXUIElementCreateApplication(app.processIdentifier)
+        // This runs on the main thread: an app that hangs must not freeze ours.
+        AXUIElementSetMessagingTimeout(element, 0.25)
         var document: String?
         var title: String?
         if let window = attribute(element, kAXFocusedWindowAttribute) {
@@ -21,7 +23,6 @@ enum ChannelNavigator {
         }
         // Claude and Codex keep several sessions in one window: bind the one on screen.
         let session = SessionLocator.current(bundleID: bundleID)
-        log.notice("capture \(bundleID, privacy: .public) session=\(session?.id ?? "none", privacy: .public) title=\(session?.title ?? title ?? "-", privacy: .public)")
         var detail = session?.title ?? document.flatMap { URL(string: $0)?.lastPathComponent } ?? title ?? ""
         if detail.count > 28 { detail = String(detail.prefix(27)) + "…" }
         let appName = SessionLocator.displayName(bundleID: bundleID) ?? app.localizedName ?? bundleID

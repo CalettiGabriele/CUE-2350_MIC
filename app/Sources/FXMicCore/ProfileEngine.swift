@@ -61,54 +61,99 @@ public struct ProfileEngine {
 
     // MARK: Channels (orange, One-Pager 004 §4)
 
-    /// Position of the selected channel: 0 … number of bound channels. The last position is an
-    /// empty one (while fewer than 4 are bound) where a new window can be bound.
-    private var position = 0
+    /// The channel you are on: the one you jumped to with orange, or the one whose window is in
+    /// front. nil = free: the voice goes wherever the cursor is, with no jump.
+    private var position: Int?
 
     public var channels: [Channel] { config.channels }
-    public var channelPositions: Int { min(config.channels.count + 1, Channel.maxCount) }
-    public var channelPosition: Int { min(max(position, 0), channelPositions - 1) }
 
-    /// The selected channel; nil on the empty position (dictation goes to the frontmost app).
-    public var channel: Channel? {
-        config.channels.indices.contains(channelPosition) ? config.channels[channelPosition] : nil
+    public var channelPosition: Int? {
+        position.flatMap { config.channels.indices.contains($0) ? $0 : nil }
     }
 
+    /// nil while free.
+    public var channel: Channel? { channelPosition.map { config.channels[$0] } }
+
+    /// You are on this channel (nil = free). Also used when the window in front changes.
+    public mutating func setFocus(_ index: Int?) {
+        position = index.flatMap { config.channels.indices.contains($0) ? $0 : nil }
+    }
+
+    public mutating func select(channel index: Int) { setFocus(index) }
+
+    /// The channel `window` belongs to: the most specific one that matches it (a session beats a
+    /// whole app), nil if none does, which means free.
+    public func channelIndex(forWindow window: Channel) -> Int? {
+        var best: (index: Int, specificity: Int)?
+        for (index, channel) in config.channels.enumerated() where channel.matches(window: window) {
+            if best == nil || channel.specificity > best!.specificity { best = (index, channel.specificity) }
+        }
+        return best?.index
+    }
+
+    /// From free it goes to the first channel.
     public mutating func nextChannel() {
-        position = (channelPosition + 1) % channelPositions
+        let count = config.channels.count
+        guard count > 0 else { position = nil; return }
+        position = channelPosition.map { ($0 + 1) % count } ?? 0
     }
 
+    /// From free it goes to the last channel.
     public mutating func previousChannel() {
-        position = (channelPosition + channelPositions - 1) % channelPositions
+        let count = config.channels.count
+        guard count > 0 else { position = nil; return }
+        position = channelPosition.map { ($0 + count - 1) % count } ?? count - 1
     }
 
-    public mutating func select(channel index: Int) {
-        position = min(max(index, 0), channelPositions - 1)
+    public struct BindOutcome: Equatable, Sendable {
+        public enum Kind: Sendable { case added, updated, replaced }
+        public let index: Int
+        public let kind: Kind
     }
 
-    /// Binds a window to the selected position (replacing what was there). A window that is
-    /// already bound just selects its channel. Returns the position it ended up on.
+    /// Binds a window. The same window again updates its channel. A new one takes the next free
+    /// channel; with all four taken it replaces the channel you are on (the last one if free).
     @discardableResult
-    public mutating func bind(_ channel: Channel) -> Int {
+    public mutating func bind(_ channel: Channel) -> BindOutcome {
         if let existing = config.channels.firstIndex(where: { $0.sameTarget(as: channel) }) {
             config.channels[existing] = channel
             position = existing
-        } else if config.channels.indices.contains(channelPosition) {
-            config.channels[channelPosition] = channel
-        } else {
+            return BindOutcome(index: existing, kind: .updated)
+        }
+        if config.channels.count < Channel.maxCount {
             config.channels.append(channel)
             position = config.channels.count - 1
+            return BindOutcome(index: config.channels.count - 1, kind: .added)
         }
-        return channelPosition
+        let target = channelPosition ?? Channel.maxCount - 1
+        config.channels[target] = channel
+        position = target
+        return BindOutcome(index: target, kind: .replaced)
     }
 
-    /// Removes the selected channel; true if there was one.
+    /// Removes the channel you are on; true if there was one. You are free afterwards.
     @discardableResult
     public mutating func unbindChannel() -> Bool {
-        guard config.channels.indices.contains(channelPosition) else { return false }
-        config.channels.remove(at: channelPosition)
-        position = channelPosition
+        guard let index = channelPosition else { return false }
+        config.channels.remove(at: index)
+        position = nil
         return true
+    }
+
+    /// Unbinds all channels and returns them, so the app can offer to undo.
+    @discardableResult
+    public mutating func clearChannels() -> [Channel] {
+        let removed = config.channels
+        config.channels = []
+        position = nil
+        return removed
+    }
+
+    /// Puts back channels removed by `clearChannels` (only if none were bound since).
+    public mutating func restoreChannels(_ channels: [Channel]) {
+        guard config.channels.isEmpty else { return }
+        config.channels = Array(channels.prefix(Channel.maxCount))
+        position = nil
     }
 
     private static func fallback(in config: AppConfig) -> Profile {
@@ -200,6 +245,9 @@ public struct ProfileEngine {
         case .tap(.orange): return active.orange.tap
         case .doubleTap(.orange): return active.orange.doubleTap
         case .longPress(.orange): return active.orange.longPress
+        case .veryLongPress(.orange): return active.orange.veryLongPress
+        case .veryLongPress(.white): return active.white.veryLongPress
+        case .veryLongPress(.grey): return active.grey.veryLongPress
         case .tap(.white): return active.white.tap
         case .doubleTap(.white): return active.white.doubleTap
         case .longPress(.white): return active.white.longPress
@@ -230,9 +278,9 @@ public enum LedPattern {
         red(mode.ledIndex) | white(slot: slot)
     }
 
-    /// Idle: the red LED of the selected channel (0 = top) and the slot in binary.
-    public static func idle(channel: Int, slot: Int?) -> UInt8 {
-        red(channel) | white(slot: slot)
+    /// Idle: the red LED of the channel you are on (0 = top; none while free) and the slot in binary.
+    public static func idle(channel: Int?, slot: Int?) -> UInt8 {
+        (channel.map(red) ?? 0) | white(slot: slot)
     }
 
     /// Recording: one red LED sweeping up and down (0 1 2 3 2 1 …).

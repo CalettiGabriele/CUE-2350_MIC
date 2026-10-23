@@ -26,7 +26,7 @@ import Testing
 
     @Test func actionsRoundTrip() throws {
         let actions: [Action] = [.key(["cmd+a", "delete"]), .text("/clear\n"), .undoLastInsertion,
-                                 .reinsertLast(raw: false), .cancel, .editSelection, .nextChannel, .previousChannel, .bindChannel, .intent("interrupt"), .cycleMode, .resetMode,
+                                 .reinsertLast(raw: false), .cancel, .editSelection, .nextChannel, .previousChannel, .bindChannel, .clearChannels, .intent("interrupt"), .cycleMode, .resetMode,
                                  .nextSlot, .previousSlot, .clearSlot, .runSlot, .none]
         let data = try JSONEncoder().encode(actions)
         #expect(try JSONDecoder().decode([Action].self, from: data) == actions)

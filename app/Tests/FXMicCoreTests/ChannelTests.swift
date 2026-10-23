@@ -8,89 +8,113 @@ import Testing
                                 document: "file:///tmp/TODO.md", title: "TODO.md")
     private let word = Channel(name: "Word", bundleID: "com.microsoft.Word", title: "Doc1")
 
-    @Test func startsOnAnEmptyPosition() {
-        let engine = ProfileEngine(config: AppConfig())
-        #expect(engine.channelPositions == 1)
-        #expect(engine.channelPosition == 0)
-        #expect(engine.channel == nil)
-        #expect(engine.idleLEDs == 0b0000_0001)
+    private func engine(with channels: [Channel] = []) -> ProfileEngine {
+        var config = AppConfig()
+        config.channels = channels
+        return ProfileEngine(config: config)
     }
 
-    @Test func bindingFillsPositionsAndAddsAnEmptyOne() {
-        var engine = ProfileEngine(config: AppConfig())
-        #expect(engine.bind(claude) == 0)
-        #expect(engine.channelPositions == 2)
-        engine.nextChannel()
+    @Test func startsFreeWithNoRedLed() {
+        let engine = engine()
+        #expect(engine.channelPosition == nil)
         #expect(engine.channel == nil)
-        #expect(engine.bind(notes) == 1)
+        #expect(engine.idleLEDs == 0)
+    }
+
+    @Test func bindingAddsChannelsInOrder() {
+        var engine = engine()
+        #expect(engine.bind(claude) == .init(index: 0, kind: .added))
+        #expect(engine.bind(notes) == .init(index: 1, kind: .added))
         #expect(engine.config.channels == [claude, notes])
+        #expect(engine.channelPosition == 1)
         #expect(engine.idleLEDs == 0b0000_0010)
     }
 
-    @Test func cyclesThroughBoundChannelsAndTheEmptyPosition() {
-        var engine = ProfileEngine(config: AppConfig())
-        engine.bind(claude)
-        engine.nextChannel(); engine.bind(notes)
-        engine.nextChannel(); engine.bind(word)
-        #expect(engine.channelPositions == 4)
-        var seen: [Int] = [engine.channelPosition]
-        for _ in 0..<4 { engine.nextChannel(); seen.append(engine.channelPosition) }
-        #expect(seen == [2, 3, 0, 1, 2])
-        engine.previousChannel(); engine.previousChannel(); engine.previousChannel()
-        #expect(engine.channelPosition == 3)
+    @Test func nextAndPreviousWrapAndStartFromFree() {
+        var engine = engine(with: [claude, notes, word])
+        engine.nextChannel()
+        #expect(engine.channelPosition == 0)
+        engine.nextChannel(); engine.nextChannel(); engine.nextChannel()
+        #expect(engine.channelPosition == 0)
+        engine.previousChannel()
+        #expect(engine.channelPosition == 2)
+        engine.setFocus(nil)
+        engine.previousChannel()
+        #expect(engine.channelPosition == 2)
     }
 
-    @Test func maximumFourChannels() {
-        var engine = ProfileEngine(config: AppConfig())
-        for i in 0..<6 {
-            engine.bind(Channel(name: "A\(i)", bundleID: "app.\(i)", title: "t"))
-            engine.nextChannel()
-        }
+    @Test func noChannelsMeansAlwaysFree() {
+        var engine = engine()
+        engine.nextChannel()
+        engine.previousChannel()
+        #expect(engine.channelPosition == nil)
+    }
+
+    @Test func fullListReplacesTheChannelYouAreOn() {
+        var engine = engine(with: [claude, notes, word, Channel(name: "Mail", bundleID: "mail")])
+        engine.setFocus(1)
+        let replacement = Channel(name: "Slack", bundleID: "slack", title: "x")
+        #expect(engine.bind(replacement) == .init(index: 1, kind: .replaced))
+        #expect(engine.config.channels.map(\.name) == ["Claude", "Slack", "Word", "Mail"])
+    }
+
+    @Test func fullListFromFreeReplacesTheLastOne() {
+        var engine = engine(with: [claude, notes, word, Channel(name: "Mail", bundleID: "mail")])
+        engine.setFocus(nil)
+        let replacement = Channel(name: "Slack", bundleID: "slack", title: "x")
+        #expect(engine.bind(replacement) == .init(index: 3, kind: .replaced))
         #expect(engine.config.channels.count == 4)
-        #expect(engine.channelPositions == 4)
     }
 
-    @Test func rebindingTheSameWindowDoesNotDuplicate() {
-        var engine = ProfileEngine(config: AppConfig())
-        engine.bind(claude)
-        engine.nextChannel(); engine.bind(notes)
-        engine.select(channel: 0)
-        #expect(engine.bind(notes) == 1)
-        #expect(engine.config.channels == [claude, notes])
-        // Same document, different window title: still the same channel.
+    @Test func neverMoreThanFourChannels() {
+        var engine = engine()
+        for i in 0..<6 { engine.bind(Channel(name: "A\(i)", bundleID: "app.\(i)", title: "t")) }
+        #expect(engine.config.channels.count == 4)
+    }
+
+    @Test func bindingTheSameWindowUpdatesItsChannel() {
+        var engine = engine(with: [claude, notes])
         var renamed = notes
         renamed.title = "TODO.md — edited"
-        engine.select(channel: 0)
-        #expect(engine.bind(renamed) == 1)
+        #expect(engine.bind(renamed) == .init(index: 1, kind: .updated))
         #expect(engine.config.channels.count == 2)
+        #expect(engine.channelPosition == 1)
     }
 
-    @Test func bindingOnABoundPositionReplacesIt() {
-        var engine = ProfileEngine(config: AppConfig())
-        engine.bind(claude)
-        engine.bind(word)
-        #expect(engine.config.channels == [word])
-    }
-
-    @Test func unbindRemovesAndKeepsAValidPosition() {
-        var engine = ProfileEngine(config: AppConfig())
-        engine.bind(claude)
-        engine.nextChannel(); engine.bind(notes)
+    @Test func unbindRemovesTheCurrentChannelAndFrees() {
+        var engine = engine(with: [claude, notes])
+        engine.setFocus(0)
         let removed = engine.unbindChannel()
         #expect(removed)
-        #expect(engine.config.channels == [claude])
-        #expect(engine.channelPosition == 1)
-        #expect(engine.channel == nil)
+        #expect(engine.config.channels == [notes])
+        #expect(engine.channelPosition == nil)
         let removedAgain = engine.unbindChannel()
         #expect(!removedAgain)
     }
 
-    @Test func reloadClampsThePosition() {
-        var engine = ProfileEngine(config: AppConfig())
-        engine.bind(claude)
-        engine.nextChannel(); engine.bind(notes)
+    @Test func clearAllEmptiesEverythingAndCanBeUndoneOnce() {
+        var engine = engine(with: [claude, notes, word])
+        engine.setFocus(1)
+        let removed = engine.clearChannels()
+        #expect(removed == [claude, notes, word])
+        #expect(engine.config.channels.isEmpty)
+        #expect(engine.channelPosition == nil)
+        engine.restoreChannels(removed)
+        #expect(engine.config.channels == [claude, notes, word])
+        // Not when something was bound in the meantime.
+        var other = self.engine()
+        other.bind(word)
+        other.restoreChannels([claude, notes])
+        #expect(other.config.channels == [word])
+    }
+
+    @Test func reloadDropsAPositionThatNoLongerExists() {
+        var engine = engine(with: [claude, notes])
+        engine.setFocus(1)
         engine.reload(AppConfig())
-        #expect(engine.channelPosition == 0)
+        #expect(engine.channelPosition == nil)
+        engine.setFocus(5)
+        #expect(engine.channelPosition == nil)
     }
 
     @Test func channelsPersistInConfig() throws {
@@ -114,14 +138,120 @@ import Testing
         #expect(orange.tap == .nextChannel)
         #expect(orange.doubleTap == .previousChannel)
         #expect(orange.longPress == .bindChannel)
+        #expect(orange.veryLongPress == .clearChannels)
         let custom = #"{"profiles":[{"id":"d","name":"D","orange":{"tap":{"type":"key","keys":["escape"]}}}]}"#
         let profile = try #require(try JSONDecoder().decode(AppConfig.self, from: Data(custom.utf8)).profiles.first { $0.id == "d" })
         #expect(profile.orange.tap == .key(["escape"]))
+        #expect(profile.orange.veryLongPress == .none)
     }
 
-    @Test func idleLedShowsChannelAndSlot() {
+    @Test func idleLedShowsTheChannelYouAreOnAndTheSlot() {
+        #expect(LedPattern.idle(channel: nil, slot: nil) == 0)
         #expect(LedPattern.idle(channel: 0, slot: nil) == 0b0000_0001)
         #expect(LedPattern.idle(channel: 3, slot: 5) == 0b0101_1000)
+        #expect(LedPattern.idle(channel: nil, slot: 3) == 0b0011_0000)
+    }
+}
+
+/// Which channel a window belongs to decides where the voice goes, with no jump (One-Pager 004).
+@Suite struct ChannelFocusTests {
+    private let claudeID = "com.anthropic.claudefordesktop"
+    private func window(_ bundle: String, session: String? = nil, document: String? = nil, title: String? = nil) -> Channel {
+        Channel(name: "w", bundleID: bundle, document: document, title: title, session: session)
+    }
+
+    @Test func wholeAppChannelMatchesAnyWindowOfThatApp() {
+        let channel = Channel(name: "Claude", bundleID: claudeID)
+        #expect(channel.matches(window: window(claudeID, title: "anything")))
+        #expect(!channel.matches(window: window("other", title: "anything")))
+        #expect(channel.specificity == 0)
+    }
+
+    @Test func sessionDocumentAndTitleMustBeEqual() {
+        let session = Channel(name: "s", bundleID: claudeID, session: "local_a")
+        #expect(session.matches(window: window(claudeID, session: "local_a")))
+        #expect(!session.matches(window: window(claudeID, session: "local_b")))
+        #expect(!session.matches(window: window(claudeID)))
+        let document = Channel(name: "d", bundleID: "vs", document: "file:///a.md")
+        #expect(document.matches(window: window("vs", document: "file:///a.md", title: "changed")))
+        #expect(!document.matches(window: window("vs", document: "file:///b.md")))
+        let titled = Channel(name: "t", bundleID: "w", title: "Doc1")
+        #expect(titled.matches(window: window("w", title: "Doc1")))
+        #expect(!titled.matches(window: window("w", title: "Doc2")))
+        #expect(session.specificity == 3)
+        #expect(document.specificity == 2)
+        #expect(titled.specificity == 1)
+    }
+
+    @Test func theMostSpecificChannelWins() {
+        var config = AppConfig()
+        config.channels = [Channel(name: "Claude", bundleID: claudeID),
+                           Channel(name: "Claude · api", bundleID: claudeID, session: "local_a")]
+        let engine = ProfileEngine(config: config)
+        #expect(engine.channelIndex(forWindow: window(claudeID, session: "local_a")) == 1)
+        #expect(engine.channelIndex(forWindow: window(claudeID, session: "local_other")) == 0)
+        #expect(engine.channelIndex(forWindow: window("mail")) == nil)
+    }
+
+    @Test func aWindowOfAnUnboundAppIsFree() {
+        var config = AppConfig()
+        config.channels = [Channel(name: "Claude", bundleID: claudeID)]
+        var engine = ProfileEngine(config: config)
+        engine.setFocus(0)
+        engine.setFocus(engine.channelIndex(forWindow: window("com.apple.mail", title: "Inbox")))
+        #expect(engine.channel == nil)
+        #expect(engine.idleLEDs == 0)
+    }
+}
+
+/// Orange held for 3 s is a deliberate gesture: it comes after the long press, only while held,
+/// and never while talking.
+@Suite struct VeryLongPressTests {
+    private func press(_ r: inout GestureRecognizer, _ button: DeviceControl, at t: Double) -> [Gesture] {
+        r.handle(button, active: true, at: t)
+    }
+
+    @Test func firesOnceAfterThreeSecondsWhileHeld() {
+        var r = GestureRecognizer()
+        _ = press(&r, .orange, at: 0)
+        #expect(r.tick(at: 700) == [.longPress(.orange)])
+        #expect(r.tick(at: 2500).isEmpty)
+        #expect(r.tick(at: 3000) == [.veryLongPress(.orange)])
+        #expect(r.tick(at: 4000).isEmpty)
+        // Releasing afterwards is silent.
+        #expect(r.handle(.orange, active: false, at: 4100).isEmpty)
+    }
+
+    @Test func releasingEarlierNeverFiresIt() {
+        var r = GestureRecognizer()
+        _ = press(&r, .orange, at: 0)
+        _ = r.tick(at: 700)
+        #expect(r.handle(.orange, active: false, at: 2000).isEmpty)
+        #expect(r.tick(at: 5000).isEmpty)
+    }
+
+    @Test func notWhileTheHandleIsDown() {
+        var r = GestureRecognizer()
+        _ = r.handle(.handle, active: true, at: 0)
+        _ = press(&r, .orange, at: 100)
+        #expect(r.tick(at: 3500).allSatisfy { $0 != .veryLongPress(.orange) })
+    }
+
+    @Test func eachPressStartsOver() {
+        var r = GestureRecognizer()
+        _ = press(&r, .orange, at: 0)
+        _ = r.tick(at: 700)
+        _ = r.tick(at: 3000)
+        _ = r.handle(.orange, active: false, at: 3100)
+        _ = press(&r, .orange, at: 10_000)
+        #expect(r.tick(at: 10_700) == [.longPress(.orange)])
+        #expect(r.tick(at: 13_000) == [.veryLongPress(.orange)])
+    }
+
+    @Test func orangeHoldClearsChannelsByDefault() {
+        let engine = ProfileEngine(config: AppConfig())
+        #expect(engine.action(for: .veryLongPress(.orange)) == .clearChannels)
+        #expect(engine.active.white.veryLongPress == Action.none)
     }
 }
 
@@ -143,7 +273,6 @@ import Testing
     @Test func twoSessionsOfOneAppFillTwoChannels() {
         var engine = ProfileEngine(config: AppConfig())
         engine.bind(first)
-        engine.nextChannel()
         engine.bind(second)
         #expect(engine.config.channels == [first, second])
         engine.previousChannel()

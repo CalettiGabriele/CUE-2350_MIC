@@ -16,11 +16,16 @@
 ## I tre pulsanti
 
 ### Arancione: canali (LED rossi, uno per canale)
-Un **canale** è una destinazione per la voce: un'app, un documento o una finestra (per esempio una sessione di Claude, un `TODO.md` in VS Code, una bozza di Mail). Fino a **4 canali**, ciascuno con un LED rosso. Il canale selezionato è il LED rosso acceso; la posizione dopo l'ultimo canale è vuota e serve per agganciarne uno nuovo. Parlando, l'app porta in primo piano la finestra del canale e scrive lì.
+Un **canale** è una finestra, un documento o una sessione di un agente (per esempio una sessione di Claude, un `TODO.md` in VS Code, una bozza di Mail) a cui vuoi poter tornare con un tocco. Fino a **4 canali**, ciascuno con un LED rosso.
 
-**Tocco:** canale successivo, porta la sua finestra in primo piano. **Doppio tocco:** canale precedente. **Pressione lunga:** **aggancia** la finestra in primo piano al canale selezionato (se è già agganciata, seleziona quel canale). Se non c'è nessun canale selezionato (posizione vuota) la voce va all'app in primo piano, come prima.
+**La voce va dove sei.** Quando parli, l'app guarda la finestra che hai davanti: se è quella di un canale, la voce va a quel canale (il LED rosso corrispondente è acceso); altrimenti sei **libero**: tutti i LED rossi sono spenti e la voce va dove hai il cursore, in qualsiasi app, **senza nessun salto** e senza bisogno di registrare niente. Il profilo e le skill del bianco seguono sempre l'app che hai davanti.
 
-La finestra si ritrova per documento (`AXDocument`, per esempio un file in VS Code) o per titolo; se non si trova, viene portata in primo piano l'app. I canali si gestiscono anche dal menu › Canale (arancione). Le modalità di interazione (Dettato, Migliorato, Comando, Computer Use) non sono più selezionabili: la dettatura è sempre grezza, il comando vocale arriva con il grigio ([One-Pager 004](design-docs/onepager-004-channels-and-commands.md), in corso).
+- **Tocco:** salta al canale successivo (da libero, al primo) e ne porta la finestra in primo piano.
+- **Doppio tocco:** salta al canale precedente (da libero, all'ultimo).
+- **Pressione lunga:** aggiunge la finestra che hai davanti come canale. Prende il primo canale libero; se sono tutti e quattro occupati sostituisce quello su cui sei (o l'ultimo, se sei libero). Se la finestra è già un canale, lo aggiorna.
+- **Tenuto premuto 3 secondi:** **svuota tutti i canali**. È volutamente lento per non azionarlo per errore; dal menu › Canale si può annullare ("Ripristina i canali cancellati").
+
+La finestra si ritrova per sessione (Claude e Codex), per documento (`AXDocument`) o per titolo; per un canale che è un'app intera vale qualsiasi finestra di quell'app. I canali si gestiscono anche dal menu › Canale (arancione) e dalle Impostazioni › Canali, dove si può anche svuotarli con una conferma. Le modalità di interazione (Dettato, Migliorato, Comando, Computer Use) non sono più selezionabili: la dettatura è sempre grezza, il comando vocale arriva con il grigio ([One-Pager 004](design-docs/onepager-004-channels-and-commands.md)).
 
 ### Bianco: slot di comandi e skill (LED bianchi in binario)
 Fino a **15 slot per profilo**. I 4 LED bianchi mostrano il numero dello slot in binario, con il LED in alto = 1, poi 2, 4, 8. **Tutti spenti = nessuno slot.** L'isola mostra sempre il nome dello slot.

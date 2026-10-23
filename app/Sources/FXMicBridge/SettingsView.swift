@@ -255,7 +255,7 @@ private struct DevicePage: View {
                         .padding(.bottom, 8)
                         controlRow(.orange, name: L.t("Orange"), rows: [
                             (L.t("tap"), profile.orange.tap), (L.t("double tap"), profile.orange.doubleTap),
-                            (L.t("long press"), profile.orange.longPress)])
+                            (L.t("long press"), profile.orange.longPress), (L.t("hold 3 s"), profile.orange.veryLongPress)])
                         controlRow(.white, name: L.t("White"), rows: [
                             (L.t("tap"), profile.white.tap), (L.t("double tap"), profile.white.doubleTap),
                             (L.t("long press"), profile.white.longPress)])

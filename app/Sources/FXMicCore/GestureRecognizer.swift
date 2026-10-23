@@ -10,6 +10,8 @@ public enum Gesture: Equatable, Sendable {
     case tap(MicButton)
     case doubleTap(MicButton)
     case longPress(MicButton)
+    /// A button held for `veryLongPressMs`, after the long press has already fired.
+    case veryLongPress(MicButton)
     /// Grey pressed while the handle is held (TDD §3.2: edit-selection chord).
     case chordGrey
     case shake
@@ -23,6 +25,7 @@ public struct GestureSettings: Sendable {
     public var tapMaxMs: Double = 450
     public var doubleTapMs: Double = 300
     public var longPressMs: Double = 600
+    public var veryLongPressMs: Double = 3000
     public var shakeThreshold: Double = 0.5
     public var shakeConsecutive: Int = 2
     /// Minimum gap between two shake gestures.
@@ -47,6 +50,7 @@ public struct GestureRecognizer {
 
     private var pressedAt: [MicButton: Double] = [:]
     private var longFired: Set<MicButton> = []
+    private var veryLongFired: Set<MicButton> = []
     private var chordFired = false
     private var pendingTap: [MicButton: Double] = [:]   // release time of an unresolved single tap
     private var shakeCount = 0
@@ -92,6 +96,7 @@ public struct GestureRecognizer {
         if active {
             pressedAt[button] = time
             longFired.remove(button)
+            veryLongFired.remove(button)
             if button == .grey, handleDown {
                 chordFired = true
                 out.append(.chordGrey)
@@ -104,6 +109,7 @@ public struct GestureRecognizer {
             chordFired = false
             return out
         }
+        veryLongFired.remove(button)
         if longFired.remove(button) != nil { return out }
         guard time - start <= settings.tapMaxMs else { return out }
         // Selecting mode/style while talking is ignored, like the factory firmware.
@@ -144,11 +150,17 @@ public struct GestureRecognizer {
 
     public mutating func tick(at time: Double) -> [Gesture] {
         var out: [Gesture] = []
-        for (button, start) in pressedAt where !longFired.contains(button) {
+        for (button, start) in pressedAt {
             if button == .grey, chordFired { continue }
-            if time - start >= settings.longPressMs {
+            if !longFired.contains(button), time - start >= settings.longPressMs {
                 longFired.insert(button)
                 out.append(.longPress(button))
+            }
+            // Never while talking: holding a button with the handle down is not this gesture.
+            if longFired.contains(button), !veryLongFired.contains(button), !handleDown,
+               time - start >= settings.veryLongPressMs {
+                veryLongFired.insert(button)
+                out.append(.veryLongPress(button))
             }
         }
         for (button, released) in pendingTap where time - released > settings.doubleTapMs {

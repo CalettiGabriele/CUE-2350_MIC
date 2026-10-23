@@ -32,6 +32,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private let historyMenu = NSMenu()
     private let iconMenu = NSMenu()
     private var tickTimer: Timer?
+    private var focusTimer: Timer?
+    /// After orange takes you to a channel the window needs a moment to arrive: until then the
+    /// channel you chose stands, and the window in front is not read.
+    private var focusLockedUntil = Date.distantPast
+    /// Channels removed by "clear all", kept so it can be undone.
+    private var clearedChannels: [Channel] = []
     private var messageTimer: Timer?
     private var deviceStatus: DeviceStatus = .stopped
     private var currentPhase: DictationController.Phase = .idle
@@ -101,6 +107,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
         tickTimer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
+        }
+        // A session can change inside an app without any app switch: look again now and then.
+        focusTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self, !self.dictation.isRecording else { return }
+                self.updateFocus()
+            }
         }
         installHotkeyFallback()
         if let configError { show(.message(configError)) }
@@ -176,6 +189,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         if engine.activate(bundleID: app.bundleIdentifier) {
             selectionChanged(announce: false, title: engine.active.name)
         }
+        updateFocus()
+    }
+
+    /// Where the voice goes now: the channel whose window is in front, or free. Nothing jumps:
+    /// orange is what takes you to a channel (One-Pager 004 §4).
+    private func updateFocus() {
+        guard Date() >= focusLockedUntil else { return }
+        let index = channelIndexInFront()
+        guard index != engine.channelPosition else { return }
+        engine.setFocus(index)
+        leds.refresh()
+        rebuildProfileMenu()
+    }
+
+    private func channelIndexInFront() -> Int? {
+        guard !engine.channels.isEmpty, let app = NSWorkspace.shared.frontmostApplication,
+              let id = app.bundleIdentifier else { return nil }
+        // Our own window (Settings, a dialog) in front changes nothing.
+        if id == Bundle.main.bundleIdentifier { return engine.channelPosition }
+        guard engine.channels.contains(where: { $0.bundleID == id }),
+              let window = ChannelNavigator.capture(app) else { return nil }
+        return engine.channelIndex(forWindow: window)
     }
 
     /// "Recording · Enhanced · Summarize": phase, mode and the selected slot, if any.
@@ -184,17 +219,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     }
 
     private var modeName: String { L.t(engine.mode.label) }
-    /// "Claude · progetto" for a bound channel, "Channel 3" for an empty position.
-    private var channelName: String { engine.channel?.name ?? L.f("Channel %d", engine.channelPosition + 1) }
+    /// "Claude · progetto" on a channel; "Free · Mail" anywhere else (the voice goes where the cursor is).
+    private var channelName: String { engine.channel?.name ?? L.f("Free · %@", frontmost?.localizedName ?? "?") }
     private var slotName: String { engine.slot?.name ?? L.t("No slot") }
 
     private var selectionDetail: String {
         "\(engine.active.name) · \(channelName) · \(slotName)"
     }
 
-    /// "CHANNEL 2/3": position of the channel among the ones the orange button cycles through.
+    /// "CHANNEL 2/3", or "FREE" when you are not on a channel.
     private var channelKicker: String {
-        L.f("Channel %d/%d", engine.channelPosition + 1, engine.channelPositions)
+        engine.channelPosition.map { L.f("Channel %d/%d", $0 + 1, engine.channels.count) } ?? L.t("Free")
     }
 
     /// LEDs, menu and HUD after a profile/mode/slot change.
@@ -291,7 +326,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             engine.previousChannel()
             channelChanged()
         case .bindChannel:
-            bindFrontmostWindow()
+            bind(NSWorkspace.shared.frontmostApplication)
+        case .clearChannels:
+            clearAllChannels()
         case .cycleMode:
             engine.cycleMode()
             selectionChanged(announce: true, kicker: L.t("Mode"), title: modeName)
@@ -341,16 +378,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     // MARK: - Channels (One-Pager 004 §4)
 
-    /// Selected channel changed: bring its window forward, take its profile, show it.
+    /// Orange took you to a channel: bring its window forward, take its profile, show it.
     private func channelChanged() {
-        if let channel = engine.channel {
-            activateProfile(of: channel)
-            ChannelNavigator.bringToFront(channel)
-            selectionChanged(announce: true, kicker: channelKicker, title: channel.name)
-        } else {
-            selectionChanged(announce: true, kicker: channelKicker,
-                             title: L.t("Empty: hold orange on a window to bind it"))
+        guard let channel = engine.channel else {
+            hud.card(kicker: L.t("Channels"), title: L.t("No channels yet: long-press orange on a window to add it"))
+            return
         }
+        focusLockedUntil = Date().addingTimeInterval(2)
+        activateProfile(of: channel)
+        ChannelNavigator.bringToFront(channel)
+        selectionChanged(announce: true, kicker: channelKicker, title: channel.name)
     }
 
     /// The profile follows the channel's app, also before macOS reports the app switch.
@@ -361,25 +398,42 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         if engine.activate(bundleID: channel.bundleID) { rebuildProfileMenu() }
     }
 
-    /// Long press on orange: ties the window you are working in to the selected channel.
-    private func bindFrontmostWindow() {
-        guard let app = NSWorkspace.shared.frontmostApplication,
-              app.bundleIdentifier != Bundle.main.bundleIdentifier,
+    /// Long press on orange: the window you are working in becomes a channel. It takes the next
+    /// free one; with all four taken it replaces the channel you are on.
+    private func bind(_ app: NSRunningApplication?) {
+        guard let app, app.bundleIdentifier != Bundle.main.bundleIdentifier,
               let channel = ChannelNavigator.capture(app) else {
             hud.toast(L.t("Bring the window to bind to the front first"))
             return
         }
-        engine.bind(channel)
+        let outcome = engine.bind(channel)
+        log.notice("bind \(channel.bundleID, privacy: .public) session=\(channel.session ?? "-", privacy: .public) → channel \(outcome.index + 1, privacy: .public)")
         applyConfig(engine.config, save: true)
-        hud.card(kicker: channelKicker, title: L.f("Bound: %@", channel.name))
+        let title: String
+        switch outcome.kind {
+        case .added: title = L.f("Added as channel %d: %@", outcome.index + 1, channel.name)
+        case .updated: title = L.f("Channel %d updated: %@", outcome.index + 1, channel.name)
+        case .replaced: title = L.f("Channel %d replaced: %@", outcome.index + 1, channel.name)
+        }
+        hud.card(kicker: channelKicker, title: title)
     }
 
-    /// Talking goes to the selected channel: its window comes forward before recording starts.
-    private func pttDown() {
-        if let channel = engine.channel {
-            activateProfile(of: channel)
-            if !ChannelNavigator.isShowing(channel) { ChannelNavigator.bringToFront(channel) }
+    /// Orange held for 3 s, or the menu: unbinds every channel. Windows and sessions are untouched.
+    private func clearAllChannels() {
+        let removed = engine.clearChannels()
+        guard !removed.isEmpty else {
+            hud.toast(L.t("No channels to clear"))
+            return
         }
+        clearedChannels = removed
+        applyConfig(engine.config, save: true)
+        hud.card(kicker: L.t("Channels"), title: L.t("All channels cleared"))
+    }
+
+    /// The voice goes where you are: on a channel's window it is that channel, anywhere else it is
+    /// free and nothing jumps.
+    private func pttDown() {
+        updateFocus()
         dictation.pttDown()
     }
 
@@ -553,22 +607,30 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         profileItem.title = L.f("Profile: %@", engine.active.name)
         settings.activeProfileID = engine.active.id
         channelMenu.removeAllItems()
-        for position in 0..<engine.channelPositions {
-            let title = "\(position + 1). " + (engine.channels.indices.contains(position) ? engine.channels[position].name : L.t("Empty"))
-            let item = NSMenuItem(title: title, action: #selector(selectChannel(_:)), keyEquivalent: "")
+        if engine.channels.isEmpty {
+            let none = NSMenuItem(title: L.t("No channels yet"), action: nil, keyEquivalent: "")
+            channelMenu.addItem(none)
+        }
+        for (position, channel) in engine.channels.enumerated() {
+            let item = NSMenuItem(title: "\(position + 1). \(channel.name)", action: #selector(selectChannel(_:)), keyEquivalent: "")
             item.tag = position
             item.state = position == engine.channelPosition ? .on : .off
             item.target = self
             channelMenu.addItem(item)
         }
         channelMenu.addItem(.separator())
-        let bind = NSMenuItem(title: L.t("Bind the frontmost window here"), action: #selector(bindFromMenu), keyEquivalent: "")
-        bind.target = self
-        channelMenu.addItem(bind)
-        let unbind = NSMenuItem(title: L.t("Unbind this channel"), action: #selector(unbindChannel), keyEquivalent: "")
-        unbind.target = self
-        unbind.isEnabled = engine.channel != nil
-        channelMenu.addItem(unbind)
+        func add(_ title: String, _ action: Selector, enabled: Bool = true) {
+            let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
+            item.target = self
+            item.isEnabled = enabled
+            channelMenu.addItem(item)
+        }
+        add(L.t("Add the window in front as a channel"), #selector(bindFromMenu))
+        add(L.t("Unbind the current channel"), #selector(unbindChannel), enabled: engine.channel != nil)
+        channelMenu.addItem(.separator())
+        add(L.t("Clear all channels…"), #selector(clearFromMenu), enabled: !engine.channels.isEmpty)
+        add(L.t("Restore the cleared channels"), #selector(restoreChannels),
+            enabled: !clearedChannels.isEmpty && engine.channels.isEmpty)
         slotMenu.removeAllItems()
         let none = NSMenuItem(title: L.t("No slot"), action: #selector(selectSlot(_:)), keyEquivalent: "")
         none.tag = -1
@@ -591,20 +653,31 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     }
 
     /// From the menu the frontmost app is the menu bar's own, so the last real app is used.
-    @objc private func bindFromMenu() {
-        guard let app = frontmost, let channel = ChannelNavigator.capture(app) else {
-            hud.toast(L.t("Bring the window to bind to the front first"))
-            return
-        }
-        engine.bind(channel)
-        applyConfig(engine.config, save: true)
-        hud.card(kicker: channelKicker, title: L.f("Bound: %@", channel.name))
-    }
+    @objc private func bindFromMenu() { bind(frontmost) }
 
     @objc private func unbindChannel() {
         guard engine.unbindChannel() else { return }
         applyConfig(engine.config, save: true)
-        hud.card(kicker: channelKicker, title: L.t("Channel unbound"))
+        hud.card(kicker: L.t("Channels"), title: L.t("Channel unbound"))
+    }
+
+    /// Asks first: from the menu this is one click away, unlike the 3 s hold on the mic.
+    @objc private func clearFromMenu() {
+        let alert = NSAlert()
+        alert.messageText = L.t("Clear all channels?")
+        alert.informativeText = L.t("The channels are unbound. The windows and sessions are not touched, and you can undo from this menu.")
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: L.t("Clear all")).hasDestructiveAction = true
+        alert.addButton(withTitle: L.t("Cancel"))
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertFirstButtonReturn { clearAllChannels() }
+    }
+
+    @objc private func restoreChannels() {
+        engine.restoreChannels(clearedChannels)
+        clearedChannels = []
+        applyConfig(engine.config, save: true)
+        hud.card(kicker: L.t("Channels"), title: L.t("Channels restored"))
     }
 
     @objc private func selectSlot(_ sender: NSMenuItem) {
