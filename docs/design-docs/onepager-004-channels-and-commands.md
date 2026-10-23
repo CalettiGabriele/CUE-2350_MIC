@@ -1,7 +1,8 @@
 # One-Pager 004 — Canali (arancione), azioni (grigio), prompt e skill (bianco) e comandi vocali
 
-> Data: 2026-10-22 (rev. 2, dopo le verifiche del §10) · Stato: **Approvato dall'utente, verifiche in parte aperte** · Nessun codice dell'app implementato
-> Sostituisce la parte "Arancione = modalità di interazione" del One-Pager 001; il resto (slot, LED manuali) viene adattato
+> Data: 2026-10-22 (rev. 2, dopo le verifiche del §10) · rev. 3 del 2026-10-23 (§14–§15) · Stato: **Implementato in parte** (canali, comandi vocali, Impostazioni); restano gli hook (LED di stato, risposta ai permessi) e il modello esterno, vedi §14
+> Sostituisce il One-Pager 001 per l'arancione; il bianco e i LED manuali restano, con nomi nuovi
+> **Durante l'implementazione alcune scelte sono cambiate rispetto ai §3–§6:** prevale il §14.
 > Riferimenti: One-Pager 001, TDD v1 §3.2–3.3, `docs/GESTURES.md`, `app/Sources/FXMicCore/Config.swift`, `app/Sources/FXMicCore/ProfileEngine.swift`, `app/Sources/FXMicBridge/DictationController.swift`
 
 ## 1. Problema
@@ -253,3 +254,51 @@ Dettagli in `logs/TEST_NOTES.md`, sezione "One-Pager 004 §10 checks (2026-10-22
 7. LLM esterno: chiave API ed endpoint per uso.
 8. Livello 4 (menu dell'app).
 9. Aggiornamento di `GESTURES.md`, del TDD e del sito, poi verifica sul dispositivo.
+
+## 14. Stato dell'implementazione (rev. 3, 2026-10-23)
+
+### 14.1 Implementato
+| Parte | Commit | Note |
+|---|---|---|
+| Canali sull'arancione, aggancio, LED, schema v3 | `d9e04a8` | |
+| Sessioni di Claude e Codex con gli adattatori (`SessionAdapter`) | `d9e04a8` | log + deep link, configurabili in `sessionAdapters` |
+| Comando vocale (grigio mentre parli), intenti, grigio lungo = interrompi | `d9e04a8` | livelli 1–3 del §6.2 |
+| Impostazioni: capitolo Canali, profili a pagine, test del comando vocale | `7c9c813`, `b157bff` | |
+| **La voce va dove sei** e **svuota i canali** | `d439862` | cambia il §4, vedi 14.2 |
+| Chat e progetti di Claude come canali | `2656f04` | indirizzo della pagina via Accessibilità |
+
+### 14.2 Cosa è cambiato rispetto al design
+- **Niente salto quando parli.** Il §4.1 prevedeva che parlando la finestra del canale selezionato venisse portata in primo piano. In uso era scomodo: lavorando in un'app non registrata la voce ti riportava al canale. Ora **decide la finestra che hai davanti**: se è un canale la voce va lì, altrimenti sei **libero** (LED rossi spenti) e la voce va dove hai il cursore. Solo l'arancione fa saltare. Il profilo segue sempre l'app davanti.
+- **Niente posizione vuota.** L'arancione scorre solo tra i canali agganciati (da libero parte dal primo o dall'ultimo). La pressione lunga aggiunge la finestra al primo canale libero; con quattro canali sostituisce quello su cui sei.
+- **Svuota i canali:** arancione tenuto **3 s** (gesto `veryLongPress`), dal menu con conferma e annulla, dalle Impostazioni con conferma.
+- **Chat e progetti di Claude:** non hanno righe di log, quindi un canale ne salva l'indirizzo letto dalla pagina web (`webPattern`/`webLink` dell'adattatore) e ci torna con `claude://claude.ai/chat/…`. Senza questo, dalla vista Code non si poteva tornare a una chat.
+- **Grigio lungo = interrompi** anche nei profili non di coding (prima: riscrive l'ultimo testo grezzo).
+
+### 14.3 Non ancora fatto
+- Hook `fxmic-notify`: LED di stato degli agenti (§4.4), risposta all'agente in attesa (§6.4) e ai permessi via hook (§6.5). Gli hook di prova del §10 sono ancora installati in `.claude/settings.local.json` e `~/.codex/hooks.json`.
+- Modello esterno con chiave API ed endpoint per uso (§7) e livello 4 dei comandi (menu dell'app, §6.2).
+- Traduzioni delle nuove scritte (oggi in inglese in tutte le lingue).
+- Collegamento solo jack: provato con il jack con microfono del Mac, senza segnale (`logs/TEST_NOTES.md`); resta da provare un'interfaccia audio USB con ingresso di linea.
+
+## 15. Vocabolario per README, sito e video
+
+Le parole con cui si racconta il prodotto all'esterno, in inglese, uguali in README, sito, video e app.
+
+| Termine | Significato | Da evitare |
+|---|---|---|
+| **channels** (orange) | fino a 4 posti dove va la voce: sessioni di Claude Code e Codex, chat e progetti di Claude, documenti, app | modes, interaction modes |
+| **the voice goes where you are** | sulla finestra di un canale va a quel canale; altrove sei **free** e va dove hai il cursore, senza salti | "selected channel" come destinazione fissa |
+| **free** | nessun canale davanti: LED rossi spenti | empty position |
+| **skills & commands** (white) | fino a 15 per app: un comando che il grigio esegue, una skill/template o una riscrittura LLM applicata alla prossima dettatura | slots (solo nei dettagli tecnici), styles |
+| **send · interrupt** (grey) | tocco = esegue il comando o Invio; pressione lunga = interrompi | rewrite the last text |
+| **voice command** (grey while you talk) | la frase diventa azioni: testo, tasti, selezione, canali, skill, intenti; in qualsiasi lingua | enhanced, command mode, computer use |
+| **hold orange for 3 s** | svuota i canali | — |
+| **local by design** | trascrizione e modello sul Mac | — |
+
+Messaggi chiave, in quest'ordine:
+1. *Hold the handle, talk, release: the words land where your cursor is.*
+2. *Four channels on the orange button: jump between Claude Code sessions, Claude chats, Codex threads and documents. Anywhere else the voice just goes where you are.*
+3. *Grey while you talk turns a sentence into actions, in any language.*
+4. *White picks a skill or a command; grey sends it.*
+5. *Everything runs on your Mac.*
+

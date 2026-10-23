@@ -2,8 +2,9 @@
 
 > Versione: v1
 > Data: 2026-10-15
-> Autore: g.caletti@reply.it (con Claude)
+> Autore: g.caletti@reply.it
 > Stato: Approvato. Aggiornato il 2026-10-15 con gli esiti degli spike M0, vedi `logs/TEST_NOTES.md`.
+> **Nota del 2026-10-23:** Modalità e Stili (arancione e bianco, §3.2–§3.3 e lo schema di configurazione) sono stati sostituiti prima dal [One-Pager 001](onepager-001-interaction-modes-and-slots.md) (modalità e slot) e poi dal [One-Pager 004](onepager-004-channels-and-commands.md) (canali, skill e comandi, comando vocale). Per i gesti attuali vale [`docs/GESTURES.md`](../GESTURES.md); il resto di questo documento (trascrizione, agente in RAM, protocollo, iniezione del testo) è ancora valido.
 
 ## 1. Contesto e obiettivi
 

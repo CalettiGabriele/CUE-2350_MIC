@@ -1,6 +1,6 @@
 # One-Pager 001 — Modalità di interazione (arancione), slot di comandi (bianco) e LED di stato
 
-> Data: 2026-10-16 · Stato: **Approvato e implementato (app 0.3.0)**, la mappa dei LED è da verificare sul dispositivo · Riferimenti: TDD v1 §3.2–3.3, `docs/GESTURES.md`
+> Data: 2026-10-16 · Stato: **Superato** dal [One-Pager 004](onepager-004-channels-and-commands.md) (2026-10-22): l'arancione sceglie i canali, non più le modalità; il comando vocale è sul grigio. Restano validi gli slot del bianco (ora "skill e comandi") e i LED manuali. Implementato in app 0.3.0, mappa dei LED verificata il 2026-10-16 · Riferimenti: TDD v1 §3.2–3.3, `docs/GESTURES.md`
 
 ## Problema
 L'uso attuale di arancione e bianco (Modalità × Stile, mostrati come barre di LED) non convince:
