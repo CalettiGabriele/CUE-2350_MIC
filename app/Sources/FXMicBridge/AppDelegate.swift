@@ -38,6 +38,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private var hotkeyDown = false
     private var frontmost: NSRunningApplication?
     private var lastWarmUp = Date.distantPast
+    /// Windows the user dragged: they are no longer re-centred when their content resizes.
+    private var windowsMovedByUser = Set<ObjectIdentifier>()
 
     override init() {
         let (config, error) = ConfigStore.load()
@@ -918,7 +920,34 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         window.isReleasedWhenClosed = false
         // Opens in the Space (desktop) you are in, not in the one it was first created in.
         window.collectionBehavior.insert(.moveToActiveSpace)
+        keepCentred(window)
         return window
+    }
+
+    /// The content of a window sets its height (a tab can be taller than the one before) and a
+    /// resize keeps the bottom-left corner, so the window drifts off-centre. Re-centre after each
+    /// content resize, unless the user has dragged the window somewhere else.
+    private func keepCentred(_ window: NSWindow) {
+        NotificationCenter.default.addObserver(forName: NSWindow.didMoveNotification, object: window, queue: .main) { [weak self, weak window] _ in
+            MainActor.assumeIsolated {
+                // A drag has the mouse button down; our own repositioning does not.
+                guard let self, let window, NSEvent.pressedMouseButtons & 1 != 0 else { return }
+                self.windowsMovedByUser.insert(ObjectIdentifier(window))
+            }
+        }
+        NotificationCenter.default.addObserver(forName: NSWindow.didResizeNotification, object: window, queue: .main) { [weak self, weak window] _ in
+            MainActor.assumeIsolated {
+                guard let self, let window, window.isVisible, !window.inLiveResize,
+                      !self.windowsMovedByUser.contains(ObjectIdentifier(window)) else { return }
+                self.centre(window, on: window.screen ?? self.activeScreen())
+            }
+        }
+    }
+
+    private func centre(_ window: NSWindow, on screen: NSScreen?) {
+        guard let area = screen?.visibleFrame else { return }
+        window.setFrameOrigin(NSPoint(x: (area.midX - window.frame.width / 2).rounded(),
+                                      y: (area.midY - window.frame.height / 2).rounded()))
     }
 
     /// The screen the user is working on: the one under the mouse pointer (same rule as the HUD).
@@ -933,9 +962,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         guard let window else { return }
         let screen = activeScreen()
         let alreadyHere = window.isVisible && window.isOnActiveSpace && window.screen == screen
-        if !alreadyHere, let area = screen?.visibleFrame {
-            window.setFrameOrigin(NSPoint(x: (area.midX - window.frame.width / 2).rounded(),
-                                          y: (area.midY - window.frame.height / 2).rounded()))
+        if !alreadyHere {
+            windowsMovedByUser.remove(ObjectIdentifier(window))
+            centre(window, on: screen)
         }
         NSApp.activate(ignoringOtherApps: true)
         window.makeKeyAndOrderFront(nil)
