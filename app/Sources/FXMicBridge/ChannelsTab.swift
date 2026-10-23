@@ -83,6 +83,9 @@ struct ChannelsTab: View {
         if let session = channel.session {
             return L.t("session") + " " + String(session.prefix(13))
         }
+        if let link = channel.link {
+            return (link.contains("/project/") ? L.t("project") : L.t("chat")) + " " + String(link.suffix(8))
+        }
         if let document = channel.document, let name = URL(string: document)?.lastPathComponent, !name.isEmpty {
             return name
         }

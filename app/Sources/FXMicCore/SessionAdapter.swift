@@ -18,15 +18,21 @@ public struct SessionAdapter: Codable, Equatable, Sendable {
     public var blurPattern: String?
     /// Deep link that opens a session; `{id}` is replaced with the session id.
     public var link: String
+    /// For pages shown in a web view that have no log line (a Claude chat): a regex for the page
+    /// URL, whose group 1 is the part that goes into `webLink` as `{path}`.
+    public var webPattern: String?
+    public var webLink: String?
 
     public init(bundleID: String, name: String? = nil, logDirectory: String, focusPattern: String,
-                blurPattern: String? = nil, link: String) {
+                blurPattern: String? = nil, link: String, webPattern: String? = nil, webLink: String? = nil) {
         self.bundleID = bundleID
         self.name = name
         self.logDirectory = logDirectory
         self.focusPattern = focusPattern
         self.blurPattern = blurPattern
         self.link = link
+        self.webPattern = webPattern
+        self.webLink = webLink
     }
 
     // MARK: Built-in adapters
@@ -36,7 +42,9 @@ public struct SessionAdapter: Codable, Equatable, Sendable {
         logDirectory: "~/Library/Logs/Claude/main.log",
         focusPattern: "setFocusedSession: sessionId=(local_[A-Za-z0-9-]+)",
         blurPattern: "setFocusedSession: sessionId=null",
-        link: "claude://code/continue?session={id}")
+        link: "claude://code/continue?session={id}",
+        webPattern: "^https://claude\\.ai(/(?:chat|project)/[0-9a-fA-F-]{36})",
+        webLink: "claude://claude.ai{path}")
 
     public static let codexDesktop = SessionAdapter(
         bundleID: "com.openai.codex",
@@ -108,6 +116,24 @@ public struct SessionAdapter: Codable, Equatable, Sendable {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         return formatter.date(from: String(line.prefix(19)))
+    }
+
+    // MARK: Pages in a web view
+
+    /// The deep link for a page URL read from the app's web view, nil if it is not one of ours.
+    public func webLink(forURL url: String) -> String? {
+        guard let webPattern, let webLink, let regex = try? NSRegularExpression(pattern: webPattern),
+              let match = regex.firstMatch(in: url, range: NSRange(location: 0, length: (url as NSString).length)),
+              match.numberOfRanges > 1, let range = Range(match.range(at: 1), in: url) else { return nil }
+        return webLink.replacingOccurrences(of: "{path}", with: String(url[range]))
+    }
+
+    /// A saved link is only opened when it starts like this app's template: config.json is not a
+    /// way to open arbitrary URLs.
+    public func accepts(webLink saved: String) -> Bool {
+        guard let template = webLink, let prefix = template.components(separatedBy: "{path}").first,
+              !prefix.isEmpty else { return false }
+        return saved.hasPrefix(prefix) && URL(string: saved) != nil
     }
 
     // MARK: Deep link

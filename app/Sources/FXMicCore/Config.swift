@@ -121,23 +121,29 @@ public struct Channel: Codable, Equatable, Sendable {
     public var title: String?
     /// Session or thread id for apps that keep several in one window (Claude and Codex desktop).
     public var session: String?
+    /// Deep link that opens the page the window showed, for apps whose pages live in a web view
+    /// (a Claude chat or project): without it a chat cannot be reached from the Code view.
+    public var link: String?
 
     public static let maxCount = 4
 
-    public init(name: String, bundleID: String, document: String? = nil, title: String? = nil, session: String? = nil) {
+    public init(name: String, bundleID: String, document: String? = nil, title: String? = nil,
+                session: String? = nil, link: String? = nil) {
         self.name = name
         self.bundleID = bundleID
         self.document = document
         self.title = title
         self.session = session
+        self.link = link
     }
 
     /// How narrowly the channel points: a session, a document, a window title or the whole app.
-    public var specificity: Int { session != nil ? 3 : (document != nil ? 2 : (title != nil ? 1 : 0)) }
+    public var specificity: Int { session != nil || link != nil ? 3 : (document != nil ? 2 : (title != nil ? 1 : 0)) }
 
     /// True when `window`, the description of the window in front, is what this channel points to.
     public func matches(window: Channel) -> Bool {
         guard bundleID == window.bundleID else { return false }
+        if let link { return link == window.link }
         if let session { return session == window.session }
         if let document { return document == window.document }
         if let title { return title == window.title }
@@ -147,6 +153,7 @@ public struct Channel: Codable, Equatable, Sendable {
     /// Same app and same session/document/window: binding it again moves to that channel.
     public func sameTarget(as other: Channel) -> Bool {
         guard bundleID == other.bundleID else { return false }
+        if link != nil || other.link != nil { return link == other.link }
         if session != nil || other.session != nil { return session == other.session }
         return document == other.document && (document != nil || title == other.title)
     }

@@ -407,7 +407,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             return
         }
         let outcome = engine.bind(channel)
-        log.notice("bind \(channel.bundleID, privacy: .public) session=\(channel.session ?? "-", privacy: .public) → channel \(outcome.index + 1, privacy: .public)")
+        log.notice("bind \(channel.bundleID, privacy: .public) session=\(channel.session ?? "-", privacy: .public) link=\(channel.link ?? "-", privacy: .public) title=\(channel.title ?? "-", privacy: .public) → channel \(outcome.index + 1, privacy: .public)")
+        if channel.session == nil, channel.link == nil, SessionLocator.adapter(for: channel.bundleID)?.webPattern != nil {
+            log.notice("bind: no chat link; the web view says \(ChannelNavigator.debugWebURL(of: app), privacy: .public)")
+        }
         applyConfig(engine.config, save: true)
         let title: String
         switch outcome.kind {

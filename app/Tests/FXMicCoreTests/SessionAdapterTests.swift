@@ -69,3 +69,70 @@ import Testing
         #expect(AppConfig().sessionAdapters.isEmpty)
     }
 }
+
+@Suite struct WebPageLinkTests {
+    private let chat = "https://claude.ai/chat/da49058b-7b09-40c1-8607-742b78022f18"
+
+    @Test func claudeChatAndProjectUrlsBecomeDeepLinks() {
+        let claude = SessionAdapter.claudeDesktop
+        #expect(claude.webLink(forURL: chat) == "claude://claude.ai/chat/da49058b-7b09-40c1-8607-742b78022f18")
+        #expect(claude.webLink(forURL: chat + "?utm=x#top") == "claude://claude.ai/chat/da49058b-7b09-40c1-8607-742b78022f18")
+        #expect(claude.webLink(forURL: "https://claude.ai/project/da49058b-7b09-40c1-8607-742b78022f18")
+                == "claude://claude.ai/project/da49058b-7b09-40c1-8607-742b78022f18")
+    }
+
+    @Test func otherPagesAndOtherAppsGiveNoLink() {
+        #expect(SessionAdapter.claudeDesktop.webLink(forURL: "https://claude.ai/recents") == nil)
+        #expect(SessionAdapter.claudeDesktop.webLink(forURL: "https://evil.example/chat/da49058b-7b09-40c1-8607-742b78022f18") == nil)
+        #expect(SessionAdapter.claudeDesktop.webLink(forURL: "https://claude.ai/chat/not-an-id") == nil)
+        #expect(SessionAdapter.codexDesktop.webLink(forURL: chat) == nil)
+    }
+
+    @Test func onlyLinksThatLookLikeTheTemplateAreOpened() {
+        let claude = SessionAdapter.claudeDesktop
+        #expect(claude.accepts(webLink: "claude://claude.ai/chat/da49058b-7b09-40c1-8607-742b78022f18"))
+        #expect(!claude.accepts(webLink: "https://claude.ai/chat/x"))
+        #expect(!claude.accepts(webLink: "file:///etc/passwd"))
+        #expect(!SessionAdapter.codexDesktop.accepts(webLink: "claude://claude.ai/chat/x"))
+    }
+}
+
+@Suite struct ChannelLinkTests {
+    private let id = "com.anthropic.claudefordesktop"
+    private let chatA = "claude://claude.ai/chat/da49058b-7b09-40c1-8607-742b78022f18"
+    private let chatB = "claude://claude.ai/chat/aaaaaaaa-7b09-40c1-8607-742b78022f18"
+
+    @Test func aChatChannelMatchesOnlyThatChat() {
+        let channel = Channel(name: "Claude · chat", bundleID: id, link: chatA)
+        #expect(channel.matches(window: Channel(name: "w", bundleID: id, link: chatA)))
+        #expect(!channel.matches(window: Channel(name: "w", bundleID: id, link: chatB)))
+        #expect(!channel.matches(window: Channel(name: "w", bundleID: id, session: "local_a")))
+        #expect(channel.specificity == 3)
+    }
+
+    @Test func aChatBeatsTheWholeAppAndASessionIsADifferentChannel() {
+        var config = AppConfig()
+        config.channels = [Channel(name: "Claude", bundleID: id),
+                           Channel(name: "chat", bundleID: id, link: chatA),
+                           Channel(name: "session", bundleID: id, session: "local_a")]
+        let engine = ProfileEngine(config: config)
+        #expect(engine.channelIndex(forWindow: Channel(name: "w", bundleID: id, link: chatA)) == 1)
+        #expect(engine.channelIndex(forWindow: Channel(name: "w", bundleID: id, session: "local_a")) == 2)
+        #expect(engine.channelIndex(forWindow: Channel(name: "w", bundleID: id, link: chatB)) == 0)
+    }
+
+    @Test func bindingAChatDoesNotReplaceASessionAndTwoChatsAreTwoChannels() {
+        var engine = ProfileEngine(config: AppConfig())
+        engine.bind(Channel(name: "s", bundleID: id, session: "local_a"))
+        #expect(engine.bind(Channel(name: "a", bundleID: id, link: chatA)) == .init(index: 1, kind: .added))
+        #expect(engine.bind(Channel(name: "b", bundleID: id, link: chatB)) == .init(index: 2, kind: .added))
+        #expect(engine.bind(Channel(name: "a again", bundleID: id, link: chatA)) == .init(index: 1, kind: .updated))
+    }
+
+    @Test func theLinkSurvivesAConfigRoundTrip() throws {
+        var config = AppConfig()
+        config.channels = [Channel(name: "chat", bundleID: id, link: chatA)]
+        let back = try JSONDecoder().decode(AppConfig.self, from: JSONEncoder().encode(config))
+        #expect(back.channels.first?.link == chatA)
+    }
+}
