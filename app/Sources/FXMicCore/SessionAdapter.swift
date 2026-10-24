@@ -22,9 +22,16 @@ public struct SessionAdapter: Codable, Equatable, Sendable {
     /// URL, whose group 1 is the part that goes into `webLink` as `{path}`.
     public var webPattern: String?
     public var webLink: String?
+    /// For apps that hold several organizations under one account: a regex for the log line that
+    /// says which one is active. Group 1 is the organization id.
+    public var organizationPattern: String?
+    /// The log line that says the window finished loading after a switch (optional): the link is
+    /// opened then, not before, or the reload would swallow it.
+    public var organizationReadyPattern: String?
 
     public init(bundleID: String, name: String? = nil, logDirectory: String, focusPattern: String,
-                blurPattern: String? = nil, link: String, webPattern: String? = nil, webLink: String? = nil) {
+                blurPattern: String? = nil, link: String, webPattern: String? = nil, webLink: String? = nil,
+                organizationPattern: String? = nil, organizationReadyPattern: String? = nil) {
         self.bundleID = bundleID
         self.name = name
         self.logDirectory = logDirectory
@@ -33,6 +40,8 @@ public struct SessionAdapter: Codable, Equatable, Sendable {
         self.link = link
         self.webPattern = webPattern
         self.webLink = webLink
+        self.organizationPattern = organizationPattern
+        self.organizationReadyPattern = organizationReadyPattern
     }
 
     // MARK: Built-in adapters
@@ -44,7 +53,9 @@ public struct SessionAdapter: Codable, Equatable, Sendable {
         blurPattern: "setFocusedSession: sessionId=null",
         link: "claude://code/continue?session={id}",
         webPattern: "^https://claude\\.ai(/(?:chat|project)/[0-9a-fA-F-]{36})",
-        webLink: "claude://claude.ai{path}")
+        webLink: "claude://claude.ai{path}",
+        organizationPattern: "(?:Org changed from [0-9a-fA-F-]{36} to|Initialization succeeded — accountId=[0-9a-fA-F-]{36}, orgId=) ?([0-9a-fA-F-]{36})",
+        organizationReadyPattern: "Loaded https://claude\\.ai")
 
     public static let codexDesktop = SessionAdapter(
         bundleID: "com.openai.codex",
@@ -116,6 +127,39 @@ public struct SessionAdapter: Codable, Equatable, Sendable {
         formatter.locale = Locale(identifier: "en_US_POSIX")
         formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
         return formatter.date(from: String(line.prefix(19)))
+    }
+
+    // MARK: Organizations
+
+    /// The organization the last matching log line names (lowercased), nil if there is none.
+    public func lastOrganization(in text: String) -> String? {
+        guard let organizationPattern, let regex = try? NSRegularExpression(pattern: organizationPattern),
+              let match = regex.matches(in: text, range: NSRange(location: 0, length: (text as NSString).length)).last,
+              match.numberOfRanges > 1, match.range(at: 1).location != NSNotFound else { return nil }
+        return (text as NSString).substring(with: match.range(at: 1)).lowercased()
+    }
+
+    public struct SwitchProgress: Equatable, Sendable {
+        /// The organization the newest line names, if any.
+        public let organization: String?
+        /// The window finished loading after that line (always true without a ready pattern).
+        public let ready: Bool
+    }
+
+    /// What a log excerpt written during a switch says: where the app is now and whether its window
+    /// is loaded again.
+    public func switchProgress(in text: String) -> SwitchProgress {
+        let ns = text as NSString
+        let full = NSRange(location: 0, length: ns.length)
+        guard let organizationPattern, let regex = try? NSRegularExpression(pattern: organizationPattern),
+              let match = regex.matches(in: text, range: full).last, match.numberOfRanges > 1,
+              match.range(at: 1).location != NSNotFound else { return SwitchProgress(organization: nil, ready: false) }
+        let organization = ns.substring(with: match.range(at: 1)).lowercased()
+        guard let organizationReadyPattern, let ready = try? NSRegularExpression(pattern: organizationReadyPattern) else {
+            return SwitchProgress(organization: organization, ready: true)
+        }
+        let after = NSRange(location: match.range.upperBound, length: ns.length - match.range.upperBound)
+        return SwitchProgress(organization: organization, ready: ready.firstMatch(in: text, range: after) != nil)
     }
 
     // MARK: Pages in a web view

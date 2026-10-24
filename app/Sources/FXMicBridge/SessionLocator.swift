@@ -37,6 +37,66 @@ enum SessionLocator {
         return Session(id: id, title: title(bundleID: bundleID, session: id))
     }
 
+    // MARK: Organizations
+
+    /// Menu label of each organization, learned by switching; kept up to date by the app delegate.
+    nonisolated(unsafe) static var organizationLabels: [String: String] = [:]
+
+    nonisolated(unsafe) private static var organizationCache: [String: (size: UInt64, modified: Date, id: String?)] = [:]
+
+    /// The organization the app has active right now, from its log (lowercased), nil when the app
+    /// has none or the log says nothing. The log rotates, so the older files are read too.
+    static func activeOrganization(bundleID: String) -> String? {
+        guard let adapter = adapter(for: bundleID), adapter.organizationPattern != nil else { return nil }
+        let main = expand(adapter.logDirectory)
+        guard main.pathExtension == "log" else { return nil }
+        let base = main.deletingPathExtension().path
+        for file in [main] + (1...3).map({ URL(fileURLWithPath: "\(base)\($0).log") }) {
+            if let id = lastOrganization(inFile: file, adapter: adapter) { return id }
+        }
+        return nil
+    }
+
+    private static func lastOrganization(inFile url: URL, adapter: SessionAdapter) -> String? {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
+        guard let size = attributes?[.size] as? UInt64, let modified = attributes?[.modificationDate] as? Date else { return nil }
+        if let hit = organizationCache[url.path], hit.size == size, hit.modified == modified { return hit.id }
+        var found: String?
+        for bytes: UInt64 in [400_000, 4_000_000, 16_000_000] {
+            if let id = adapter.lastOrganization(in: tail(of: url, bytes: bytes)) {
+                found = id
+                break
+            }
+            if size <= bytes { break }
+        }
+        organizationCache[url.path] = (size, modified, found)
+        return found
+    }
+
+    /// The app's log file and its current size, to read what it writes from now on.
+    static func logMark(bundleID: String) -> (url: URL, offset: UInt64)? {
+        guard let adapter = adapter(for: bundleID) else { return nil }
+        let url = expand(adapter.logDirectory)
+        guard url.pathExtension == "log",
+              let size = (try? FileManager.default.attributesOfItem(atPath: url.path))?[.size] as? UInt64 else { return nil }
+        return (url, size)
+    }
+
+    /// What the log got since `mark` (empty if it rotated or cannot be read).
+    static func logText(since mark: (url: URL, offset: UInt64)) -> String {
+        guard let handle = try? FileHandle(forReadingFrom: mark.url) else { return "" }
+        defer { try? handle.close() }
+        guard let size = try? handle.seekToEnd(), size > mark.offset else { return "" }
+        try? handle.seek(toOffset: mark.offset)
+        return String(decoding: (try? handle.readToEnd()) ?? Data(), as: UTF8.self)
+    }
+
+    /// Claude Code keeps each session under the organization it belongs to.
+    static func organization(bundleID: String, session id: String) -> String? {
+        guard bundleID == SessionAdapter.claudeDesktop.bundleID else { return nil }
+        return claudeSessionFile(for: id)?.organization.lowercased()
+    }
+
     // MARK: Log files
 
     private static func expand(_ path: String) -> URL {
@@ -116,6 +176,10 @@ enum SessionLocator {
 
     /// `claude-code-sessions/<account>/<organization>/<id>.json` holds the title.
     private static func claudeTitle(for id: String) -> String? {
+        claudeSessionFile(for: id)?.json["title"] as? String
+    }
+
+    private static func claudeSessionFile(for id: String) -> (organization: String, json: [String: Any])? {
         let root = home("Library/Application Support/Claude/claude-code-sessions")
         let fm = FileManager.default
         for account in (try? fm.contentsOfDirectory(atPath: root.path)) ?? [] {
@@ -124,7 +188,7 @@ enum SessionLocator {
                 let file = accountURL.appendingPathComponent(organization).appendingPathComponent("\(id).json")
                 guard let data = try? Data(contentsOf: file),
                       let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else { continue }
-                return json["title"] as? String
+                return (organization, json)
             }
         }
         return nil

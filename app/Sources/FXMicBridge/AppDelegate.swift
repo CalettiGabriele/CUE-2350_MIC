@@ -63,7 +63,26 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     func applicationDidFinishLaunching(_ notification: Notification) {
         L.language = config.ui.language
         SessionLocator.custom = config.sessionAdapters
+        SessionLocator.organizationLabels = config.organizationLabels
         Theme.registerFonts()
+        let arguments = ProcessInfo.processInfo.arguments
+        if let flag = arguments.firstIndex(of: "--ax-dump"), flag + 1 < arguments.count {
+            let bundleID = arguments[flag + 1]
+            // Every `--ax-press <label>` in order, 0.3 s apart, then the tree 3 s later.
+            var labels: [String] = []
+            for (index, argument) in arguments.enumerated() where argument == "--ax-press" && index + 1 < arguments.count {
+                labels.append(arguments[index + 1])
+            }
+            func step(_ rest: ArraySlice<String>) {
+                guard let label = rest.first else {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 3) { AXDiagnostics.dumpTree(bundleID: bundleID) }
+                    return
+                }
+                _ = AXDiagnostics.press(bundleID: bundleID, label: label)
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { step(rest.dropFirst()) }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 2) { step(labels[...]) }
+        }
         setupStatusItem()
         dictation.onPhase = { [weak self] phase in self?.show(phase) }
         dictation.onLevel = { [weak self] level in self?.hud.setLevel(level) }
@@ -386,8 +405,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         }
         focusLockedUntil = Date().addingTimeInterval(2)
         activateProfile(of: channel)
-        ChannelNavigator.bringToFront(channel)
+        ChannelNavigator.bringToFront(channel, learn: { [weak self] organization, label in
+            self?.learnOrganization(organization, label: label)
+        }, status: { [weak self] text in self?.hud.toast(text, duration: 2.5) })
         selectionChanged(announce: true, kicker: channelKicker, title: channel.name)
+    }
+
+    /// A switch ended in `organization` after pressing `label`: remember it for next time.
+    private func learnOrganization(_ organization: String, label: String) {
+        guard config.organizationLabels[organization] != label else { return }
+        var updated = config
+        updated.organizationLabels[organization] = label
+        applyConfig(updated, save: true)
     }
 
     /// The profile follows the channel's app, also before macOS reports the app switch.
@@ -912,6 +941,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         let old = config
         config = newConfig
         SessionLocator.custom = newConfig.sessionAdapters
+        SessionLocator.organizationLabels = newConfig.organizationLabels
         if old.ui.language != newConfig.ui.language {
             L.language = newConfig.ui.language
             relocalize()

@@ -136,3 +136,82 @@ import Testing
         #expect(back.channels.first?.link == chatA)
     }
 }
+
+@Suite struct OrganizationTests {
+    private let personal = "987729b0-d36b-4c49-a876-6819f147103d"
+    private let team = "9c2a5406-65f2-4992-9718-f6855cca63db"
+    private let account = "aa4302df-358d-44c4-9b1c-7ab7e4241922"
+
+    @Test func logSaysWhichOrganizationIsActive() {
+        let log = """
+        2026-10-23 20:27:42 [info] [oauth-v2] lookup orgId=\(team) cacheKey=x
+        2026-10-23 20:27:49 [info] [LocalSessionManager] Org changed from \(team) to \(personal), reinitializing sessions
+        2026-10-23 20:27:49 [info] [LocalSessionManager] Initialization succeeded — accountId=\(account), orgId=\(personal), existingSessions=3
+        """
+        #expect(SessionAdapter.claudeDesktop.lastOrganization(in: log) == personal)
+        let later = log + "\n2026-10-24 09:00:00 [info] [LocalSessionManager] Org changed from \(personal) to \(team.uppercased()), reinitializing sessions"
+        #expect(SessionAdapter.claudeDesktop.lastOrganization(in: later) == team)
+    }
+
+    @Test func startupLineAloneTellsTheOrganization() {
+        let log = "2026-10-24 08:00:00 [info] [LocalAgentModeSessionManager] Initialization succeeded — accountId=\(account), orgId=\(team), existingSessions=0"
+        #expect(SessionAdapter.claudeDesktop.lastOrganization(in: log) == team)
+    }
+
+    @Test func lookupLinesAndAdaptersWithoutPatternAreIgnored() {
+        #expect(SessionAdapter.claudeDesktop.lastOrganization(in: "[oauth-v2] lookup orgId=\(team) x") == nil)
+        #expect(SessionAdapter.codexDesktop.lastOrganization(in: "Org changed from \(team) to \(personal)") == nil)
+    }
+
+    @Test func channelKeepsItsOrganizationAndOldFilesStillLoad() throws {
+        let channel = Channel(name: "Claude · chat", bundleID: "com.anthropic.claudefordesktop",
+                              link: "claude://claude.ai/chat/2765b3cb-f3e5-46c2-b345-f1026767823f", organization: team)
+        let data = try JSONEncoder().encode(channel)
+        #expect(try JSONDecoder().decode(Channel.self, from: data).organization == team)
+        let old = try JSONDecoder().decode(AppConfig.self, from: Data(#"{"channels":[{"bundleID":"a.b","name":"A"}]}"#.utf8))
+        #expect(old.channels.first?.organization == nil)
+        #expect(old.organizationLabels.isEmpty)
+        let labelled = try JSONDecoder().decode(AppConfig.self, from: Data(#"{"organizationLabels":{"x":"Team"}}"#.utf8))
+        #expect(labelled.organizationLabels == ["x": "Team"])
+    }
+
+    @Test func pickerUsesLearnedLabelThenTheUnclaimedOne() {
+        let menu = ["Machine Learning Reply Team", "Personale Pro"]
+        // nothing learned: both are possible, in menu order
+        #expect(OrganizationPicker.candidates(menu: menu, target: team, current: personal, learned: [:]) == menu)
+        // the active one is known: only the other is worth pressing
+        #expect(OrganizationPicker.candidates(menu: menu, target: team, current: personal,
+                                              learned: [personal: "Personale Pro"]) == ["Machine Learning Reply Team"])
+        // the target is known: press exactly that
+        #expect(OrganizationPicker.candidates(menu: menu, target: personal, current: team,
+                                              learned: [personal: "Personale Pro"]) == ["Personale Pro"])
+        // a learned label that is no longer in the menu is not trusted
+        #expect(OrganizationPicker.candidates(menu: ["Other"], target: team, current: nil,
+                                              learned: [team: "Gone"]) == ["Other"])
+    }
+}
+
+@Suite struct SwitchProgressTests {
+    private let team = "9c2a5406-65f2-4992-9718-f6855cca63db"
+    private let personal = "987729b0-d36b-4c49-a876-6819f147103d"
+
+    @Test func switchedThenLoaded() {
+        let claude = SessionAdapter.claudeDesktop
+        let switched = "2026-10-24 09:26:09 [info] [LocalSessionManager] Org changed from \(personal) to \(team), reinitializing sessions\n"
+        #expect(claude.switchProgress(in: "") == .init(organization: nil, ready: false))
+        #expect(claude.switchProgress(in: switched) == .init(organization: team, ready: false))
+        let loaded = switched + "2026-10-24 09:26:09 [info] Loaded https://claude.ai (web commit fe18)\n"
+        #expect(claude.switchProgress(in: loaded) == .init(organization: team, ready: true))
+    }
+
+    @Test func aLoadBeforeTheSwitchDoesNotCount() {
+        let text = "Loaded https://claude.ai (web commit a)\n[LocalSessionManager] Org changed from \(personal) to \(team), x\n"
+        #expect(SessionAdapter.claudeDesktop.switchProgress(in: text).ready == false)
+    }
+
+    @Test func withoutReadyPatternTheSwitchIsEnough() {
+        var adapter = SessionAdapter.claudeDesktop
+        adapter.organizationReadyPattern = nil
+        #expect(adapter.switchProgress(in: "Org changed from \(personal) to \(team)").ready)
+    }
+}

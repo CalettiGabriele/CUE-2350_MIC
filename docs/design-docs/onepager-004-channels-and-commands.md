@@ -266,6 +266,7 @@ Details in `logs/TEST_NOTES.md`, section "One-Pager 004 §10 checks (2026-10-22)
 | Settings: Channels chapter, paged profiles, voice command test | `7c9c813`, `b157bff` | |
 | **The voice goes where you are** and **clear the channels** | `d439862` | changes §4, see 14.2 |
 | Claude chats and projects as channels | `2656f04` | page address through Accessibility |
+| Channels across Claude organizations (workspaces) | — | see 14.4 |
 
 ### 14.2 What changed compared with the design
 - **No jump when you talk.** §4.1 had the selected channel's window brought to the front when you talk. In use it was awkward: working in an app that was not bound, the voice took you back to the channel. Now **the window in front of you decides**: if it is a channel the voice goes there, otherwise you are **free** (red LEDs off) and the voice goes where your cursor is. Only orange makes you jump. The profile always follows the app in front.
@@ -273,6 +274,15 @@ Details in `logs/TEST_NOTES.md`, section "One-Pager 004 §10 checks (2026-10-22)
 - **Clear the channels:** orange held **3 s** (`veryLongPress` gesture), from the menu with confirmation and undo, from Settings with confirmation.
 - **Claude chats and projects:** they have no log lines, so a channel saves the address read from the web page (the adapter's `webPattern`/`webLink`) and returns to it with `claude://claude.ai/chat/…`. Without this, there was no way back to a chat from the Code view.
 - **Grey long press = interrupt** in non-coding profiles too (before: retype the last raw text).
+
+### 14.4 Channels across Claude organizations
+Claude desktop's two bottom-left "profiles" are organizations of one account, and sessions and chats live in one of them. A deep link opens in the active organization only, and the only way to change it is the account menu (the sidebar's titled pop-up button), which reloads the window.
+- A channel saves its `organization`: for a Claude Code session from the folder of its file (`claude-code-sessions/<account>/<organization>/…`), for a chat from the active organization, read from `main.log` (`Org changed from … to …`, or the startup line `Initialization succeeded … orgId=…`; the older `main1-3.log` are read too).
+- Orange to a channel of another organization opens the account menu through Accessibility and presses the entry as soon as it is drawn (no fixed waits, no pill). It then reads only what `main.log` gets from that moment: `Org changed … to <target>` and, after it, `Loaded https://claude.ai` (the window has reloaded, `organizationReadyPattern`); the link is opened right then. Measured on 2026-10-24: Claude logs the change in the same second as the press and reloads within about one more second. The reload itself is Claude's and cannot be hidden.
+- A **curtain** (`SwitchCurtain`) covers Claude's window from the tap until the target is on screen: a panel in Claude's background colour (light or dark, following Claude's theme setting) with the channel name, which fades out when the web view shows the chat's address or the log reports the session focused after the link was opened (2.5 s at most). It is not a picture of the window, so no Screen Recording permission is needed, and it never takes the focus or the clicks.
+- When sessions of the current organization have terminals open, Claude asks first ("Switch to …? The terminals in your sessions will be closed"). The curtain is lifted at once and the dialog is left to the user: confirming continues the switch, cancelling ends it.
+- The menu does not say which entry is which organization, so the app learns it: a press that ends in a known organization stores its label in `organizationLabels`, and with two entries the other one is the organization it came from. Until then it tries the candidates in order (`OrganizationPicker`), with a real click as a fallback if the press is ignored.
+- Adapters get `organizationPattern` (group 1 = organization id) for other apps. **Not verified on the device yet**: the switch itself, and Codex workspaces.
 
 ### 14.3 Not done yet
 - The `fxmic-notify` hook: agent status LEDs (§4.4), answering a waiting agent (§6.4) and permissions through the hook (§6.5). The test hooks of §10 are still installed in `.claude/settings.local.json` and `~/.codex/hooks.json`.

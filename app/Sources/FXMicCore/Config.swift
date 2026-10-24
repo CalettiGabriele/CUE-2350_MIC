@@ -18,6 +18,8 @@ public struct AppConfig: Codable, Equatable, Sendable {
     /// Extra apps whose sessions can be told apart and reopened (see `SessionAdapter`); Claude and
     /// Codex desktop are built in.
     public var sessionAdapters: [SessionAdapter] = []
+    /// Menu label of each organization (id → label), learned the first time the app switches to it.
+    public var organizationLabels: [String: String] = [:]
     public var profiles: [Profile] = Profile.defaults
 
     public init() {}
@@ -124,17 +126,21 @@ public struct Channel: Codable, Equatable, Sendable {
     /// Deep link that opens the page the window showed, for apps whose pages live in a web view
     /// (a Claude chat or project): without it a chat cannot be reached from the Code view.
     public var link: String?
+    /// Organization (workspace) the session or chat belongs to, for apps that hold several under
+    /// one account (Claude desktop): orange switches to it before opening the link.
+    public var organization: String?
 
     public static let maxCount = 4
 
     public init(name: String, bundleID: String, document: String? = nil, title: String? = nil,
-                session: String? = nil, link: String? = nil) {
+                session: String? = nil, link: String? = nil, organization: String? = nil) {
         self.name = name
         self.bundleID = bundleID
         self.document = document
         self.title = title
         self.session = session
         self.link = link
+        self.organization = organization
     }
 
     /// How narrowly the channel points: a session, a document, a window title or the whole app.
@@ -433,7 +439,7 @@ extension KeyedDecodingContainer {
 
 extension AppConfig {
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, audio, speech, llm, injection, ui, history, device, channels, sessionAdapters, profiles
+        case schemaVersion, audio, speech, llm, injection, ui, history, device, channels, sessionAdapters, organizationLabels, profiles
     }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -441,6 +447,7 @@ extension AppConfig {
         schemaVersion = 3
         channels = Array(c.value(.channels, [Channel]()).prefix(Channel.maxCount))
         sessionAdapters = c.value(.sessionAdapters, [SessionAdapter]())
+        organizationLabels = c.value(.organizationLabels, [String: String]())
         audio = c.value(.audio, d.audio)
         speech = c.value(.speech, d.speech)
         llm = c.value(.llm, d.llm)

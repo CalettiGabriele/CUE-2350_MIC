@@ -294,6 +294,7 @@ ROWS = [
 ("no speech", "nessun parlato", "aucune parole", "sin voz", "sem fala", "keine Sprache", "无语音", "音声なし", "нет речи"),
 ("non-local endpoint", "endpoint non locale", "point d'accès non local", "endpoint no local", "endpoint não local", "nicht lokaler Endpunkt", "非本地接口", "ローカル以外のエンドポイント", "нелокальная конечная точка"),
 ("not available yet", "non ancora disponibile", "pas encore disponible", "aún no disponible", "ainda não disponível", "noch nicht verfügbar", "暂不可用", "まだ利用できません", "пока недоступно"),
+("Could not switch Claude organization", "Impossibile cambiare organizzazione di Claude", "Impossible de changer d'organisation Claude", "No se pudo cambiar de organización de Claude", "Não foi possível trocar de organização do Claude", "Claude-Organisation konnte nicht gewechselt werden", "无法切换 Claude 组织", "Claude の組織を切り替えられませんでした", "Не удалось переключить организацию Claude"),
 ("run", "esegui", "exécuter", "ejecutar", "executar", "ausführen", "执行", "実行", "выполнить"),
 ("template", "modello", "modèle", "plantilla", "modelo", "Vorlage", "模板", "テンプレート", "шаблон"),
 ("too short", "troppo breve", "trop courte", "demasiado corto", "muito curto", "zu kurz", "太短", "短すぎます", "слишком коротко"),
