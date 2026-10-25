@@ -23,7 +23,7 @@ import Testing
     @Test func translatesAndFormatsThenFallsBack() {
         L.language = .it
         #expect(L.t("Quit") == "Esci")
-        #expect(L.f("Mode %d/%d", 2, 4) == "Modalità 2/4")
+        #expect(L.f("Channel %d/%d", 2, 4) == "Canale 2/4")
         #expect(L.f("Profile in use: %@", "Claude") == "Profilo in uso: Claude")
         L.language = .ja
         #expect(L.t("Settings…") == "設定…")

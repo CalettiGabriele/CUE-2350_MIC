@@ -20,6 +20,10 @@ DYNAMIC = {
     "Sound wave", "Dot", "Sparkles", "too short", "cancelled", "no speech", "Automatic",
     "Large v3 Turbo (632 MB, recommended)", "Large v3 (626 MB)", "Small (fast, less accurate)",
     "Base (very fast)",
+    # Settings › Voice command: tool groups (ToolCatalog.groups) and user tool problems (UserTool.problem).
+    "Text and keys", "Read, select, format", "Channels, skills, intents", "Controls of the window", "Menus",
+    "Windows and apps", "Web", "Give it a name.", "Say when to use it: the model reads this.",
+    "Add at least one step.", "A step has a shortcut that is not valid.", "Pick a shortcut.",
 }
 
 
@@ -33,7 +37,10 @@ def unescape_swift(literal):
 
 def used_keys():
     keys = set(DYNAMIC)
-    for path in glob.glob(os.path.join(APP, "Sources", "FXMicBridge", "*.swift")):
+    paths = glob.glob(os.path.join(APP, "Sources", "FXMicBridge", "*.swift"))
+    # FXMicCore holds a few user-facing strings too (provider errors); the table itself is skipped.
+    paths += [p for p in glob.glob(os.path.join(APP, "Sources", "FXMicCore", "*.swift")) if not p.endswith("L10nTable.swift")]
+    for path in paths:
         source = open(path, encoding="utf-8").read()
         for match in re.finditer(r'L\.[tf]\("((?:[^"\\]|\\.)*)"', source):
             keys.add(unescape_swift(match.group(1)))
