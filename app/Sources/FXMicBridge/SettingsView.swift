@@ -9,7 +9,7 @@ struct SettingsView: View {
     @State private var chapter: Chapter = .device
 
     enum Chapter: Int, CaseIterable, Identifiable {
-        case device = 1, channels, profiles, audio, speech, llm, history, general
+        case device = 1, channels, profiles, audio, speech, llm, voice, history, general
         var id: Int { rawValue }
         var title: String {
             switch self {
@@ -18,7 +18,8 @@ struct SettingsView: View {
             case .profiles: return L.t("Profiles")
             case .audio: return L.t("Audio")
             case .speech: return L.t("Transcription")
-            case .llm: return L.t("LLM")
+            case .llm: return L.t("Model")
+            case .voice: return L.t("Voice command")
             case .history: return L.t("History")
             case .general: return L.t("General")
             }
@@ -30,7 +31,8 @@ struct SettingsView: View {
             case .profiles: return L.t("White slots, voice command and gestures per app")
             case .audio: return L.t("Input and recording")
             case .speech: return L.t("Whisper, on this Mac")
-            case .llm: return L.t("Local model for voice commands and LLM slots")
+            case .llm: return L.t("One model for voice commands and LLM skills, local or remote")
+            case .voice: return L.t("The agent: tools, limits, your own tools")
             case .history: return L.t("Texts kept on this Mac")
             case .general: return L.t("Language, icon, permissions")
             }
@@ -116,6 +118,7 @@ struct SettingsView: View {
         case .audio: AudioTab(model: model)
         case .speech: SpeechTab(model: model)
         case .llm: LLMTab(model: model)
+        case .voice: VoiceCommandTab(model: model)
         case .history: HistoryTab(model: model).padding(.horizontal, 24).padding(.vertical, 12)
         case .general: GeneralTab(model: model)
         }
@@ -401,70 +404,163 @@ private struct SpeechTab: View {
     }
 }
 
-// MARK: - LLM
+// MARK: - Model
 
+/// One model for the voice command and the LLM skills, on any OpenAI-compatible provider
+/// (TDD voice command agent §3.6).
 private struct LLMTab: View {
     @ObservedObject var model: SettingsModel
-    @State private var sample = "new line"
-    @State private var output = ""
-    @State private var running = false
+    @State private var key = ""
+    @State private var keyStatus = ""
+    @State private var testResult = ""
+    @State private var testing = false
+    @State private var headers = ""
+
+    private var provider: Binding<LLMProvider> {
+        Binding(get: { model.draft.llm.active }, set: { model.draft.llm.active = $0 })
+    }
 
     var body: some View {
         Form {
-            Section(L.t("Server")) {
-                LabeledContent(L.t("Status"), value: model.llmStatus)
-                TextField(L.t("OpenAI-compatible URL"), text: $model.draft.llm.baseURL)
-                if !model.draft.llm.isLocal {
-                    Label(L.t("Non-local endpoint: dictated texts would leave this Mac."), systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
+            providerSection
+            // Ollama has no keys; every other server may want one (LM Studio and custom servers optionally).
+            if provider.wrappedValue.preset != .ollama || provider.wrappedValue.apiKeyRef != nil {
+                keySection
+            }
+            modelSection
+            Section(L.t("Base instructions")) {
+                TextEditor(text: $model.draft.llm.baseSystemPrompt)
+                    .font(.callout).frame(minHeight: 70)
+            }
+        }
+        .formStyle(.grouped)
+        .scrollContentBackground(.hidden)
+        .task(id: model.draft.llm.activeProvider) {
+            headers = provider.wrappedValue.extraHeaders.sorted { $0.key < $1.key }
+                .map { "\($0.key): \($0.value)" }.joined(separator: "\n")
+            key = ""
+            keyStatus = ""
+            testResult = ""
+            await model.refreshModels()
+        }
+    }
+
+    private var providerSection: some View {
+        Section {
+            HStack {
+                Picker(L.t("In use"), selection: $model.draft.llm.activeProvider) {
+                    ForEach(model.draft.llm.providers) { Text($0.name).tag($0.id) }
                 }
-                HStack {
-                    if model.llmModels.isEmpty {
-                        TextField(L.t("Model"), text: $model.draft.llm.model)
-                    } else {
-                        Picker(L.t("Model"), selection: $model.draft.llm.model) {
-                            ForEach(model.llmModels, id: \.self) { Text($0).tag($0) }
-                            if !model.llmModels.contains(model.draft.llm.model) {
-                                Text(model.draft.llm.model).tag(model.draft.llm.model)
-                            }
+                Menu(L.t("Add")) {
+                    ForEach(ProviderPreset.allCases, id: \.self) { preset in
+                        Button(preset.label) { model.addProvider(preset) }
+                    }
+                }
+                .fixedSize()
+                Button(L.t("Remove")) { model.removeActiveProvider() }
+                    .disabled(model.draft.llm.providers.count < 2)
+            }
+            TextField(L.t("Name"), text: provider.name)
+            TextField(L.t("OpenAI-compatible URL"), text: provider.baseURL)
+            if !provider.wrappedValue.isLocal {
+                Label(L.t("Not on this Mac: what you say, and later what the voice command reads on screen, is sent to this provider."),
+                      systemImage: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+            }
+        } header: {
+            Text(L.t("Provider"))
+        } footer: {
+            Text(L.t("Any server that speaks the OpenAI chat completions API: Ollama and LM Studio on this Mac, OpenAI, Anthropic, OpenRouter or your own."))
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private var keySection: some View {
+        Section {
+            HStack {
+                SecureField(L.t("API key"), text: $key)
+                Button(L.t("Save key")) {
+                    keyStatus = model.saveKey(key) ? L.t("Saved in the Keychain.") : L.t("Could not save the key.")
+                    key = ""
+                    Task { await model.refreshModels() }
+                }
+                .disabled(key.trimmingCharacters(in: .whitespaces).isEmpty)
+                Button(L.t("Remove key")) {
+                    model.removeKey()
+                    keyStatus = L.t("Key removed.")
+                }
+                .disabled(!model.activeHasKey)
+            }
+            Text(keyStatus.isEmpty ? (model.activeHasKey ? L.t("A key is saved in the Keychain.") : L.t("No key saved.")) : keyStatus)
+                .font(.caption).foregroundStyle(.secondary)
+            TextField(L.t("Extra headers, one per line: Name: value"), text: $headers, axis: .vertical)
+                .lineLimit(1...3)
+                .onChange(of: headers) { _, text in provider.wrappedValue.extraHeaders = Self.parseHeaders(text) }
+        } header: {
+            Text(L.t("API key"))
+        } footer: {
+            Text(L.t("The key is stored in the macOS Keychain right away, never in config.json."))
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+
+    private var modelSection: some View {
+        Section {
+            LabeledContent(L.t("Status"), value: model.llmStatus)
+            HStack {
+                TextField(L.t("Model"), text: $model.draft.llm.model)
+                if !model.llmModels.isEmpty {
+                    Menu(L.t("Choose")) {
+                        ForEach(model.llmModels, id: \.self) { name in
+                            Button(name) { model.draft.llm.model = name }
                         }
                     }
-                    Button(L.t("Refresh")) { model.onRefreshLLM?() }
+                    .fixedSize()
                 }
+                Button(L.t("Refresh")) { Task { await model.refreshModels() } }
+            }
+            HStack {
+                Button(testing ? L.t("Testing…") : L.t("Test tool calling")) {
+                    testing = true
+                    Task {
+                        testResult = await model.testToolCalling()
+                        testing = false
+                    }
+                }
+                .disabled(testing)
+                if !testResult.isEmpty { Text(testResult).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
+            }
+            if provider.wrappedValue.preset.canDisableThinking {
                 Toggle(L.t("Disable reasoning (much faster)"), isOn: $model.draft.llm.disableThinking)
-                Stepper(value: $model.draft.llm.timeoutMs, in: 2000...60000, step: 1000) {
-                    Text(L.f("Timeout %d s", Int(model.draft.llm.timeoutMs / 1000)))
-                }
+            }
+            Stepper(value: $model.draft.llm.timeoutMs, in: 2000...60000, step: 1000) {
+                Text(L.f("Timeout %d s", Int(model.draft.llm.timeoutMs / 1000)))
+            }
+            if provider.wrappedValue.preset.sendsTemperature {
                 HStack {
                     Text(L.t("Temperature"))
                     Slider(value: $model.draft.llm.temperature, in: 0...1, step: 0.05)
                     Text(String(format: "%.2f", model.draft.llm.temperature)).monospacedDigit()
                 }
             }
-            Section(L.t("Base instructions")) {
-                TextEditor(text: $model.draft.llm.baseSystemPrompt)
-                    .font(.callout).frame(minHeight: 70)
-            }
-            Section {
-                HintField(hint: L.t("What you would say, e.g. go to the first channel"), text: $sample, axis: .vertical)
-                    .lineLimit(1...3)
-                Button(running ? L.t("Running…") : L.t("Test as a voice command")) {
-                    running = true
-                    Task {
-                        output = await model.testCommand(sample)
-                        running = false
-                    }
-                }.disabled(running)
-                if !output.isEmpty { Text(output).textSelection(.enabled).foregroundStyle(.secondary) }
-            } header: {
-                Text(L.t("Test a voice command"))
-            } footer: {
-                Text(L.t("Uses the channels and the skills, commands and intents of the profile in use. Nothing is executed."))
-                    .font(.caption).foregroundStyle(.secondary)
-            }
+        } header: {
+            Text(L.t("Model"))
+        } footer: {
+            Text(L.t("The same model runs the voice command and the LLM skills. The test asks it to call a tool, as the voice command will."))
+                .font(.caption).foregroundStyle(.secondary)
         }
-        .formStyle(.grouped)
-        .scrollContentBackground(.hidden)
+    }
+
+    /// "Name: value" lines; lines without a colon are ignored.
+    static func parseHeaders(_ text: String) -> [String: String] {
+        var headers: [String: String] = [:]
+        for line in text.split(whereSeparator: \.isNewline) {
+            guard let colon = line.firstIndex(of: ":") else { continue }
+            let name = line[..<colon].trimmingCharacters(in: .whitespaces)
+            let value = line[line.index(after: colon)...].trimmingCharacters(in: .whitespaces)
+            if !name.isEmpty { headers[name] = value }
+        }
+        return headers
     }
 }
 

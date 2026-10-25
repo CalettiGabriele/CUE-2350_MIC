@@ -43,6 +43,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private var currentPhase: DictationController.Phase = .idle
     private var hotkeyDown = false
     private var frontmost: NSRunningApplication?
+    /// Confirmation of risky voice command actions on the mic.
+    private let riskGate = RiskGate()
     private var lastWarmUp = Date.distantPast
     /// Windows the user dragged: they are no longer re-centred when their content resizes.
     private var windowsMovedByUser = Set<ObjectIdentifier>()
@@ -88,6 +90,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         dictation.onLevel = { [weak self] level in self?.hud.setLevel(level) }
         dictation.contextProvider = { [weak self] in self!.dictationContext() }
         dictation.commandHandler = { [weak self] step in self?.executeCommandStep(step) ?? .failed }
+        dictation.confirmAction = { [weak self] pending in
+            guard let self else { return false }
+            return await self.riskGate.ask(pending, timeoutMs: self.config.agent.confirmTimeoutMs)
+        }
+        riskGate.onAsk = { [weak self] pending in
+            guard let self else { return }
+            self.leds.set(.confirm)
+            // The island has one line: the action, then how to answer.
+            self.hud.show(L.f("Confirm %@ · grey = yes · shake = no", pending.summary), glyph: .info)
+            self.phaseItem.title = L.f("Confirm · %@", pending.summary)
+        }
+        riskGate.onEnd = { [weak self] yes in
+            self?.leds.set(.processing)
+            self?.hud.show(yes ? L.t("Confirmed") : L.t("Not done"))
+        }
         dictation.onSlotConsumed = { [weak self] in
             guard let self else { return }
             self.engine.clearSlot()
@@ -180,20 +197,36 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         let llm = config.llm
         llmItem.title = L.t("LLM: checking…")
         Task {
-            let models = await LLMClient(settings: llm).availableModels()
+            let provider = llm.active
+            let hasKey = KeychainStore.hasKey(provider.apiKeyRef)
+            let models = await llm.client.availableModels()
             let warning = llm.isLocal ? "" : " ⚠︎ " + L.t("non-local endpoint")
             self.settings.llmModels = models ?? []
-            if let models {
+            if provider.preset.needsKey, !hasKey {
+                self.llmItem.title = L.f("LLM: no API key for %@", provider.name)
+                self.settings.llmStatus = L.t("No API key saved for this provider")
+                self.settings.llmReady = false
+            } else if let models {
                 let installed = models.contains(llm.model) || models.contains(llm.model + ":latest")
                 self.llmItem.title = installed
                     ? "LLM: \(llm.model)\(warning)"
                     : L.f("LLM: model %@ not installed", llm.model) + warning
-                self.settings.llmStatus = installed ? L.f("Ready: %@", llm.model) + warning
-                    : L.f("The model %@ is not installed (ollama pull %@)", llm.model, llm.model)
+                let missing = provider.preset == .ollama
+                    ? L.f("The model %@ is not installed (ollama pull %@)", llm.model, llm.model)
+                    : L.f("%@ does not list the model %@", provider.name, llm.model)
+                self.settings.llmStatus = installed ? L.f("Ready: %@", llm.model) + warning : missing
                 self.settings.llmReady = installed
+                if installed, let context = await llm.client.ollamaContextLength(),
+                   context < OpenAICompatibleClient.agentContextLength {
+                    self.settings.llmStatus += " · " + L.f("context %d tokens: set at least %d in Ollama's settings for the voice command agent",
+                                                           context, OpenAICompatibleClient.agentContextLength)
+                }
             } else {
-                self.llmItem.title = L.t("LLM: server unreachable (ollama serve)") + warning
-                self.settings.llmStatus = L.f("Server unreachable at %@ (start Ollama)", llm.baseURL)
+                self.llmItem.title = provider.preset == .ollama
+                    ? L.t("LLM: server unreachable (ollama serve)") : L.f("LLM: %@ unreachable", provider.name)
+                self.settings.llmStatus = provider.preset == .ollama
+                    ? L.f("Server unreachable at %@ (start Ollama)", provider.baseURL)
+                    : L.f("Cannot reach %@ at %@", provider.name, provider.baseURL)
                 self.settings.llmReady = false
             }
         }
@@ -262,7 +295,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         let needsLLM = engine.mode.usesLLM || engine.slot?.kind == .llm
         if needsLLM, Date().timeIntervalSince(lastWarmUp) > 60 {
             lastWarmUp = Date()
-            LLMClient(settings: config.llm).warmUp()
+            config.llm.client.warmUp()
         }
     }
 
@@ -270,7 +303,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         let slot = engine.slot.flatMap { $0.kind == .run ? nil : $0 }
         return DictationContext(profile: engine.active, mode: engine.mode, slot: slot,
                                 appName: frontmost?.localizedName ?? "?", bundleID: frontmost?.bundleIdentifier,
-                                channels: engine.channels.map(\.name))
+                                channels: engine.channels.map(\.name), channel: engine.channel?.name,
+                                pid: frontmost?.processIdentifier)
     }
 
     // MARK: - Device
@@ -322,6 +356,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private func handle(_ gestures: [FXMicCore.Gesture]) {
         for gesture in gestures {
             log.debug("gesture \(String(describing: gesture), privacy: .public)")
+            // While the agent waits for a yes, grey answers yes, a shake answers no; nothing else runs.
+            if riskGate.isWaiting {
+                switch gesture {
+                case .tap(.grey): riskGate.resolve(true)
+                case .shake, .longPress(.grey): riskGate.resolve(false)
+                default: break
+                }
+                continue
+            }
             switch gesture {
             case .pttDown: pttDown()
             case .pttUp: dictation.pttUp()
@@ -485,7 +528,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         hud.card(kicker: L.f("Slot %d", number) + " · " + kind, title: slot.name)
         if slot.kind == .llm, Date().timeIntervalSince(lastWarmUp) > 60 {
             lastWarmUp = Date()
-            LLMClient(settings: config.llm).warmUp()
+            config.llm.client.warmUp()
         }
     }
 
@@ -524,8 +567,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             return .done
         case .intent(let name):
             return runIntent(name) ? .done : .failed
-        case .text, .keys, .replaceSelection:
-            return .failed
         }
     }
 
@@ -738,6 +779,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             leds.set(.processing)
             phaseItem.title = L.f("Processing with %@…", config.llm.model)
             hud.show(statusLine(L.t("Processing")), detail: detail)
+        case .working(let step):
+            leds.set(.processing)
+            phaseItem.title = step
+            hud.show(statusLine(step), detail: detail)
         case .message(let text), .done(let text), .failure(let text):
             if case .failure = phase { leds.set(.error) } else { leds.set(.idle) }
             phaseItem.title = text

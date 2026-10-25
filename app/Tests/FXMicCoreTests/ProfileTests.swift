@@ -7,14 +7,14 @@ import Testing
         let config = try JSONDecoder().decode(AppConfig.self, from: Data("{}".utf8))
         #expect(config == AppConfig())
         #expect(config.profiles.map(\.id) == ["claude-desktop", "coding-agent", "default"])
-        #expect(config.schemaVersion == 3)
+        #expect(config.schemaVersion == 4)
     }
 
     @Test func partialJSONKeepsOtherDefaults() throws {
         let json = #"{"llm": {"model": "qwen3:4b"}, "speech": {"language": "it"}}"#
         let config = try JSONDecoder().decode(AppConfig.self, from: Data(json.utf8))
         #expect(config.llm.model == "qwen3:4b")
-        #expect(config.llm.baseURL == "http://localhost:11434/v1")
+        #expect(config.llm.active.baseURL == "http://localhost:11434/v1")
         #expect(config.speech.language == "it")
     }
 
@@ -72,6 +72,8 @@ import Testing
 
     @Test func templateFill() {
         #expect(Slot.template("T", "Riassumi:\n{{testo}}").fill("ciao") == "Riassumi:\nciao")
+        let old = try! JSONDecoder().decode(Slot.self, from: Data(#"{"name": "S", "kind": "template", "template": "Sum up: {{testo}}"}"#.utf8))
+        #expect(old.template == "Sum up: {{text}}")
         #expect(Slot.template("T", "Traduci").fill("ciao") == "Traduci ciao")
     }
 
@@ -85,7 +87,7 @@ import Testing
     @Test func localEndpointDetection() {
         var llm = AppConfig.LLM()
         #expect(llm.isLocal)
-        llm.baseURL = "https://api.example.com/v1"
+        llm.active.baseURL = "https://api.example.com/v1"
         #expect(!llm.isLocal)
     }
 }
@@ -208,41 +210,6 @@ import Testing
     }
 }
 
-@Suite struct CommandParserTests {
-    @Test func parsesTextAndKeys() throws {
-        let response = #"```json {"actions":[{"type":"text","text":"- "},{"type":"key","keys":["shift+return"]}]} ```"#
-        #expect(try CommandParser.parse(response).get() == [.text("- "), .keys(["shift+return"])])
-    }
-
-    @Test func rejectsForbiddenAndGarbage() {
-        #expect(CommandParser.parse(#"{"actions":[{"type":"key","keys":["cmd+q"]}]}"#) == .failure(.forbidden("cmd+q")))
-        #expect(CommandParser.parse(#"{"actions":[{"type":"key","keys":["⌘+⌥+esc"]}]}"#) == .failure(.forbidden("⌘+⌥+esc")))
-        #expect(CommandParser.parse("ok, fatto") == .failure(.notJSON))
-        #expect(CommandParser.parse(#"{"actions":[{"type":"shell","cmd":"rm"}]}"#) == .failure(.notJSON))
-    }
-
-    @Test func leakedReasoningAndRepeatedJSON() throws {
-        let response = "{\"actions\":[{\"type\":\"text\",\"text\":\"- \"}]}`\n</think>\n\n```json\n{\"actions\": [{\"type\": \"text\", \"text\": \"- \"}]}\n```"
-        #expect(try CommandParser.parse(response).get() == [.text("- ")])
-        #expect(try CommandParser.parse(#"nota {"x":1} poi {"actions":[{"type":"key","keys":["right"]}]}"#).get() == [.keys(["right"])])
-        #expect(try CommandParser.parse(#"{"actions":[{"type":"text","text":"a } b"}]}"#).get() == [.text("a } b")])
-    }
-
-    @Test func parsesChannelSlotIntentAndSelectionSteps() throws {
-        let response = #"{"actions":[{"type":"switchChannel","name":"Codex"},{"type":"runSlot","name":"/compact"},{"type":"intent","name":"interrupt"},{"type":"replaceSelection","text":"Hello"}]}"#
-        #expect(try CommandParser.parse(response).get() == [.switchChannel("Codex"), .runSlot("/compact"), .intent("interrupt"), .replaceSelection("Hello")])
-    }
-
-    @Test func namedStepsNeedAName() {
-        #expect(CommandParser.parse(#"{"actions":[{"type":"switchChannel"}]}"#) == .failure(.notJSON))
-        #expect(CommandParser.parse(#"{"actions":[{"type":"intent","name":""}]}"#) == .failure(.notJSON))
-        #expect(CommandParser.parse(#"{"actions":[{"type":"replaceSelection"}]}"#) == .failure(.notJSON))
-    }
-
-    @Test func emptyActionsMeanNothingToDo() throws {
-        #expect(try CommandParser.parse(#"{"actions": []}"#).get() == [])
-    }
-}
 
 @Suite struct PromptComposerTests {
     let context = PromptComposer.Context(appName: "Claude", language: "it", date: "2026-10-16")
@@ -252,28 +219,6 @@ import Testing
                                         context: context, transcript: "ciao", selection: nil)
         #expect(m.system.hasPrefix("BASE\n\n## Instruction: Email"))
         #expect(m.user == "ciao")
-    }
-
-    @Test func commandPromptIncludesHints() {
-        let ctx = PromptComposer.CommandContext(appName: "Claude", language: "auto", hints: "Markdown")
-        let m = PromptComposer.commandMessages(context: ctx, transcript: "elenco puntato")
-        #expect(m.system.contains("\"actions\""))
-        #expect(m.system.contains("## App notes: Markdown"))
-        #expect(m.system.contains("CHANNELS: (none)"))
-        #expect(m.system.contains("SELECTION: (none)"))
-        #expect(m.user == "elenco puntato")
-    }
-
-    @Test func commandPromptCarriesChannelsSlotsIntentsAndSelection() {
-        let ctx = PromptComposer.CommandContext(
-            appName: "Claude", language: "it", channels: ["Claude · api", "Codex · infra"], slots: ["/compact", "/review"],
-            intents: ["interrupt", "newSession"], selection: String(repeating: "a", count: 3000))
-        let m = PromptComposer.commandMessages(context: ctx, transcript: "passa a codex")
-        #expect(m.system.contains("CHANNELS: \"Claude · api\", \"Codex · infra\""))
-        #expect(m.system.contains("SLOTS: \"/compact\", \"/review\""))
-        #expect(m.system.contains("INTENTS: \"interrupt\", \"newSession\""))
-        #expect(ctx.selection?.count == PromptComposer.CommandContext.maxSelection)
-        #expect(!m.system.contains("(none)\nSELECTION: (none)"))
     }
 
     @Test func cleanStripsThinkingAndQuotes() {

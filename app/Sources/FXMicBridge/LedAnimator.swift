@@ -8,7 +8,7 @@ import Foundation
 /// mask on screen (HUD, Settings).
 @MainActor
 final class LedAnimator {
-    enum State: Equatable { case idle, recording, processing, error, boot }
+    enum State: Equatable { case idle, recording, processing, error, boot, confirm }
 
     var send: ((String) -> Void)?
     /// Logical mask (bits 0–3 red, 4–7 white), called whenever it changes.
@@ -80,6 +80,8 @@ final class LedAnimator {
         case .processing: logical = LedPattern.processing(frame: frame / 2, slot: slotNumber())
         case .error: logical = LedPattern.error(frame: frame / 2)
         case .boot: logical = LedPattern.boot(frame: frame)
+        // Waiting for a yes on the mic: the red LEDs blink until it comes.
+        case .confirm: logical = LedPattern.error(frame: frame / 3)
         }
         if logical != lastLogical {
             lastLogical = logical

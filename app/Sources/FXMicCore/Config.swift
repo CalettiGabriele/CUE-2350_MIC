@@ -5,10 +5,12 @@ import Foundation
 /// fall back to the defaults below, so a partial file is valid. Schema 1 files (modes/styles)
 /// are migrated on read.
 public struct AppConfig: Codable, Equatable, Sendable {
-    public var schemaVersion = 3
+    public var schemaVersion = 4
     public var audio = Audio()
     public var speech = Speech()
     public var llm = LLM()
+    /// The voice command agent: limits, tools and safety (TDD voice command agent §3.1).
+    public var agent = Agent()
     public var injection = Injection()
     public var ui = UI()
     public var history = History()
@@ -67,8 +69,11 @@ public struct AppConfig: Codable, Equatable, Sendable {
         public init() {}
     }
 
+    /// One model for everything: the voice command and the LLM skills (TDD voice command agent §3.1).
     public struct LLM: Codable, Equatable, Sendable {
-        public var baseURL = "http://localhost:11434/v1"
+        /// Saved servers; `activeProvider` is the one in use.
+        public var providers: [LLMProvider] = [.ollama]
+        public var activeProvider = LLMProvider.ollama.id
         public var model = "qwen3.5:4b"
         public var timeoutMs: Double = 8000
         public var temperature = 0.2
@@ -82,11 +87,42 @@ public struct AppConfig: Codable, Equatable, Sendable {
         """
         public init() {}
 
-        /// True when the endpoint is on this Mac (TDD §4: warn otherwise).
-        public var isLocal: Bool {
-            guard let host = URL(string: baseURL)?.host else { return false }
-            return ["localhost", "127.0.0.1", "::1"].contains(host)
+        /// The provider in use (the first one if the id is unknown).
+        public var active: LLMProvider {
+            get { providers.first { $0.id == activeProvider } ?? providers.first ?? .ollama }
+            set {
+                if let i = providers.firstIndex(where: { $0.id == newValue.id }) { providers[i] = newValue }
+                else { providers.append(newValue) }
+                activeProvider = newValue.id
+            }
         }
+
+        /// True when the provider in use is on this Mac (TDD §4: warn otherwise).
+        public var isLocal: Bool { active.isLocal }
+
+        /// The client for the provider in use; the key comes from the caller (the Keychain).
+        public func client(apiKey: String?) -> OpenAICompatibleClient {
+            OpenAICompatibleClient(provider: active, model: model, apiKey: apiKey, timeoutMs: timeoutMs,
+                                   disableThinking: disableThinking)
+        }
+    }
+
+    public struct Agent: Codable, Equatable, Sendable {
+        /// Model calls per command.
+        public var maxSteps = 8
+        /// Wall time per command; the time spent waiting for a confirmation does not count.
+        public var timeBudgetMs: Double = 30000
+        /// No answer to a confirmation within this time means no.
+        public var confirmTimeoutMs: Double = 10000
+        /// Not sent to providers that reject it (Anthropic).
+        public var temperature: Double = 0
+        public var disabledTools: [String] = []
+        /// Tools that are off unless named here: "open_url".
+        public var enabledTools: [String] = []
+        /// Settings › Voice command › My tools.
+        public var userTools: [UserTool] = []
+        public var riskOverrides: [String: Risk] = [:]
+        public init() {}
     }
 
     public struct Injection: Codable, Equatable, Sendable {
@@ -210,7 +246,7 @@ public struct InteractionSettings: Codable, Equatable, Sendable {
 public enum SlotKind: String, Codable, CaseIterable, Sendable {
     /// Grey runs `action` right away.
     case run
-    /// The next dictation is written inside `template` ({{testo}} = dictated text).
+    /// The next dictation is written inside `template` ({{text}} = dictated text).
     case template
     /// The next dictation is transformed by the LLM with `template` as instruction.
     case llm
@@ -355,6 +391,12 @@ public struct ShakeActions: Codable, Equatable, Sendable {
 
 // MARK: - Profile
 
+/// rich: shortcuts such as ⌘B work; markdown: formatting is written as marks (**bold**);
+/// plain: no formatting (terminals).
+public enum TextFormat: String, Codable, CaseIterable, Sendable {
+    case rich, markdown, plain
+}
+
 public struct Profile: Codable, Equatable, Sendable {
     public var id: String
     public var name: String
@@ -378,15 +420,28 @@ public struct Profile: Codable, Equatable, Sendable {
     public var injection: InjectionStrategy?
     /// nil = use `speech.language`.
     public var language: String?
+    /// How the voice command formats text in these apps (format_selection).
+    public var textFormat: TextFormat
 
     public init(id: String, name: String) {
         self.id = id
         self.name = name
+        textFormat = Profile.defaultTextFormat(id)
     }
 }
 
 extension Profile {
     public static let claudeDesktopID = "com.anthropic.claudefordesktop"
+
+    /// The text format of the built-in profiles: Markdown in the Claude input, plain text in
+    /// terminals, rich text elsewhere.
+    public static func defaultTextFormat(_ id: String) -> TextFormat {
+        switch id {
+        case "claude-desktop": return .markdown
+        case "coding-agent": return .plain
+        default: return .rich
+        }
+    }
 
     public static let defaults: [Profile] = {
         var claude = Profile(id: "claude-desktop", name: "Claude")
@@ -396,10 +451,10 @@ extension Profile {
         claude.slots = [
             .run("New chat", .key(["cmd+n"])),
             .run("Stop response", .key(["escape"])),
-            .template("Summarize", "Summarize concisely:\n{{testo}}"),
-            .template("Translate to English", "Translate into English:\n{{testo}}"),
-            .template("Explain simply", "Explain this simply, as to a beginner:\n{{testo}}"),
-            .template("Brainstorm", "Brainstorm ideas about: {{testo}}"),
+            .template("Summarize", "Summarize concisely:\n{{text}}"),
+            .template("Translate to English", "Translate into English:\n{{text}}"),
+            .template("Explain simply", "Explain this simply, as to a beginner:\n{{text}}"),
+            .template("Brainstorm", "Brainstorm ideas about: {{text}}"),
         ]
 
         var coding = Profile(id: "coding-agent", name: "Coding agent")
@@ -411,7 +466,7 @@ extension Profile {
             .run("/compact", .text("/compact\n")),
             .run("/clear", .text("/clear\n")),
             .run("/review", .text("/review\n")),
-            .template("Bug report", "Fix this bug. Observed behaviour: {{testo}}"),
+            .template("Bug report", "Fix this bug. Observed behaviour: {{text}}"),
             .llm("Commit message", "Write a commit message in Conventional Commits style, in English."),
         ]
         coding.grey = ButtonActions(tap: .runSlot, doubleTap: .undoLastInsertion, longPress: .key(["escape"]))
@@ -439,18 +494,19 @@ extension KeyedDecodingContainer {
 
 extension AppConfig {
     private enum CodingKeys: String, CodingKey {
-        case schemaVersion, audio, speech, llm, injection, ui, history, device, channels, sessionAdapters, organizationLabels, profiles
+        case schemaVersion, audio, speech, llm, agent, injection, ui, history, device, channels, sessionAdapters, organizationLabels, profiles
     }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = AppConfig()
-        schemaVersion = 3
+        schemaVersion = 4
         channels = Array(c.value(.channels, [Channel]()).prefix(Channel.maxCount))
         sessionAdapters = c.value(.sessionAdapters, [SessionAdapter]())
         organizationLabels = c.value(.organizationLabels, [String: String]())
         audio = c.value(.audio, d.audio)
         speech = c.value(.speech, d.speech)
         llm = c.value(.llm, d.llm)
+        agent = c.value(.agent, d.agent)
         injection = c.value(.injection, d.injection)
         ui = c.value(.ui, d.ui)
         history = c.value(.history, d.history)
@@ -489,16 +545,59 @@ extension AppConfig.Speech {
 }
 
 extension AppConfig.LLM {
-    private enum CodingKeys: String, CodingKey { case baseURL, model, timeoutMs, temperature, disableThinking, baseSystemPrompt }
+    private enum CodingKeys: String, CodingKey {
+        case providers, activeProvider, model, timeoutMs, temperature, disableThinking, baseSystemPrompt
+        case baseURL   // schema 3
+    }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = Self()
-        baseURL = c.value(.baseURL, d.baseURL)
+        let saved = c.value(.providers, [LLMProvider]())
+        if !saved.isEmpty {
+            var seen = Set<String>()
+            providers = saved.filter { seen.insert($0.id).inserted }
+            activeProvider = c.value(.activeProvider, providers[0].id)
+        } else if let url = try? c.decodeIfPresent(String.self, forKey: .baseURL) {
+            // Schema 3 → 4: the single URL becomes the only provider.
+            let ollama = url.trimmingCharacters(in: CharacterSet(charactersIn: "/")) == ProviderPreset.ollama.defaultURL
+            providers = [ollama ? .ollama : LLMProvider(id: "custom", preset: .custom, name: "Custom", baseURL: url)]
+            activeProvider = providers[0].id
+        }
         model = c.value(.model, d.model)
         timeoutMs = c.value(.timeoutMs, d.timeoutMs)
         temperature = c.value(.temperature, d.temperature)
         disableThinking = c.value(.disableThinking, d.disableThinking)
         baseSystemPrompt = c.value(.baseSystemPrompt, d.baseSystemPrompt)
+    }
+
+    public func encode(to encoder: Encoder) throws {
+        var c = encoder.container(keyedBy: CodingKeys.self)
+        try c.encode(providers, forKey: .providers)
+        try c.encode(activeProvider, forKey: .activeProvider)
+        try c.encode(model, forKey: .model)
+        try c.encode(timeoutMs, forKey: .timeoutMs)
+        try c.encode(temperature, forKey: .temperature)
+        try c.encode(disableThinking, forKey: .disableThinking)
+        try c.encode(baseSystemPrompt, forKey: .baseSystemPrompt)
+    }
+}
+
+extension AppConfig.Agent {
+    private enum CodingKeys: String, CodingKey {
+        case maxSteps, timeBudgetMs, confirmTimeoutMs, temperature, disabledTools, enabledTools, riskOverrides
+        case userTools
+    }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = Self()
+        maxSteps = min(30, max(1, c.value(.maxSteps, d.maxSteps)))
+        timeBudgetMs = max(2000, c.value(.timeBudgetMs, d.timeBudgetMs))
+        confirmTimeoutMs = max(2000, c.value(.confirmTimeoutMs, d.confirmTimeoutMs))
+        temperature = c.value(.temperature, d.temperature)
+        disabledTools = c.value(.disabledTools, d.disabledTools)
+        enabledTools = c.value(.enabledTools, d.enabledTools)
+        userTools = c.value(.userTools, d.userTools)
+        riskOverrides = c.value(.riskOverrides, d.riskOverrides)
     }
 }
 
@@ -589,7 +688,8 @@ extension Slot {
         name = c.value(.name, "Slot")
         kind = c.value(.kind, .run)
         action = c.value(.action, .none)
-        template = c.value(.template, "")
+        // Prompts are English (the old Italian placeholder is still filled, but rewritten).
+        template = c.value(.template, "").replacingOccurrences(of: "{{testo}}", with: "{{text}}")
     }
 }
 
@@ -625,6 +725,7 @@ extension ShakeActions {
 extension Profile {
     private enum CodingKeys: String, CodingKey {
         case id, name, apps, interaction, slots, orange, white, grey, chord, intents, handle, shake, injection, language
+        case textFormat
         case modes   // schema 1
     }
 
@@ -664,6 +765,7 @@ extension Profile {
         p.shake = c.value(.shake, p.shake)
         p.injection = c.value(.injection, p.injection)
         p.language = c.value(.language, p.language)
+        p.textFormat = c.value(.textFormat, p.textFormat)
         self = p
     }
 }
@@ -685,5 +787,6 @@ extension Profile {
         try c.encode(shake, forKey: .shake)
         try c.encodeIfPresent(injection, forKey: .injection)
         try c.encodeIfPresent(language, forKey: .language)
+        try c.encode(textFormat, forKey: .textFormat)
     }
 }

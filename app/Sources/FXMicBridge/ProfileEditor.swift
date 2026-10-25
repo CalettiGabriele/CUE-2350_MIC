@@ -170,6 +170,11 @@ private struct ProfileDetail: View {
                 Text(L.t("Accessibility")).tag(InjectionStrategy?.some(.ax))
                 Text(L.t("Typing")).tag(InjectionStrategy?.some(.type))
             }
+            Picker(L.t("Text format"), selection: $profile.textFormat) {
+                Text(L.t("Rich text (⌘B, ⌘I)")).tag(TextFormat.rich)
+                Text(L.t("Markdown (**bold**)")).tag(TextFormat.markdown)
+                Text(L.t("Plain text")).tag(TextFormat.plain)
+            }
         } header: { Text(L.t("Profile")) }
 
         Section {

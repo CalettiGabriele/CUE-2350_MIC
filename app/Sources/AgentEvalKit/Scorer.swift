@@ -97,10 +97,6 @@ public enum Scorer {
 
     /// "cmd+shift+x" with modifiers in a fixed order and key aliases resolved.
     public static func canonicalKey(_ key: String) -> String {
-        guard let combo = KeyCombo(key) else { return key.lowercased() }
-        let order: [(KeyCombo.Modifier, String)] = [(.command, "cmd"), (.control, "ctrl"), (.option, "opt"), (.shift, "shift")]
-        let mods = order.filter { combo.modifiers.contains($0.0) }.map(\.1)
-        let aliases = ["esc": "escape", "backspace": "delete", "enter": "return"]
-        return (mods + [aliases[combo.key] ?? combo.key]).joined(separator: "+")
+        KeyCombo(key)?.canonical ?? key.lowercased()
     }
 }

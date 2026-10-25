@@ -17,6 +17,12 @@ struct DictationContext {
     var selection: String?
     /// Names of the bound channels, for the voice command and for Whisper's vocabulary.
     var channels: [String] = []
+    /// The channel whose window is in front (nil = free), and the front app's process.
+    var channel: String?
+    var pid: pid_t?
+    /// Read when grey is pressed, for the agent's first call.
+    var window: String?
+    var fieldText: String?
 }
 
 /// Orchestrates record → transcribe → (LLM) → inject (TDD §3.5).
@@ -32,6 +38,8 @@ final class DictationController {
         case done(String)
         /// An error: same as a message, plus the LED error blink.
         case failure(String)
+        /// The voice command agent at work: the step being run.
+        case working(String)
     }
 
     var onPhase: ((Phase) -> Void)?
@@ -43,6 +51,8 @@ final class DictationController {
     var onSlotConsumed: (() -> Void)?
     /// Runs the voice-command steps that need the app (channel, slot, intent); nil = not handled.
     var commandHandler: ((CommandStep) -> TextInjector.Outcome)?
+    /// Asks the user before a risky agent action (RiskGate); nil = always no.
+    var confirmAction: (@MainActor (PendingAction) async -> Bool)?
     var config: AppConfig {
         didSet {
             machine.minDurationMs = config.audio.minDurationMs
@@ -105,11 +115,15 @@ final class DictationController {
         context?.editSelection = true
         onPhase?(.message(L.t("Voice command")))
         // The model is usually loaded already; this only makes sure it stays so.
-        LLMClient(settings: config.llm).warmUp()
+        config.llm.client.warmUp()
         Task { [weak self] in
             let selection = await TextInjector.readSelection()
             self?.context?.selection = selection
             if selection == nil { self?.log.notice("edit selection: nothing selected") }
+            guard let self else { return }
+            let pid = self.context?.pid
+            self.context?.window = ScreenSnapshot.windowTitle(pid: pid)
+            self.context?.fieldText = ScreenSnapshot.fieldText()
         }
     }
 
@@ -208,7 +222,8 @@ final class DictationController {
                 context: llmContext, transcript: raw, selection: nil)
             var processed: String?
             do {
-                processed = try await LLMClient(settings: config.llm).complete(system: messages.system, user: messages.user)
+                processed = try await config.llm.client.complete(system: messages.system, user: messages.user,
+                                                                 temperature: config.llm.temperature)
             } catch {
                 if Task.isCancelled { return }
                 log.error("llm failed: \(error.localizedDescription, privacy: .public)")
@@ -221,61 +236,70 @@ final class DictationController {
         }
     }
 
-    /// "Comando": the LLM turns the request into validated key/text steps (One-Pager 001 §1).
+    /// The voice command (grey while talking) runs the agent.
     private func runCommand(raw: String, context: DictationContext, llmContext: PromptComposer.Context,
                             releasedAt: Double) async {
-        let intents = context.profile.intents.filter { $0.value != .none }.keys.sorted()
-        let commandContext = PromptComposer.CommandContext(
-            appName: context.appName, language: llmContext.language, channels: context.channels,
-            slots: context.profile.slots.map(\.name), intents: intents, selection: context.selection,
-            hints: context.profile.interaction.commandHints)
-        let messages = PromptComposer.commandMessages(context: commandContext, transcript: raw)
-        let response: String
-        do {
-            response = try await LLMClient(settings: config.llm).complete(system: messages.system, user: messages.user,
-                                                                         temperature: 0)
-        } catch {
-            if Task.isCancelled { return }
-            log.error("command llm failed: \(error.localizedDescription, privacy: .public)")
-            _ = machine.send(.failed)
+        await runAgent(raw: raw, context: context, language: llmContext.language, releasedAt: releasedAt)
+    }
+
+    /// The voice command agent (TDD voice command agent): the model calls tools until the command
+    /// is done. Risky tools wait for a yes on the mic (RiskGate).
+    private func runAgent(raw: String, context: DictationContext, language: String, releasedAt: Double) async {
+        let profile = context.profile
+        let screen = ScreenContext(
+            app: context.appName, window: context.window, channel: context.channel, profile: profile.name,
+            textFormat: profile.textFormat.rawValue, language: language, selection: context.selection,
+            fieldText: context.fieldText, channels: context.channels,
+            skills: profile.slots.filter { $0.kind == .run }.map(\.name),
+            intents: profile.intents.filter { $0.value != .none }.keys.sorted(),
+            appNotes: profile.interaction.commandHints)
+        let handler = commandHandler
+        let mac = LiveMac(handler: handler.map { h in { step in h(step) } },
+                          strategy: profile.injection ?? config.injection.defaultStrategy,
+                          restoreClipboardMs: config.injection.restoreClipboardMs)
+        let tools = BuiltInTools.standard(mac, screen: screen)
+            + BuiltInTools.interface(LiveUI(), allowOpenURL: config.agent.enabledTools.contains("open_url"))
+            + BuiltInTools.user(config.agent.userTools, runner: LiveUserRunner())
+        let registry = ToolRegistry(tools, disabled: Set(config.agent.disabledTools), riskOverrides: config.agent.riskOverrides)
+        let maxSteps = config.agent.maxSteps
+        let confirm = confirmAction
+        let loop = AgentLoop(provider: config.llm.client, registry: registry, limits: AgentLimits(config.agent),
+                             confirm: { pending in
+                                 guard let confirm else { return false }
+                                 return await confirm(pending)
+                             },
+                             progress: { [weak self] event in
+                                 let text: String
+                                 switch event {
+                                 case .thinking(let step): text = step == 1 ? L.t("Voice command") : L.f("Voice command · %d/%d", step, maxSteps)
+                                 case .running(_, let summary), .ran(_, let summary, _): text = summary
+                                 case .confirming(let pending): text = pending.summary
+                                 }
+                                 Task { @MainActor in self?.onPhase?(.working(text)) }
+                             })
+        let run = await loop.run(screen, command: raw)
+        guard !Task.isCancelled, run.outcome != .cancelled else { return }
+        _ = machine.send(.postProcessed)
+        _ = machine.send(.injected)
+        let latency = now() - releasedAt
+        log.notice("agent \(run.path, privacy: .public) → \(String(describing: run.outcome), privacy: .public) in \(latency, format: .fixed(precision: 0), privacy: .public) ms, \(run.modelCalls, privacy: .public) calls")
+        if mac.changedSomething { lastInsertion = (context.bundleID, Date()) }
+        switch run.outcome {
+        case .done(let summary):
+            record(raw: raw, processed: summary + " · " + run.path, context: context)
+            onPhase?(.done(L.f("Command: %@", summary.isEmpty ? L.t("done") : summary)))
+        case .cannot(let reason):
+            record(raw: raw, processed: L.t("(no action)") + " · " + reason, context: context)
+            onPhase?(.failure(reason.isEmpty ? L.t("Command not recognised") : reason))
+        case .budget:
+            record(raw: raw, processed: L.t("out of steps") + " · " + run.path, context: context)
+            onPhase?(.failure(L.t("Voice command: out of steps")))
+        case .failed(let error):
+            log.error("agent failed: \(error, privacy: .public)")
             record(raw: raw, processed: nil, context: context)
             onPhase?(.failure(L.t("LLM not available: command not run")))
-            return
-        }
-        guard !Task.isCancelled, machine.send(.postProcessed) == .inject else { return }
-        _ = machine.send(.injected)
-        log.notice("command request \(raw, privacy: .public) → \(response.prefix(300), privacy: .public)")
-        switch CommandParser.parse(response) {
-        case .success(let steps) where steps.isEmpty:
-            record(raw: raw, processed: L.t("(no action)"), context: context)
-            onPhase?(.failure(L.t("Command not recognised")))
-        case .success(let steps):
-            var outcome = TextInjector.Outcome.done
-            for step in steps where outcome == .done {
-                switch step {
-                // Typed, not pasted: several pastes in a row would race on the clipboard.
-                case .text(let text): outcome = TextInjector.insert(text, strategy: .type, restoreAfterMs: 0)
-                case .keys(let keys): outcome = TextInjector.send(keys)
-                case .replaceSelection(let text):
-                    // The selection is replaced by the paste; without one this would just type.
-                    outcome = context.selection == nil ? .failed : TextInjector.insert(
-                        text, strategy: context.profile.injection ?? config.injection.defaultStrategy,
-                        restoreAfterMs: config.injection.restoreClipboardMs)
-                case .switchChannel, .runSlot, .intent: outcome = commandHandler?(step) ?? .failed
-                }
-            }
-            let summary = steps.map(\.summary).joined(separator: ", ")
-            record(raw: raw, processed: summary, context: context)
-            let latency = now() - releasedAt
-            log.notice("command \(summary, privacy: .public) → \(String(describing: outcome), privacy: .public) in \(latency, format: .fixed(precision: 0), privacy: .public) ms")
-            if outcome == .done { lastInsertion = (context.bundleID, Date()) }
-            onPhase?(outcome == .done ? .done(L.f("Command: %@", summary)) : .failure(L.t("Command not run")))
-        case .failure(.forbidden(let key)):
-            record(raw: raw, processed: L.f("blocked: %@", key), context: context)
-            onPhase?(.failure(L.f("Command blocked: %@", key)))
-        case .failure:
-            record(raw: raw, processed: L.t("invalid response"), context: context)
-            onPhase?(.failure(L.t("Command not understood")))
+        case .cancelled:
+            break
         }
     }
 

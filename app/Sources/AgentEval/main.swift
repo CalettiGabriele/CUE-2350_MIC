@@ -4,7 +4,8 @@ import Foundation
 
 // Runs the voice-command evaluation set against a real model (TDD voice command agent §3.7).
 // Usage: swift run AgentEval [--corpus path] [--engine legacy] [--repeat n] [--filter text]
-//                            [--base-url url] [--model name] [--out file.json] [--rescore report.json]
+//                            [--base-url url [--preset ollama|openai|anthropic|…]] [--model name]
+//                            [--out file.json] [--rescore report.json]
 // The endpoint comes from the app's config.json unless overridden; an API key can be passed in
 // AGENT_EVAL_API_KEY (never on the command line).
 
@@ -61,14 +62,46 @@ if let path = options["rescore"] {
 let configURL = FileManager.default.homeDirectoryForCurrentUser
     .appendingPathComponent("Library/Application Support/FXMicBridge/config.json")
 let config = (try? JSONDecoder().decode(AppConfig.self, from: Data(contentsOf: configURL))) ?? AppConfig()
-let endpoint = ChatEndpoint(
-    baseURL: options["base-url"] ?? config.llm.baseURL, model: options["model"] ?? config.llm.model,
-    apiKey: ProcessInfo.processInfo.environment["AGENT_EVAL_API_KEY"], timeoutMs: config.llm.timeoutMs,
-    disableThinking: config.llm.disableThinking)
+var llm = config.llm
+if let url = options["base-url"] {
+    llm.active = LLMProvider(id: "cli", preset: options["preset"].flatMap(ProviderPreset.init(rawValue:)) ?? .custom,
+                             baseURL: url)
+}
+if let model = options["model"] { llm.model = model }
+let client = llm.client(apiKey: ProcessInfo.processInfo.environment["AGENT_EVAL_API_KEY"])
+
+// --test-tools yes: one tool call, the same check as Settings › Model › Test tool calling.
+if options["test-tools"] != nil {
+    do {
+        let ms = try await client.testToolCall()
+        print(String(format: "tool calling works on %@ with %@ (%.0f ms)", client.provider.baseURL, client.model, ms))
+        exit(0)
+    } catch {
+        print("tool calling failed on \(client.provider.baseURL) with \(client.model): \(error.localizedDescription)")
+        exit(1)
+    }
+}
+
+// --agent-smoke "command": one agent run with simulated tools on a Mail screen, trace printed.
+if let command = options["agent-smoke"] {
+    let screen = ScreenContext(app: "Mail", window: "Re: budget review", textFormat: "rich",
+                               selection: "we need it by Friday",
+                               fieldText: "Hi team,\nthe budget review is urgent and we need it by Friday.\nThanks")
+    let loop = AgentLoop(provider: client, registry: ToolRegistry(SimulatedTool.basic()), limits: AgentLimits(config.agent),
+                         confirm: { _ in true })
+    let run = await loop.run(screen, command: command)
+    for entry in run.trace {
+        print(String(format: "  %d %@ %@ → %@ %@", entry.step, entry.tool, entry.arguments, entry.ok ? "ok" : "FAIL", entry.result))
+    }
+    print(String(format: "%@ · %d calls · model %.0f ms · total %.0f ms · %d+%d tokens", String(describing: run.outcome),
+                 run.modelCalls, run.modelMs, run.totalMs, run.promptTokens, run.completionTokens))
+    exit(0)
+}
 
 let engine: EvalEngine
 switch options["engine"] ?? "legacy" {
-case "legacy": engine = LegacyEngine(endpoint: endpoint)
+case "legacy": engine = LegacyEngine(provider: client)
+case "agent": engine = AgentEngine(provider: client, limits: AgentLimits(config.agent))
 default:
     FileHandle.standardError.write(Data("unknown engine \(options["engine"]!)\n".utf8))
     exit(2)
@@ -81,7 +114,7 @@ let cases = corpus.cases.filter { c in
 }
 
 // Loads the model so the first case does not pay for it.
-_ = try? await endpoint.complete(system: "Reply only: ok", user: "ok", temperature: 0)
+_ = try? await client.complete(system: "Reply only: ok", user: "ok", temperature: 0)
 
 var runs: [EvalRun] = []
 for round in 1...repeats {
@@ -99,7 +132,7 @@ for round in 1...repeats {
 }
 
 let report = EvalReport(date: ISO8601DateFormatter().string(from: Date()), engine: engine.name,
-                        model: endpoint.model, baseURL: endpoint.baseURL, corpusVersion: corpus.version,
+                        model: client.model, baseURL: client.provider.baseURL, corpusVersion: corpus.version,
                         repeats: repeats, runs: runs)
 print("\n" + report.text())
 try save(report)
