@@ -3,7 +3,7 @@
 > Date: 2026-10-22 (rev. 2, after the §10 checks) · rev. 3 of 2026-10-23 (§14–§15) · Status: **Partly implemented** (channels, voice commands, Settings); the hooks (status LEDs, answering permissions) and the external model remain, see §14
 > Replaces One-Pager 001 for the orange button; white and the manual LEDs stay, with new names
 > **Some choices changed during implementation compared with §3–§6:** §14 prevails.
-> **The voice command (§6) and the external LLM (§7) are redesigned as an agent** in [TDD v1 — voice command agent](tdd-v1-voice-command-agent.md) ([ADR-004](../adr/adr-004-voice-command-as-tool-calling-agent.md)).
+> **The voice command (§6) and the external LLM (§7) are now an agent (implemented 2026-10-25)** in [TDD v1 — voice command agent](tdd-v1-voice-command-agent.md) ([ADR-004](../adr/adr-004-voice-command-as-tool-calling-agent.md)).
 > References: One-Pager 001, TDD v1 §3.2–3.3, `docs/GESTURES.md`, `app/Sources/FXMicCore/Config.swift`, `app/Sources/FXMicCore/ProfileEngine.swift`, `app/Sources/FXMicBridge/DictationController.swift`
 
 ## 1. Problem

@@ -1,7 +1,7 @@
 # ADR-004: The voice command becomes a tool-calling agent on the OpenAI-compatible API
 
 **Date:** 2026-10-24
-**Status:** Accepted (2026-10-24)
+**Status:** Accepted (2026-10-24), implemented (2026-10-25)
 **References:** [TDD v1 — voice command agent](../design-docs/tdd-v1-voice-command-agent.md), [One-Pager 004 §6–§7](../design-docs/onepager-004-channels-and-commands.md)
 
 ## Context

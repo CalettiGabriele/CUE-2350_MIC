@@ -261,6 +261,12 @@ While the handle is pressed, orange and white do not change Mode or Style, as th
 
 ### 3.4 Prompt composition (PostProcessingService)
 
+> **2026-10-25:** this section now covers only the LLM slots (rewrites of a dictation). The voice
+> command is an agent with tools on any OpenAI-compatible provider, with the API key in the
+> Keychain: see [TDD voice command agent](tdd-v1-voice-command-agent.md) and
+> [ADR-004](../adr/adr-004-voice-command-as-tool-calling-agent.md). The endpoint below is the
+> active provider of Settings › Model.
+
 ```
 system = llm.baseSystemPrompt
        + "\n\n## Mode: " + mode.prompt
