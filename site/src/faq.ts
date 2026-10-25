@@ -19,7 +19,7 @@ export const FAQ: { q: string; a: string }[] = [
   },
   {
     q: 'What is a voice command?',
-    a: 'Press grey once while you talk and the sentence is not written: a local model turns it into actions — keys, a rewrite of the selected text (“translate it into English”), a jump to a channel (“go to Codex”), a skill (“run the review”). It works in any language, with nothing to memorise, and does nothing if the request is not clear.',
+    a: 'Press grey once while you talk and the sentence is not written: an agent on a local model turns it into actions, step by step — keys, a rewrite of the selected text (“translate it into English”), bold or a list, a click (“export as PDF”), a jump to a channel (“go to Codex”), a skill or one of your own tools. Anything risky, like sending or deleting, waits for a yes on the mic. It works in any language, with nothing to memorise, and does nothing if the request is not clear.',
   },
   {
     q: 'Is my voice sent to the cloud?',

@@ -107,8 +107,9 @@ Other agent apps that keep several sessions in one window can be taught with a s
 
 <p align="center"><img src="docs/readme/voice.svg" width="100%" alt="Grey pressed while holding the handle: the island says VOICE COMMAND, and the sentence becomes an action — the selected text is translated, or the channel switches to Codex."></p>
 
-Hold the handle, **press grey once while you talk**, and the sentence is not written: a local
-model turns it into actions. Any language, no keywords to learn.
+Hold the handle, **press grey once while you talk**, and the sentence is not written: an agent
+running on a local model turns it into actions, step by step, and checks its work. Any language,
+no keywords to learn.
 
 | you say | it does |
 |---|---|
@@ -117,10 +118,16 @@ model turns it into actions. Any language, no keywords to learn.
 | *"go to Codex"*, *"switch to the api project"* | jumps to that channel (part of the name is enough) |
 | *"run the review"*, *"compact"* | runs that skill or command |
 | *"stop"* | interrupts (<kbd>Esc</kbd>) — and any action you name for an app, like *"new session"* |
+| *"make the word urgent bold"*, *"italic"* | selects the word and formats it: ⌘B in Mail and Notes, `**…**` in the Claude input |
+| *"click Share"*, *"export as PDF"*, *"reply all"* | presses the button, or picks the command from the app's menus |
+| *"open Notes"*, *"close this window"* | opens apps, switches and closes windows |
+| *"add my signature"* | runs one of **your own tools**: a macro of keys and text, or a Shortcuts app shortcut |
 
-If the request is not clear, nothing happens and the island says so. Dangerous shortcuts such as
-<kbd>⌘</kbd><kbd>Q</kbd> are blocked. With the default local model it takes about a second; try a
-sentence without running it in **Settings › LLM › Test a voice command**.
+Anything risky waits for you: sending, deleting, closing, a click on «Delete» — the island asks,
+the red LEDs blink, **grey = yes**, a shake = no. Quitting apps, logging out and similar are never
+done. If the request is not clear, nothing happens and the island says so. A simple command takes
+about a second and a half with the default local model; try a sentence without running it, and
+add your own tools, in **Settings › Voice command**.
 
 <br>
 
@@ -195,13 +202,13 @@ The full reference lives in [docs/GESTURES.md](docs/GESTURES.md) *(in Italian)*.
 | | where it runs |
 |---|---|
 | speech to text | on your Mac, with [WhisperKit](https://github.com/argmaxinc/WhisperKit) |
-| voice commands and LLM rewrites | on your Mac, with any OpenAI-compatible local server — [Ollama](https://ollama.com) by default |
+| voice commands and LLM rewrites | on your Mac, with any OpenAI-compatible local server — [Ollama](https://ollama.com) by default; OpenAI, Anthropic or OpenRouter only if you add them |
 | your audio | never saved |
 | your history | on your Mac only, readable by your user only, with a retention you choose — or off |
 | the mic | untouched: the app's agent lives in the mic's RAM and disappears when you quit |
 
-Point the LLM at a remote endpoint and Settings warns you, right under the address, that your words
-would leave this Mac.
+Add a remote provider in **Settings › Model** and Settings warns you, right under the address, that your
+words — and what the voice command reads on screen — would leave this Mac. Its API key goes to the macOS Keychain, never to `config.json`.
 
 <br>
 

@@ -1,7 +1,7 @@
 # CUE-2350 MIC gestures and commands
 
 > The single reference for the EP-2350 FX MIC gestures and the actions behind them.
-> Updated 2026-10-23: channels on orange, skills and commands on white, voice command on grey ([One-Pager 004](design-docs/onepager-004-channels-and-commands.md)).
+> Updated 2026-10-23: channels on orange, skills and commands on white, voice command on grey ([One-Pager 004](design-docs/onepager-004-channels-and-commands.md)). Updated 2026-10-25: the voice command is an agent with tools and confirmation on the mic ([TDD voice command agent](design-docs/tdd-v1-voice-command-agent.md)).
 > **Interface language:** English by default, changeable in Settings › General › Language (English, Italiano, Français, Español, Português, Deutsch, 中文, 日本語, Русский) or in `config.json` (`ui.language`).
 > Channels, skills, intents and gestures are configured in Settings (the **Channels** and **Profiles** chapters) or in `~/Library/Application Support/FXMicBridge/config.json`. This file describes the **defaults**. The reference code is `app/Sources/FXMicCore/Config.swift` (`Profile.defaults`) and `GestureRecognizer.swift` (`GestureSettings`).
 
@@ -71,14 +71,19 @@ Up to **15 per profile**. The 4 white LEDs show the number in binary, with the t
 - **Tap:** runs the selected command; if there is none it presses **Return**.
 - **Double tap:** undoes the last insertion (⌘Z, within 30 s, same app).
 - **Long press:** **interrupt** (the profile's `interrupt` intent, **Esc** by default).
-- **Pressed once while you hold the handle and talk: voice command.** The sentence is not typed: it goes to the local model, which picks actions from a closed list. It works in any language, with no keywords to remember. Possible actions:
+- **Pressed once while you hold the handle and talk: voice command.** The sentence is not typed: an agent on the local model turns it into actions, calling tools step by step and checking its work ([TDD voice command agent](design-docs/tdd-v1-voice-command-agent.md)). It works in any language, with no keywords to remember. Possible actions:
   - **text and keys** in the focused field: "new line", "delete the last word", "bullet list", "write good morning everyone";
   - **selection:** when text is selected, "translate it into English", "make it shorter", "turn it into a bullet list" replace it with the transformed version; "delete it" removes it;
   - **channels:** "switch to the api project", "go to Codex" (part of the name is enough);
   - **skills and commands:** "run the review", "do the compact";
-  - **profile intents:** "stop", "new session" (see *Intents*).
+  - **profile intents:** "stop", "new session" (see *Intents*);
+  - **select and format:** "make the word urgent bold", "italic", "make it a list" (⌘B/⌘I in rich text, `**…**` in Markdown fields, nothing in terminals: the profile's *Text format*);
+  - **the app's interface:** "click Share", "export as PDF", "reply all" (buttons and menu commands), "open Notes", "close this window";
+  - **your own tools:** macros and Shortcuts app shortcuts from Settings › Voice command › *My tools*.
 
-  If the command is unclear nothing happens, and the pill says so. Dangerous shortcuts (⌘Q, ⌘W…) stay blocked. With the default local model it takes about 1 s. You can try a sentence without running it in Settings › LLM › *Test a voice command*.
+  **Confirmation on the mic:** before a risky action (sending, deleting, closing, a click on «Delete», a shortcut) the pill shows `Confirm … · grey = yes · shake = no` and the red LEDs blink. **Grey tap = yes**, a short shake or a grey long press = no, no answer within 10 s = no. Quitting apps, logging out, shutting down are never done; ⌘Q, ⌘W and similar stay blocked.
+
+  If the command is unclear nothing happens, and the pill says so. A simple command takes about 1.5 s with the default local model. Settings › Voice command has the limits, a switch and a risk level for every tool, your own tools, and *Test a voice command* (a dry run that shows every step).
 
 ## Handle and accelerometer
 | Gesture | Action |
