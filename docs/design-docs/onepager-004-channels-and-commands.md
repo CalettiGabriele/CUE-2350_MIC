@@ -3,6 +3,7 @@
 > Date: 2026-10-22 (rev. 2, after the §10 checks) · rev. 3 of 2026-10-23 (§14–§15) · Status: **Partly implemented** (channels, voice commands, Settings); the hooks (status LEDs, answering permissions) and the external model remain, see §14
 > Replaces One-Pager 001 for the orange button; white and the manual LEDs stay, with new names
 > **Some choices changed during implementation compared with §3–§6:** §14 prevails.
+> **The voice command (§6) and the external LLM (§7) are redesigned as an agent** in [TDD v1 — voice command agent](tdd-v1-voice-command-agent.md) ([ADR-004](../adr/adr-004-voice-command-as-tool-calling-agent.md)).
 > References: One-Pager 001, TDD v1 §3.2–3.3, `docs/GESTURES.md`, `app/Sources/FXMicCore/Config.swift`, `app/Sources/FXMicCore/ProfileEngine.swift`, `app/Sources/FXMicBridge/DictationController.swift`
 
 ## 1. Problem
@@ -286,7 +287,7 @@ Claude desktop's two bottom-left "profiles" are organizations of one account, an
 
 ### 14.3 Not done yet
 - The `fxmic-notify` hook: agent status LEDs (§4.4), answering a waiting agent (§6.4) and permissions through the hook (§6.5). The test hooks of §10 are still installed in `.claude/settings.local.json` and `~/.codex/hooks.json`.
-- External model with API key and per-use endpoints (§7) and level 4 of commands (app menus, §6.2).
+- External model with API key (§7) and level 4 of commands (app menus, §6.2): superseded by the [voice command agent TDD](tdd-v1-voice-command-agent.md), with one model for everything instead of per-use endpoints.
 - Translations of the new UI strings (in English in every language today).
 - Jack-only connection: tried with the Mac's headset jack, no signal (`logs/TEST_NOTES.md`); a USB audio interface with a line input still has to be tried.
 

@@ -19,5 +19,11 @@ let package = Package(
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(name: "FXMicCoreTests", dependencies: ["FXMicCore"], swiftSettings: [.swiftLanguageMode(.v5)]),
+        // Voice-command evaluation set (TDD voice command agent §3.7): scorer and engines, plus the CLI.
+        .target(name: "AgentEvalKit", dependencies: ["FXMicCore"], swiftSettings: [.swiftLanguageMode(.v5)]),
+        .executableTarget(name: "AgentEval", dependencies: ["AgentEvalKit", "FXMicCore"],
+                          swiftSettings: [.swiftLanguageMode(.v5)]),
+        .testTarget(name: "AgentEvalTests", dependencies: ["AgentEvalKit", "FXMicCore"],
+                    swiftSettings: [.swiftLanguageMode(.v5)]),
     ]
 )
