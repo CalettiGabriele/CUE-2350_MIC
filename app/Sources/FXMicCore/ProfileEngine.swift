@@ -266,6 +266,8 @@ public struct ProfileEngine {
 /// LED masks. Logical bits: 0–3 = red LEDs top→bottom, 4–7 = white LEDs top→bottom.
 /// `physical(_:map:)` converts to `ui.led_level` indices using `device.ledMap`.
 public enum LedPattern {
+    /// Free (no channel in front): every red LED lit.
+    public static let allRed: UInt8 = 0b0000_1111
     public static func red(_ index: Int) -> UInt8 { index >= 0 && index < 4 ? UInt8(1) << UInt8(index) : 0 }
 
     /// Slot number 1…15 in binary on the white LEDs (top LED = 1, then 2, 4, 8).
@@ -278,9 +280,9 @@ public enum LedPattern {
         red(mode.ledIndex) | white(slot: slot)
     }
 
-    /// Idle: the red LED of the channel you are on (0 = top; none while free) and the slot in binary.
+    /// Idle: the red LED of the channel you are on (0 = top; all four while free) and the slot in binary.
     public static func idle(channel: Int?, slot: Int?) -> UInt8 {
-        (channel.map(red) ?? 0) | white(slot: slot)
+        (channel.map(red) ?? allRed) | white(slot: slot)
     }
 
     /// Recording: one red LED sweeping up and down (0 1 2 3 2 1 …).

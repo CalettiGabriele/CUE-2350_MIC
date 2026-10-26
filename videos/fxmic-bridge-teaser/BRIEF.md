@@ -43,7 +43,7 @@ Must read well muted (LinkedIn autoplays silent): callouts and on-screen text te
 - Music bed from the HeyGen library (lo-fi electronic), fade-out at the end.
 - Revision 2 (2026-10-23, new UX of the app, renamed CUE-2350 MIC): the orange scene now
   shows **channels** (claude code, claude chat, codex, notes; one red LED each; "free" with
-  all red LEDs off), the talk scene runs free ("your words land where you are"), a new scene
+  all red LEDs off; since 2026-10-26 all four lit), the talk scene runs free ("your words land where you are"), a new scene
   shows the **voice command** (grey pressed while talking: the selected sentence is
   translated in place), white shows **skills & commands**, the end card reads "cue-2350 mic."
   Length 26 s: the 22 s music bed is extended by a crossfaded second pass (`bgm-tail`).
@@ -57,6 +57,6 @@ Must read well muted (LinkedIn autoplays silent): callouts and on-screen text te
 - Terminal commands large and short (max 2–3 words per line) for the square format.
 - Product facts source: docs/GESTURES.md (profiles: Coding agent → /compact, /clear,
   /review, bug report, commit message; grey tap = run slot / Enter; shake = cancel;
-  handle hold = dictate; red LEDs = 4 channels, all off when free; white LEDs = skill number
+  handle hold = dictate; red LEDs = 4 channels, all four lit when free; white LEDs = skill number
   in binary; grey while talking = voice command). Vocabulary: One-Pager 004 §15.
 - Project is open source.

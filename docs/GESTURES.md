@@ -27,7 +27,7 @@
 When you hold the handle, the app looks at the window in front of you:
 
 - if it belongs to a **channel**, the voice goes to that channel and its red LED is lit;
-- otherwise you are **free**: the red LEDs are off and the voice goes **where your cursor is**, in any app, with no jump and nothing to set up.
+- otherwise you are **free**: all four red LEDs are lit and the voice goes **where your cursor is**, in any app, with no jump and nothing to set up.
 
 The profile, that is the white button's skills and the intents, always follows the app in front of you. The pill says where the voice goes: "Recording · Claude · api" on a channel, "Recording · Free · Mail" elsewhere.
 
@@ -108,7 +108,7 @@ Up to **15 per profile**. The 4 white LEDs show the number in binary, with the t
 ## LEDs
 | State | Red LEDs | White LEDs |
 |---|---|---|
-| Idle | The channel you are on (one LED), or **all off when you are free** | Skill in binary, or off |
+| Idle | The channel you are on (one LED), or **all four when you are free** | Skill in binary, or off |
 | Recording | **KITT**: one LED sweeping up and down | Unchanged |
 | Transcribing and processing | Alternating 1+3 / 2+4 | Unchanged |
 | Error | The 4 red LEDs blink for about 1 s | — |

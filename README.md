@@ -75,7 +75,7 @@ No mic plugged in? Hold <kbd>right ⌥ Option</kbd> and talk.
 
 ## ((8.2)) four channels.
 
-<p align="center"><img src="docs/readme/channels.svg" width="100%" alt="The orange button jumps between four channels, one red LED each: a Claude Code session, a Claude chat, a Codex thread and a notes file. On any other app the red LEDs are off and the island says FREE."></p>
+<p align="center"><img src="docs/readme/channels.svg" width="100%" alt="The orange button jumps between four channels, one red LED each: a Claude Code session, a Claude chat, a Codex thread and a notes file. On any other app all four red LEDs are lit and the island says FREE."></p>
 
 The **orange** button holds up to four **channels**: the places you keep going back to. One red
 LED each, so the mic tells you where you are without looking at the screen.
@@ -88,7 +88,7 @@ LED each, so the mic tells you where you are without looking at the screen.
 | hold for 3 s | clear all four — slow on purpose, and undoable from the menu |
 
 **The voice goes where you are.** On the window of a channel, its red LED is lit and your words
-go there. On any other app you are **free**: the red LEDs are off and the words go where your
+go there. On any other app you are **free**: all four red LEDs are lit and the words go where your
 cursor is. Channels are for jumping, not a place you get pulled back to.
 
 | a channel can be | found again by |

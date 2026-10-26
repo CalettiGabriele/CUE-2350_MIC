@@ -138,6 +138,9 @@ KITT = [0, 1, 2, 3, 2, 1]
 TICK = 0.12
 
 
+FREE = 0b1111   # no channel in front: every red LED lit
+
+
 def led_masks(period, phases):
     """phases: list of (start, end, kind, arg) → [(t, mask)] sampled every TICK.
     kind: 'idle' (arg = mask), 'kitt' (arg = white bits), 'think' (arg = white bits),
@@ -342,8 +345,8 @@ def hero():
 
 def talk():
     W, H, P = 1600, 640, 9.0
-    # free: no channel in front, so the red LEDs stay off and the words go where the cursor is
-    masks = led_masks(P, [(0, 1.0, "idle", 0), (1.0, 4.0, "kitt", 0), (4.0, P, "idle", 0)])
+    # free: no channel in front, so all four red LEDs are lit and the words go where the cursor is
+    masks = led_masks(P, [(0, 1.0, "idle", FREE), (1.0, 4.0, "kitt", 0), (4.0, P, "idle", FREE)])
     handle = [(0, -12), (0.85, -12), (1.05, -3), (3.9, -3), (4.1, -12)]
     sentence = "refactor the auth middleware and add tests for expired tokens."
     steps_ui = [("01", "hold", 0.8, 1.2), ("02", "talk", 1.2, 3.9), ("03", "release", 3.9, 6.5)]
@@ -390,7 +393,7 @@ def channels():
         start = i * 2.0
         phases.append((start, start + 2.0, "idle", 1 << i))
         press += [(start + 0.05, 0), (start + 0.15, -10), (start + 0.35, 0)]
-    phases.append((8.0, P, "idle", 0))
+    phases.append((8.0, P, "idle", FREE))
     masks = led_masks(P, phases)
     body = [f'<rect width="{W}" height="{H}" fill="{PAPER}"/>',
             chapter_bar(80, 60, "8.2", 330),
@@ -414,10 +417,12 @@ def channels():
                     + '</g>')
     y = top + 4 * 64
     body.append(f'<line x1="470" y1="{y}" x2="1520" y2="{y}" stroke="{RULE}" stroke-width="1.5"/>')
-    # free: no red LED, the voice goes where the cursor is
+    # free: all four red LEDs lit, the voice goes where the cursor is
     free = [(8.0, P)]
     body.append(f'<rect x="470" y="{y + 8}" width="6" height="48" fill="{INK}" opacity="0">{fade_between(free, P, 0.15)}</rect>')
-    body.append(f'<circle cx="512" cy="{y + 32}" r="9" fill="none" stroke="{MUTED}" stroke-width="2" stroke-dasharray="3 3"/>')
+    for k in range(4):
+        body.append(f'<circle cx="{500 + k * 8}" cy="{y + 32}" r="3.4" fill="{RED_OFF}">'
+                    f'{steps("fill", [(0, RED_OFF), (8.0, RED)], P)}</circle>')
     body.append(f'<g opacity="0.4">{steps("opacity", [(0, 0.4), (8.0, 1)], P)}'
                 + display(560, y + 45, "free", 40, weight=800, color=INK)
                 + kicker(900, y + 30, "any other app", color=INK, size=15)
@@ -429,7 +434,7 @@ def channels():
 
 def voice():
     W, H, P = 1600, 640, 9.0
-    masks = led_masks(P, [(0, 0.8, "idle", 0), (0.8, 3.4, "kitt", 0), (3.4, 4.4, "think", 0), (4.4, P, "idle", 0)])
+    masks = led_masks(P, [(0, 0.8, "idle", FREE), (0.8, 3.4, "kitt", 0), (3.4, 4.4, "think", 0), (4.4, P, "idle", FREE)])
     handle = [(0, -12), (0.65, -12), (0.85, -3), (3.3, -3), (3.5, -12)]
     press = [(1.3, 0), (1.4, -12), (1.65, 0)]
     before, after = "see you tomorrow at three.", "ci vediamo domani alle tre."

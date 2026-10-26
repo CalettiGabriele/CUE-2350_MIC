@@ -103,14 +103,14 @@
 
 
     const D = "#f02-talk-device";
-    red(D, [], 0); white(D, 0, 0);
+    red(D, [1, 2, 3, 4], 0); white(D, 0, 0);
     tl.fromTo(D, { y: 300, opacity: 0 }, { y: 0, opacity: 1, duration: 0.65, ease: "power3.out" }, 0);
     tl.fromTo("#f02-talk-stage .f02-talk-callout", { x: -80, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 0.6);
     tl.fromTo(D + " .fxd-handle", { rotation: 0, svgOrigin: "90 250" }, { rotation: 14, svgOrigin: "90 250", duration: 0.22, ease: "power3.out" }, 1.0);
     tl.fromTo("#f02-talk-pill", { y: -140 }, { y: 0, duration: 0.45, ease: "power3.out" }, 1.05);
     const seq = [1, 2, 3, 4, 3, 2];
     let k = 0; for (let t = 1.2; t < 3.0; t += 0.125, k++) red(D, [seq[k % seq.length]], t);
-    red(D, [], 3.0);
+    red(D, [1, 2, 3, 4], 3.0);
     tl.set("#f02-talk-time", { textContent: "0:01" }, 2.0); tl.set("#f02-talk-time", { textContent: "0:02" }, 2.9);
     typeOn("#f02-talk-stage .f02-talk-caption", 1.9, 0.7);
     tl.to(D + " .fxd-handle", { rotation: 0, svgOrigin: "90 250", duration: 0.3, ease: "power3.out" }, 3.0);

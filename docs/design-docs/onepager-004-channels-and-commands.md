@@ -270,7 +270,7 @@ Details in `logs/TEST_NOTES.md`, section "One-Pager 004 §10 checks (2026-10-22)
 | Channels across Claude organizations (workspaces) | — | see 14.4 |
 
 ### 14.2 What changed compared with the design
-- **No jump when you talk.** §4.1 had the selected channel's window brought to the front when you talk. In use it was awkward: working in an app that was not bound, the voice took you back to the channel. Now **the window in front of you decides**: if it is a channel the voice goes there, otherwise you are **free** (red LEDs off) and the voice goes where your cursor is. Only orange makes you jump. The profile always follows the app in front.
+- **No jump when you talk.** §4.1 had the selected channel's window brought to the front when you talk. In use it was awkward: working in an app that was not bound, the voice took you back to the channel. Now **the window in front of you decides**: if it is a channel the voice goes there, otherwise you are **free** (red LEDs off at first, all four lit since 2026-10-26) and the voice goes where your cursor is. Only orange makes you jump. The profile always follows the app in front.
 - **No empty position.** Orange cycles only through the bound channels (from free it starts at the first or the last). The long press adds the window to the first empty channel; with four channels it replaces the one you are on.
 - **Clear the channels:** orange held **3 s** (`veryLongPress` gesture), from the menu with confirmation and undo, from Settings with confirmation.
 - **Claude chats and projects:** they have no log lines, so a channel saves the address read from the web page (the adapter's `webPattern`/`webLink`) and returns to it with `claude://claude.ai/chat/…`. Without this, there was no way back to a chat from the Code view.
@@ -299,7 +299,7 @@ The words used to present the product to the outside world, in English, the same
 |---|---|---|
 | **channels** (orange) | up to 4 places where the voice goes: Claude Code and Codex sessions, Claude chats and projects, documents, apps | modes, interaction modes |
 | **the voice goes where you are** | on a channel's window it goes to that channel; elsewhere you are **free** and it goes where your cursor is, with no jumps | "selected channel" as a fixed destination |
-| **free** | no channel in front: red LEDs off | empty position |
+| **free** | no channel in front: all four red LEDs lit (off until 2026-10-26) | empty position |
 | **skills & commands** (white) | up to 15 per app: a command that grey runs, a skill/template or an LLM rewrite applied to the next dictation | slots (only in technical details), styles |
 | **send · interrupt** (grey) | tap = runs the command or Return; long press = interrupt | rewrite the last text |
 | **voice command** (grey while you talk) | the sentence becomes actions: text, keys, selection, channels, skills, intents; in any language | enhanced, command mode, computer use |

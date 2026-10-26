@@ -27,7 +27,8 @@
 .f06-modes-row .led{width:20px;height:20px;border-radius:50%;background:#5B2B28;flex:none}
 .f06-modes-row .name{font-weight:700;font-size:44px;line-height:1}
 .f06-modes-row .desc{font-family:"IBM Plex Mono";font-weight:500;font-size:18px;letter-spacing:0.1em;text-transform:uppercase;color:#6B6B66;margin-top:8px}
-.f06-modes-row .led.free{background:transparent;border:2px dashed #8C8C88}
+.f06-modes-row .led4{width:20px;height:20px;flex:none;display:grid;grid-template-columns:8px 8px;gap:4px;align-content:center}
+.f06-modes-row .led4 i{width:8px;height:8px;border-radius:50%;background:#5B2B28}
 .f06-modes-row.free .bar{background:#1A1A1A}
 </style>
 <div data-hf-id="hf-e7po" id="root" data-composition-id="f06-modes" data-width="1080" data-height="1080" data-duration="4.5">
@@ -92,7 +93,7 @@
       <div data-hf-id="hf-dh52" class="f06-modes-row" id="f06-modes-r2"><span data-hf-id="hf-78ow" class="bar"></span><span data-hf-id="hf-8y7c" class="led"></span><div data-hf-id="hf-y7yw"><div data-hf-id="hf-4vbr" class="name">claude chat</div><div data-hf-id="hf-2i8x" class="desc">a conversation</div></div></div>
       <div data-hf-id="hf-hf93" class="f06-modes-row" id="f06-modes-r3"><span data-hf-id="hf-61rt" class="bar"></span><span data-hf-id="hf-7ra9" class="led"></span><div data-hf-id="hf-x11t"><div data-hf-id="hf-hv5c" class="name">codex</div><div data-hf-id="hf-b7th" class="desc">a thread · infra</div></div></div>
       <div data-hf-id="hf-nkyw" class="f06-modes-row" id="f06-modes-r4"><span data-hf-id="hf-6g2u" class="bar"></span><span data-hf-id="hf-85la" class="led"></span><div data-hf-id="hf-xfcu"><div data-hf-id="hf-ezcu" class="name">notes</div><div data-hf-id="hf-96dx" class="desc">a document · todo.md</div></div></div>
-      <div data-hf-id="hf-51g7" class="f06-modes-row free" id="f06-modes-r5"><span data-hf-id="hf-595r" class="bar"></span><span data-hf-id="hf-beia" class="led free"></span><div data-hf-id="hf-w8fr"><div data-hf-id="hf-m5m7" class="name">free</div><div data-hf-id="hf-7j88" class="desc">anywhere else · no jumps</div></div></div>
+      <div data-hf-id="hf-51g7" class="f06-modes-row free" id="f06-modes-r5"><span data-hf-id="hf-595r" class="bar"></span><span data-hf-id="hf-beia" class="led4"><i></i><i></i><i></i><i></i></span><div data-hf-id="hf-w8fr"><div data-hf-id="hf-m5m7" class="name">free</div><div data-hf-id="hf-7j88" class="desc">anywhere else · no jumps</div></div></div>
     </div>
   </div>
 </div>
@@ -118,16 +119,17 @@
     tl.fromTo(D, { y: 300, opacity: 0 }, { y: 0, opacity: 1, duration: 0.55, ease: "power3.out" }, 0);
     rise("#f06-modes-stage .f06-modes-chrome", 0, 0.3, 8);
     const LED_ON = { backgroundColor: "#E3242B", boxShadow: "0 0 10px #FF3B30" }, LED_OFF = { backgroundColor: "#5B2B28", boxShadow: "none" };
-    // n = 1…4: on that channel (its red LED lit); n = 5: free, all red LEDs off
+    // n = 1…4: on that channel (its red LED lit); n = 5: free, all four red LEDs lit
     function active(n, t) {
       for (let i = 1; i <= 5; i++) {
         const r = "#f06-modes-r" + i;
         tl.set(r + " .bar", { opacity: i === n ? 1 : 0 }, t);
         if (i < 5) tl.set(r + " .led", i === n ? LED_ON : LED_OFF, t);
+        else tl.set(r + " .led4 i", n === 5 ? LED_ON : LED_OFF, t);
         tl.set(r + " .name", { color: i === n ? "#1A1A1A" : "#76766F" }, t);
       }
-      red(D, n < 5 ? [n] : [], t);
-      tl.set("#f06-modes-state", { textContent: n === 0 ? "4 channels" : n < 5 ? "channel " + n + " / 4" : "free · leds off" }, t);
+      red(D, n === 0 ? [] : n < 5 ? [n] : [1, 2, 3, 4], t);
+      tl.set("#f06-modes-state", { textContent: n === 0 ? "4 channels" : n < 5 ? "channel " + n + " / 4" : "free · all leds on" }, t);
     }
     active(0, 0);
     [0.45, 0.75, 1.05, 1.35, 1.65].forEach((t, i) => rise("#f06-modes-r" + (i + 1), t, 0.35, 16));

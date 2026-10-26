@@ -14,11 +14,11 @@ import Testing
         return ProfileEngine(config: config)
     }
 
-    @Test func startsFreeWithNoRedLed() {
+    @Test func startsFreeWithEveryRedLedLit() {
         let engine = engine()
         #expect(engine.channelPosition == nil)
         #expect(engine.channel == nil)
-        #expect(engine.idleLEDs == 0)
+        #expect(engine.idleLEDs == 0b0000_1111)
     }
 
     @Test func bindingAddsChannelsInOrder() {
@@ -146,10 +146,10 @@ import Testing
     }
 
     @Test func idleLedShowsTheChannelYouAreOnAndTheSlot() {
-        #expect(LedPattern.idle(channel: nil, slot: nil) == 0)
+        #expect(LedPattern.idle(channel: nil, slot: nil) == 0b0000_1111)
         #expect(LedPattern.idle(channel: 0, slot: nil) == 0b0000_0001)
         #expect(LedPattern.idle(channel: 3, slot: 5) == 0b0101_1000)
-        #expect(LedPattern.idle(channel: nil, slot: 3) == 0b0011_0000)
+        #expect(LedPattern.idle(channel: nil, slot: 3) == 0b0011_1111)
     }
 }
 
@@ -200,7 +200,7 @@ import Testing
         engine.setFocus(0)
         engine.setFocus(engine.channelIndex(forWindow: window("com.apple.mail", title: "Inbox")))
         #expect(engine.channel == nil)
-        #expect(engine.idleLEDs == 0)
+        #expect(engine.idleLEDs == 0b0000_1111)
     }
 }
 
