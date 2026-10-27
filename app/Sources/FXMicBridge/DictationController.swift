@@ -65,7 +65,7 @@ final class DictationController {
     let transcriber = Transcriber()
 
     private let log = Logger(subsystem: "com.fxmicbridge", category: "dictation")
-    private let recorder = AudioRecorder()
+    let recorder = AudioRecorder()
     private var machine: DictationStateMachine
     private var job: Task<Void, Never>?
     private var context: DictationContext?

@@ -10,18 +10,37 @@ public enum DeviceProtocol {
     /// Installed with MicroPython paste mode (Ctrl-E … Ctrl-D). Events are printed with a
     /// leading newline because they can arrive while the REPL shows the `>>> ` prompt.
     public static let agentScript = """
+    import time
+    _fx = None
+    try:
+        import fxmic as _fx
+        _fx.pause()
+    except Exception:
+        _fx = None
+    try:
+        _pc = python_callback
+    except NameError:
+        _pc = None
     _pt = False
+    _lq = time.ticks_ms()
     def _tap(m):
         t = m >> 16
         v = m & 0xFFFF
+        if t == 3 and _fx and time.ticks_diff(time.ticks_ms(), _lq) > 3000:
+            _fx.resume()
+            return
         if t in (1, 2):
             print('\\nE', t, v)
             if not _pt and v in (0, 1, 2):
                 return
         elif t == 4:
             print('\\nE', t, v)
-        python_callback(m)
-    def _q(): print('Q', round(ui.handle(), 3), round(ui.shaker(), 3), ui.acc())
+        if _pc:
+            _pc(m)
+    def _q():
+        global _lq
+        _lq = time.ticks_ms()
+        print('Q', round(ui.handle(), 3), round(ui.shaker(), 3), ui.acc())
     def _L(m):
         for i in range(8):
             ui.led_level(i, 1.0 if (m >> i) & 1 else 0)
@@ -32,8 +51,10 @@ public enum DeviceProtocol {
     """
 
     public static let pollCommand = "_q()"
+    /// With the FXMic firmware installed the mic goes back to it (it plays the acoustic codes),
+    /// otherwise to the factory logic. The agent also hands back by itself after 3 s without a poll.
     public static let restoreCommand =
-        "ui.callback(python_callback);ui.led_control(1);ui.leds(fx_pos,sam_pos);fx.load_preset(fx_pos);print('AGENT_OFF')"
+        "_fx.resume() if _fx else (ui.callback(python_callback),ui.led_control(1),ui.leds(fx_pos,sam_pos),fx.load_preset(fx_pos));print('AGENT_OFF')"
 
     /// Only these command shapes may be sent to the device (TDD §4, allow-list).
     public static func ledsCommand(mode: Int, style: Int) -> String {

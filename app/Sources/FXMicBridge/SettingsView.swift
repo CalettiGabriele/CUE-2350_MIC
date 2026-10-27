@@ -281,6 +281,14 @@ private struct DevicePage: View {
     private var statusBlock: some View {
         VStack(alignment: .leading, spacing: 10) {
             Text(model.deviceStatus).font(.callout).foregroundStyle(Theme.ink)
+            Picker(L.t("Connection"), selection: $model.draft.device.transport) {
+                Text(L.t("Automatic")).tag(AppConfig.Device.Transport.auto)
+                Text(L.t("USB-C only")).tag(AppConfig.Device.Transport.usb)
+                Text(L.t("Jack only")).tag(AppConfig.Device.Transport.jack)
+            }
+            .pickerStyle(.segmented)
+            Text(L.t("With the 3.5 mm jack the mic needs the FXMic firmware (tools/fxmic_install.py) and must be the input chosen under Audio. Automatic uses the jack whenever the USB-C cable is not connected; the mode and slot LEDs are then not lit."))
+                .font(.caption).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
             HStack(spacing: 8) {
                 Button(L.t("Reconnect")) { model.onReconnectDevice?() }.buttonStyle(FlatButtonStyle())
                 Button(L.t("Release (restore the mic)")) { model.onReleaseDevice?() }.buttonStyle(FlatButtonStyle())

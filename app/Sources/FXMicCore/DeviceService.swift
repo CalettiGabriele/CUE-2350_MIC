@@ -53,7 +53,9 @@ public final class DeviceService {
 
     /// Queues a command for the device. Only allow-listed command builders should be used.
     public func send(_ command: String) {
-        lock.lock(); outbox.append(command); lock.unlock()
+        lock.lock(); defer { lock.unlock() }
+        // Nobody drains the queue while the serial line is not in use (jack mode).
+        if running { outbox.append(command) }
     }
 
     public func setLEDs(mode: Int, style: Int) {

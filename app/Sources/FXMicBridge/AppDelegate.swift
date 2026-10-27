@@ -12,6 +12,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private var engine: ProfileEngine
     private let device = DeviceService()
     private var recognizer = GestureRecognizer()
+    private let jack: JackTransport
     private let dictation: DictationController
     private let historyStore: HistoryStore
     private let hud = HUD()
@@ -58,6 +59,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
                                     retentionDays: config.history.retentionDays, enabled: config.history.enabled)
         historyStore.load()
         dictation = DictationController(config: config, historyStore: historyStore)
+        jack = JackTransport(recorder: dictation.recorder)
         settings = SettingsModel(config: config)
         super.init()
     }
@@ -139,7 +141,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         frontmostChanged(NSWorkspace.shared.frontmostApplication)
 
         device.delegate = self
-        device.start()
+        jack.onGesture = { [weak self] gesture in self?.handle([gesture]) }
+        jack.onSignalChange = { [weak self] in self?.jackStatusChanged() }
+        applyTransport()
 
         tickTimer = Timer.scheduledTimer(withTimeInterval: 0.02, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
@@ -158,6 +162,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     func applicationWillTerminate(_ notification: Notification) {
         // Restores the factory callback, LEDs and preset on the mic (ADR-001).
         device.stop()
+        jack.stop()
     }
 
     // MARK: - Model and LLM
@@ -313,10 +318,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         MainActor.assumeIsolated {
             deviceStatus = status
             defer {
-                settings.deviceStatus = deviceItem.title
-                if case .connected = status { settings.deviceConnected = true }
-                else if case .readOnly = status { settings.deviceConnected = true }
-                else { settings.deviceConnected = false }
+                if jack.isListening {
+                    jackStatusChanged()   // the jack's state is the one to show
+                } else {
+                    settings.deviceStatus = deviceItem.title
+                    if case .connected = status { settings.deviceConnected = true }
+                    else if case .readOnly = status { settings.deviceConnected = true }
+                    else { settings.deviceConnected = false }
+                }
             }
             switch status {
             case .searching: deviceItem.title = L.t("Mic: not connected (right Option = talk)")
@@ -329,6 +338,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             case .busy: deviceItem.title = L.t("Mic: port in use by another program")
             case .stopped: deviceItem.title = L.t("Mic: released")
             }
+            updateJackUse()
             updateIcon()
         }
     }
@@ -347,6 +357,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
                 break
             }
         }
+    }
+
+    // MARK: - Transport (One-Pager 002 §3.3)
+
+    /// USB-C serial line: used unless the jack is forced. Jack: forced, or in automatic
+    /// mode whenever the USB-C line is not connected.
+    private func applyTransport() {
+        if config.device.transport == .jack {
+            DispatchQueue.global().async { [device] in device.stop() }
+        } else {
+            device.start()
+        }
+        _ = updateJackUse()
+        jackStatusChanged()
+    }
+
+    /// Starts or stops listening to the jack. Returns true when that changed.
+    @discardableResult
+    private func updateJackUse() -> Bool {
+        let usbUp: Bool
+        switch deviceStatus {
+        case .connected, .readOnly, .connecting: usbUp = true
+        default: usbUp = false
+        }
+        let want: Bool
+        switch config.device.transport {
+        case .usb: want = false
+        case .jack: want = true
+        case .auto: want = !usbUp
+        }
+        guard want != jack.isListening else { return false }
+        if want { jack.start() } else { jack.stop() }
+        return true
+    }
+
+    private func jackStatusChanged() {
+        guard jack.isListening else { return }
+        let connected = jack.hasSignal
+        deviceItem.title = jack.failed ? L.t("Mic: audio input not available")
+            : connected ? L.t("Mic: connected through the jack")
+            : L.t("Mic: jack, no signal (switch the mic on, check the input)")
+        settings.deviceStatus = deviceItem.title
+        settings.deviceConnected = connected
+        updateIcon()
     }
 
     private func tick() {
@@ -994,6 +1048,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         if save { ConfigStore.save(newConfig) }
         engine.reload(newConfig)
         dictation.config = newConfig
+        if old.device.transport != newConfig.device.transport { applyTransport() }
+        else if old.audio.inputDeviceUID != newConfig.audio.inputDeviceUID, jack.isListening { jack.restart() }
         leds.map = newConfig.device.ledMap
         leds.frameMs = newConfig.device.ledAnimationMs
         historyStore.enabled = newConfig.history.enabled
@@ -1170,6 +1226,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     }
 
     @objc private func reconnectDevice() {
+        if config.device.transport == .jack { jack.restart(); return }
         let device = self.device
         DispatchQueue.global().async {
             device.stop()
