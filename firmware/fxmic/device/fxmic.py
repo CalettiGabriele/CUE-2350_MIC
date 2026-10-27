@@ -28,8 +28,12 @@ _chord = False
 _sc = _hs = _hl = _lsh = _pollt = 0
 _hf = False
 _on = False
-_r = -1           # red LEDs: -1 = all (free), 0..3 = one channel
-_sl = 0           # white LEDs: slot number in binary, 0 = none
+_r = -1           # red LEDs: channel page lit (0..3); -1 = free, all four lit
+_n = 0            # channel pages bound (0..4), counted from the long presses of orange
+_sl = 0           # white LEDs: slot number in binary (0..15), 0 = none
+_fr = -1          # recording sweep frame on show
+_bf = 8           # boot sweep: frame being shown, 8 = done
+_SW = (0, 1, 2, 3, 2, 1)
 
 
 def _leds():
@@ -39,17 +43,51 @@ def _leds():
 
 
 def _page(k, b):
-    # The Mac cannot talk to the mic over the jack: the mic pages its own LEDs like the app pages
-    # channels (orange) and slots (white): tap = next, double tap = previous, long white = none.
-    global _r, _sl
-    if b == 2 and k < 2:
-        d = 1 if k == 0 else -1
-        _r = (0 if d > 0 else LEDCH - 1) if _r < 0 else (_r + d) % LEDCH
-    elif b == 1:
-        _sl = 0 if k == 2 else (_sl + (1 if k == 0 else -1)) % (LEDSL + 1)
+    # The Mac cannot talk to the mic over the jack, so the mic pages its own LEDs the way the app
+    # pages channels (orange) and slots (white). Orange: tap next, double tap previous, long =
+    # a page is bound (a new one while there is room), very long = all unbound. White: tap next,
+    # double tap previous, long = none; 0..15 in binary.
+    global _r, _n, _sl
+    if b == 2:
+        if k == 0 and _n:
+            _r = 0 if _r < 0 else (_r + 1) % _n
+        elif k == 1 and _n:
+            _r = _n - 1 if _r < 0 else (_r - 1) % _n
+        elif k == 2:
+            if _n < 4:
+                _r = _n
+                _n += 1
+            elif _r < 0:
+                _r = _n - 1
+        elif k == 3:
+            _r = -1
+            _n = 0
+        else:
+            return
+    elif b == 1 and k < 3:
+        _sl = 0 if k == 2 else (_sl + (1 if k == 0 else -1)) % 16
     else:
         return
     _leds()
+
+
+def _anim(t):
+    # Same animations as the app drives over USB: boot pass down the 8 LEDs, red sweep while the
+    # handle is held. (Processing and confirmation come from the Mac: not possible over the jack.)
+    global _bf, _fr
+    if _bf < 8:
+        if td(t, _t0) >= _bf * LEDFR:
+            for i in range(8):
+                ui.led_level(i, 1.0 if i == _bf else 0)
+            _bf += 1
+            if _bf == 8:
+                _leds()
+    elif _hd:
+        f = (td(t, _hp) // LEDFR) % 6
+        if f != _fr:
+            _fr = f
+            for i in range(4):
+                ui.led_level(i, 1.0 if _SW[f] == i else 0)
 
 
 def _emit(i):
@@ -96,7 +134,7 @@ def _btn(b, act, t):
 
 
 def _hnd(act, t):
-    global _hd, _hp, _rep, _la
+    global _hd, _hp, _rep, _la, _fr
     if act == _hd:
         return
     _hd = act
@@ -104,10 +142,13 @@ def _hnd(act, t):
     if act:
         _hp = t
         _rep = 0
+        _fr = -1
         _emit(1)
         return
     _emit(2)
     _rep = ta(t, REP)
+    if _bf == 8:
+        _leds()
 
 
 def _shake(t):
@@ -135,6 +176,7 @@ def _shake(t):
 
 def _tick(t):
     global _lf, _vf, _rep
+    _anim(t)
     if _rep and td(t, _rep) >= 0:
         _rep = 0
         if not _hd:
@@ -150,6 +192,7 @@ def _tick(t):
                 _emit(10 + b)
             if (_lf & m) and not (_vf & m) and not _hd and d >= VLONG:
                 _vf |= m
+                _page(3, b)
                 _emit(13 + b)
         p = _pend[b]
         if p and td(t, p) > DBL:
@@ -223,7 +266,7 @@ def _run_factory(_):
 
 
 def _reset():
-    global _qh, _qt, _ps, _lf, _vf, _hd, _chord, _hp, _rep, _la, _sc, _hs, _hl, _hf, _t0, _hb
+    global _qh, _qt, _ps, _lf, _vf, _hd, _chord, _hp, _rep, _la, _sc, _hs, _hl, _hf, _t0, _hb, _bf
     _qh = _qt = 0
     _ps = -1
     _lf = _vf = 0
@@ -233,6 +276,7 @@ def _reset():
         _pr[i] = _pend[i] = 0
     _t0 = tm() | 1
     _hb = _t0
+    _bf = 0
 
 
 def version():
@@ -245,9 +289,17 @@ def resume():
     _reset()
     fx.load_preset(-1)
     ui.led_control(0)
-    _leds()
     ui.callback(_cb)
     _on = True
+
+
+def sync(n, r, sl):
+    # The app's channel count, position (-1 = free) and slot, sent over USB when it hands the mic back.
+    global _n, _r, _sl
+    _n = n
+    _r = r
+    _sl = sl
+    resume()
 
 
 def pause():
