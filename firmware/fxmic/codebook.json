@@ -1,0 +1,17 @@
+{
+  "name": "fxmic-v1",
+  "sampleRate": 48000,
+  "symbolMs": 40,
+  "symbols": [[12000, 15000], [13000, 17000], [14000, 19000], [16000, 18000]],
+  "gapMs": 50,
+  "heartbeatSec": 5,
+  "messages": [
+    "heartbeat",
+    "handleDown", "handleUp", "handleDoubleClick",
+    "tap.grey", "tap.white", "tap.orange",
+    "doubleTap.grey", "doubleTap.white", "doubleTap.orange",
+    "longPress.grey", "longPress.white", "longPress.orange",
+    "veryLongPress.grey", "veryLongPress.white", "veryLongPress.orange",
+    "chordGrey", "shake", "shakeHold"
+  ]
+}

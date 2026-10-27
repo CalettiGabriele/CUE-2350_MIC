@@ -22,3 +22,6 @@ videos/**/assets/sfx/
 
 # Local Claude Code session config
 .claude/
+
+# Generated firmware assets (firmware/fxmic/build.py)
+firmware/fxmic/build/
