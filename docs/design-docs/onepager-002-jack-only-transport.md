@@ -1,6 +1,6 @@
 # One-Pager 002 — Jack-only connection: installable FXMic firmware and acoustic codes
 
-> Date: 2026-10-16 (rev. 2, after the ROMFS tests) · Status: **Draft, awaiting review** · No app code implemented
+> Date: 2026-10-16 (rev. 2, after the ROMFS tests) · Status: **Implemented 2026-10-27, to be tested on the device** (codebook, firmware, decoder, transport selector; the Settings firmware panel is still the command-line tool `tools/fxmic_install.py`)
 > References: ADR-001, ADR-002, ADR-003, TDD v1 §3.6, `docs/GESTURES.md`, `logs/TEST_NOTES.md` (sections "ROMFS feasibility probe" and following), `backup/rom/`
 
 ## 1. Goal
@@ -165,3 +165,12 @@ Status on 2026-10-16: T2, T3 passed; T4 passed with the symbols on the disk; T1 
 
 ---
 **Related ADRs:** ADR-003 (persistent firmware in `/rom/json.py`), ADR-002 (acoustic channel with gestures recognised on the mic), ADR-001 (RAM agent, which stays for USB mode).
+
+## 10. Implementation notes (2026-10-27)
+- **Where:** `firmware/fxmic/` (`codebook.json`, `build.py`, `device/fxmic.py`, `device/json.py`), `tools/fxmic_install.py` (status, install, restore over USB-C), `JackDecoder` / `JackCodebook` in `FXMicCore`, `JackTransport` and the continuous mode of `AudioRecorder` in `FXMicBridge`, `device.transport` in the configuration, and a Connection selector in Settings › Device.
+- **Codebook `fxmic-v1`:** 19 messages of 3 symbols, never two equal neighbours (equal neighbours merge into one long symbol on the mic); minimum distance between two messages is 1 symbol. Messages are `heartbeat`, `handleDown`, `handleUp`, `handleDoubleClick`, `tap|doubleTap|longPress|veryLongPress` × grey/white/orange, `chordGrey`, `shake`, `shakeHold`.
+- **Audio hardware:** a USB-C audio dongle on the 3.5 mm line out works (flat to ~19.7 kHz); the Mac's own TRRS jack was not needed.
+- **Takes:** the app records continuously in jack mode; a take starts at the "handle down" code's start and ends at the "handle up" code's start, so the codes never reach Whisper.
+- **USB agent coexistence:** the agent pauses FXMic on install, hands back with `fxmic.resume()` on restore, and hands back by itself after 3 s without a poll (cable pulled).
+- **Not done yet:** Settings firmware panel (install / restore from the app), power-saving standby test (T8), the extreme recovery (T9), a 4th-symbol parity for distance 2.
+
