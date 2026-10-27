@@ -45,6 +45,10 @@ public struct AppConfig: Codable, Equatable, Sendable {
     }
 
     public struct Device: Codable, Equatable, Sendable {
+        /// How the app talks to the mic (One-Pager 002): the USB-C serial line, the 3.5 mm jack
+        /// (acoustic codes from the FXMic firmware), or whichever is there.
+        public enum Transport: String, Codable, CaseIterable, Sendable { case auto, usb, jack }
+        public var transport: Transport = .auto
         /// Physical `ui.led_level` index for each logical LED:
         /// [red 1…4 top→bottom, white 1…4 top→bottom]. Unverified default, see TEST_NOTES.
         public var ledMap = [0, 1, 2, 3, 4, 5, 6, 7]
@@ -622,7 +626,7 @@ extension AppConfig.History {
 }
 
 extension AppConfig.Device {
-    private enum CodingKeys: String, CodingKey { case ledMap, ledAnimationMs }
+    private enum CodingKeys: String, CodingKey { case ledMap, ledAnimationMs, transport }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = Self()
@@ -630,6 +634,7 @@ extension AppConfig.Device {
         // Must be a permutation of 0…7, otherwise fall back to the default.
         ledMap = map.sorted() == Array(0..<8) ? map : d.ledMap
         ledAnimationMs = max(40, c.value(.ledAnimationMs, d.ledAnimationMs))
+        transport = c.value(.transport, d.transport)
     }
 }
 
