@@ -21,6 +21,8 @@ public protocol DeviceServiceDelegate: AnyObject {
 public final class DeviceService {
     public weak var delegate: DeviceServiceDelegate?
     public var pollInterval: TimeInterval = 0.1
+    /// The app's LED pages, handed to the FXMic firmware when the mic is given back.
+    public var restoreSync: (channels: Int, position: Int, slot: Int)?
 
     private let log = Logger(subsystem: "com.fxmicbridge", category: "device")
     private let lock = NSLock()
@@ -168,7 +170,7 @@ public final class DeviceService {
             }
         }
         // Stopping: restore the factory behaviour before releasing the port.
-        try serial.write(DeviceProtocol.restoreCommand + "\r")
+        try serial.write(DeviceProtocol.restoreCommand(sync: restoreSync) + "\r")
         let restored = try readUntil(serial, "AGENT_OFF\r\n", timeout: 2)
         log.info("restore \(restored.contains("AGENT_OFF") ? "OK" : "not confirmed", privacy: .public)")
     }

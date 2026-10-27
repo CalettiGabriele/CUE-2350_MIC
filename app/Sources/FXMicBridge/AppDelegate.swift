@@ -161,6 +161,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     func applicationWillTerminate(_ notification: Notification) {
         // Restores the factory callback, LEDs and preset on the mic (ADR-001).
+        device.restoreSync = (engine.channels.count, engine.channelPosition ?? -1, engine.slotNumber ?? 0)
         device.stop()
         jack.stop()
     }

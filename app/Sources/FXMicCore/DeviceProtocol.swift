@@ -53,8 +53,15 @@ public enum DeviceProtocol {
     public static let pollCommand = "_q()"
     /// With the FXMic firmware installed the mic goes back to it (it plays the acoustic codes),
     /// otherwise to the factory logic. The agent also hands back by itself after 3 s without a poll.
-    public static let restoreCommand =
-        "_fx.resume() if _fx else (ui.callback(python_callback),ui.led_control(1),ui.leds(fx_pos,sam_pos),fx.load_preset(fx_pos));print('AGENT_OFF')"
+    public static let restoreCommand = restoreCommand(sync: nil)
+
+    /// `sync` hands the FXMic firmware the app's LED pages: bound channels, the channel you are on
+    /// (-1 = free) and the slot number (0 = none).
+    public static func restoreCommand(sync: (channels: Int, position: Int, slot: Int)?) -> String {
+        let back = sync.map { "_fx.sync(\(max(0, min(4, $0.channels))),\(max(-1, min(3, $0.position))),\(max(0, min(15, $0.slot))))" }
+            ?? "_fx.resume()"
+        return "\(back) if _fx else (ui.callback(python_callback),ui.led_control(1),ui.leds(fx_pos,sam_pos),fx.load_preset(fx_pos));print('AGENT_OFF')"
+    }
 
     /// Only these command shapes may be sent to the device (TDD §4, allow-list).
     public static func ledsCommand(mode: Int, style: Int) -> String {
