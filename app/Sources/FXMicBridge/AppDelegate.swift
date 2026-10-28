@@ -65,8 +65,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         super.init()
     }
 
+    /// A menu bar app has no main menu, so ⌘V, ⌘C, ⌘X, ⌘A and ⌘Z do nothing in its text fields
+    /// (the API key could not be pasted). An Edit menu restores them; it is never shown.
+    private func installEditMenu() {
+        let main = NSMenu()
+        let item = NSMenuItem()
+        main.addItem(item)
+        let edit = NSMenu(title: "Edit")
+        edit.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
+        let redo = edit.addItem(withTitle: "Redo", action: Selector(("redo:")), keyEquivalent: "z")
+        redo.keyEquivalentModifierMask = [.command, .shift]
+        edit.addItem(.separator())
+        edit.addItem(withTitle: "Cut", action: #selector(NSText.cut(_:)), keyEquivalent: "x")
+        edit.addItem(withTitle: "Copy", action: #selector(NSText.copy(_:)), keyEquivalent: "c")
+        edit.addItem(withTitle: "Paste", action: #selector(NSText.paste(_:)), keyEquivalent: "v")
+        edit.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+        item.submenu = edit
+        NSApp.mainMenu = main
+    }
+
     func applicationDidFinishLaunching(_ notification: Notification) {
         L.language = config.ui.language
+        installEditMenu()
         SessionLocator.custom = config.sessionAdapters
         SessionLocator.organizationLabels = config.organizationLabels
         Theme.registerFonts()
