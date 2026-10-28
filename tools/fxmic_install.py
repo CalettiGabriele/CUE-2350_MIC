@@ -5,8 +5,11 @@
   fxmic_install.py install   symbols on FX MIC DISK + /rom image with the boot hook, then power-cycle
   fxmic_install.py restore   writes the saved factory image back and removes the symbols
 
-Needs: the app quit (it owns the serial port), `pip install pyserial mpremote mpy-cross`, the mic
+Needs: the app quit (it owns the serial port), `pip install -r tools/requirements.txt`, the mic
 freshly powered on (64 KB heap), FX MIC DISK mounted on the Mac for install/restore.
+Nothing from Teenage Engineering is in the repo: the factory files are read from the mic itself,
+and the factory image is saved to ~/Library/Application Support/FXMicBridge/firmware/ at the
+first install, before anything is written.
 Never soft-resets the mic (Ctrl-D): on this firmware that detaches it from USB.
 """
 import argparse, glob, hashlib, os, pathlib, re, shutil, subprocess, sys, tempfile, time
@@ -15,7 +18,7 @@ import serial
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 FW = ROOT / "firmware" / "fxmic"
-FACTORY_BIN = ROOT / "backup" / "rom" / "romfs-partition-1.0.9.bin"
+FACTORY_BIN = ROOT / "backup" / "rom" / "romfs-partition-1.0.9.bin"   # optional local copy
 FACTORY_SHA = "264e54d4"          # prefix of the SHA-256 of the 128 KB factory partition
 BLOCK, BLOCKS = 4096, 32
 DISK = pathlib.Path("/Volumes/FX MIC DISK")
@@ -91,8 +94,20 @@ def write_rom(mic, image):
     print("written and verified, sha256", sha(back)[:16])
 
 
-def build_image():
-    """Factory files + FXMic files."""
+def read_file(mic, path):
+    mic.ex(f"_f=open('{path}','rb')")
+    out = b""
+    while True:
+        chunk = mic.ex("print(_f.read(256).hex())")
+        if not chunk:
+            break
+        out += bytes.fromhex(chunk)
+    mic.ex("_f.close()")
+    return out
+
+
+def build_image(factory_files):
+    """Factory files (read from the mic) + FXMic files."""
     subprocess.run([sys.executable, str(FW / "build.py")], check=True, stdout=subprocess.DEVNULL)
     mpy = shutil.which("mpy-cross") or str(pathlib.Path(sys.executable).parent / "mpy-cross")
     if not os.path.exists(mpy):
@@ -100,12 +115,11 @@ def build_image():
     from mpremote.romfs import make_romfs
     with tempfile.TemporaryDirectory() as d:
         d = pathlib.Path(d)
-        factory = ROOT / "backup" / "rom"
-        for name in ("README.md", "main.py"):
-            shutil.copy(factory / name, d / name)
+        for name, content in factory_files.items():
+            (d / name).write_bytes(content)
         shutil.copy(FW / "device" / "json.py", d / "json.py")
         for src, out in ((FW / "device" / "fxmic.py", "fxmic.mpy"), (FW / "build" / "fxmic_cfg.py", "fxmic_cfg.mpy"),
-                         (factory / "main.py", "fxmic_factory.mpy")):
+                         (d / "main.py", "fxmic_factory.mpy")):
             subprocess.run([mpy, "-o", str(d / out), str(src)], check=True)
         return make_romfs(str(d), mpy_cross=False)
 
@@ -134,7 +148,7 @@ def status(mic):
     data = read_rom(mic)
     kind = "factory" if sha(data).startswith(FACTORY_SHA) else "FXMic" if "fxmic.mpy" in files else "UNKNOWN"
     print(kind, "| /rom:", files, "| sha256", sha(data)[:16])
-    return kind
+    return kind, data
 
 
 def main():
@@ -143,7 +157,7 @@ def main():
     a = ap.parse_args()
     mic = Mic()
     check(mic)
-    kind = status(mic)
+    kind, data = status(mic)
     if a.command == "status":
         return
     if kind == "UNKNOWN":
@@ -151,19 +165,27 @@ def main():
     SUPPORT.mkdir(parents=True, exist_ok=True)
     backup = SUPPORT / "factory-1.0.9.bin"
     if kind == "factory" and not backup.exists():
-        shutil.copy(FACTORY_BIN, backup)
+        backup.write_bytes(data)
         print("factory image saved to", backup)
     if a.command == "install":
+        # main.py and README.md are the factory ones both on a factory and on an FXMic /rom.
+        factory = {name: read_file(mic, "/rom/" + name) for name in ("README.md", "main.py")}
+        if not all(factory.values()):
+            sys.exit("could not read the factory files from /rom: nothing written")
+        image = build_image(factory)
         symbols(True)
         time.sleep(2)
         remount_fat(mic)
-        write_rom(mic, build_image())
+        write_rom(mic, image)
         print("Now switch the mic off and on with the lever to start FXMic.")
     else:
+        source = backup if backup.exists() else FACTORY_BIN
+        if not source.exists():
+            sys.exit(f"no factory image: expected {backup}")
         symbols(False)
         time.sleep(2)
         remount_fat(mic)
-        write_rom(mic, (backup if backup.exists() else FACTORY_BIN).read_bytes().rstrip(b"\xff"))
+        write_rom(mic, source.read_bytes().rstrip(b"\xff"))
         print("Factory image restored. Switch the mic off and on to run the factory logic.")
 
 

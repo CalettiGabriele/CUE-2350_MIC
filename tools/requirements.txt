@@ -1,0 +1,4 @@
+# tools/fxmic_install.py
+pyserial>=3.5
+mpremote>=1.26
+mpy-cross>=1.26
