@@ -487,10 +487,8 @@ private struct LLMTab: View {
     var body: some View {
         Form {
             providerSection
-            // Ollama has no keys; every other server may want one (LM Studio and custom servers optionally).
-            if provider.wrappedValue.preset != .ollama || provider.wrappedValue.apiKeyRef != nil {
-                keySection
-            }
+            // Always shown: Ollama and local servers just leave it empty.
+            keySection
             modelSection
             Section(L.t("Base instructions")) {
                 TextEditor(text: $model.draft.llm.baseSystemPrompt)
@@ -539,16 +537,22 @@ private struct LLMTab: View {
         }
     }
 
+    private func commitKey() {
+        guard !key.trimmingCharacters(in: .whitespaces).isEmpty else { return }
+        keyStatus = model.saveKey(key) ? L.t("Saved in the Keychain.") : L.t("Could not save the key.")
+        key = ""
+        Task { await model.refreshModels() }
+    }
+
     private var keySection: some View {
         Section {
             HStack {
                 SecureField(L.t("API key"), text: $key)
-                Button(L.t("Save key")) {
-                    keyStatus = model.saveKey(key) ? L.t("Saved in the Keychain.") : L.t("Could not save the key.")
-                    key = ""
-                    Task { await model.refreshModels() }
-                }
-                .disabled(key.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit(commitKey)
+                Button(L.t("Save key"), action: commitKey)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(key.trimmingCharacters(in: .whitespaces).isEmpty)
                 Button(L.t("Remove key")) {
                     model.removeKey()
                     keyStatus = L.t("Key removed.")
