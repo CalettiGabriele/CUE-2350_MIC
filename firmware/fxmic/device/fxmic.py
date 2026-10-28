@@ -3,9 +3,12 @@
 # The Mac owns mode and slot. Fixed buffers, nothing grows in callbacks.
 # Handle release is repeated once (REP ms later) and the heartbeat is never played while the handle
 # is held or right after a gesture, so the Mac can always recover a lost release code.
+# Orange sends the page the red LEDs land on (page.1..4), not 'next': the Mac goes to that channel. The
+# number of bound pages is kept in /fat/.fxmic/n (written only without USB) so it survives a power cycle;
+# until a count has been saved all four pages are allowed (the app says when a page has no channel).
 # On batteries: SLEEP ms without any touch -> LEDs off and no heartbeat (power save, still listening);
 # OFF ms later still untouched -> ui.shutdown(). On USB power the mic never sleeps or shuts down.
-import ui, spl, fx, time
+import ui, spl, fx, time, micropython
 from fxmic_cfg import *
 
 tm = time.ticks_ms
@@ -37,6 +40,7 @@ _fr = -1          # recording sweep frame on show
 _bf = 8           # boot sweep: frame being shown, 8 = done
 _act = 0          # last touch: handle, button or shake
 _sv = False       # power save on
+_dn = False       # the page count has to be saved
 _SW = (0, 1, 2, 3, 2, 1)
 
 
@@ -46,33 +50,48 @@ def _leds():
         ui.led_level(4 + i, 1.0 if (_sl >> i) & 1 else 0)
 
 
-def _page(k, b):
+def _page(k, b, i):
     # The Mac cannot talk to the mic over the jack, so the mic pages its own LEDs the way the app
-    # pages channels (orange) and slots (white). Orange: tap next, double tap previous, long =
-    # a page is bound (a new one while there is room), very long = all unbound. White: tap next,
-    # double tap previous, long = none; 0..15 in binary.
-    global _r, _n, _sl
+    # pages channels (orange) and slots (white), and tells the Mac the page it landed on (returned
+    # message id). Orange: tap next, double tap previous, long = a page is bound (a new one while
+    # there is room), very long = all unbound. White: tap next, double tap previous, long = none;
+    # 0..15 in binary. Returns the message id to send.
+    global _r, _n, _sl, _dn
     if b == 2:
         if k == 0 and _n:
             _r = 0 if _r < 0 else (_r + 1) % _n
+            i = 19 + _r
         elif k == 1 and _n:
             _r = _n - 1 if _r < 0 else (_r - 1) % _n
+            i = 19 + _r
         elif k == 2:
             if _n < 4:
                 _r = _n
                 _n += 1
+                _dn = True
             elif _r < 0:
                 _r = _n - 1
         elif k == 3:
             _r = -1
             _n = 0
+            _dn = True
         else:
-            return
+            return i
     elif b == 1 and k < 3:
         _sl = 0 if k == 2 else (_sl + (1 if k == 0 else -1)) % 16
     else:
-        return
+        return i
     _leds()
+    return i
+
+
+def _save(_):
+    try:
+        f = open('/fat/.fxmic/n', 'w')
+        f.write(str(_n))
+        f.close()
+    except OSError:
+        pass
 
 
 def _touch(t):
@@ -160,8 +179,7 @@ def _btn(b, act, t):
     p = _pend[b]
     if p and td(t, p) <= DBL:
         _pend[b] = 0
-        _page(1, b)
-        _emit(7 + b)
+        _emit(_page(1, b, 7 + b))
     else:
         _pend[b] = t
 
@@ -223,17 +241,14 @@ def _tick(t):
             d = td(t, st)
             if not (_lf & m) and d >= LONG:
                 _lf |= m
-                _page(2, b)
-                _emit(10 + b)
+                _emit(_page(2, b, 10 + b))
             if (_lf & m) and not (_vf & m) and not _hd and d >= VLONG:
                 _vf |= m
-                _page(3, b)
-                _emit(13 + b)
+                _emit(_page(3, b, 13 + b))
         p = _pend[b]
         if p and td(t, p) > DBL:
             _pend[b] = 0
-            _page(0, b)
-            _emit(4 + b)
+            _emit(_page(0, b, 4 + b))
 
 
 def _play(t):
@@ -263,7 +278,7 @@ def _factory():
 
 
 def _cb(m):
-    global _pollt, _hb
+    global _pollt, _hb, _dn
     t = m >> 16
     if t == 3:
         n = tm() | 1
@@ -273,6 +288,10 @@ def _cb(m):
             _shake(n)
         _play(n)
         _idle(n)
+        if _dn and not _hd and not (_pr[0] or _pr[1] or _pr[2]) and _ps < 0 and _qh == _qt and td(n, _la) >= QUIET:
+            _dn = False
+            if ui.get_vbus() < 4.0:
+                micropython.schedule(_save, 0)
         if _ps < 0 and _qh == _qt and not _hd and not _sv and td(n, _hb) >= HB and td(n, _la) >= QUIET:
             _hb = n
             _emit(0)
@@ -352,10 +371,18 @@ def stop():
 
 
 def start():
+    global _n
     for i in range(4):
         f = open('/fat/.fxmic/s%d.wav' % i, 'rb')
         ok = spl.load_wav(i, f)
         f.close()
         if not ok:
             raise OSError('fxmic symbol %d' % i)
+    try:
+        f = open('/fat/.fxmic/n')
+        v = int(f.read())
+        f.close()
+    except (OSError, ValueError):
+        v = 4   # never counted: the app may already have channels, so allow all four pages
+    _n = v if 0 <= v <= 4 else 4
     resume()

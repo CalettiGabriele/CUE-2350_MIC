@@ -12,6 +12,7 @@
     "doubleTap.grey", "doubleTap.white", "doubleTap.orange",
     "longPress.grey", "longPress.white", "longPress.orange",
     "veryLongPress.grey", "veryLongPress.white", "veryLongPress.orange",
-    "chordGrey", "shake", "shakeHold"
+    "chordGrey", "shake", "shakeHold",
+    "page.1", "page.2", "page.3", "page.4"
   ]
 }
