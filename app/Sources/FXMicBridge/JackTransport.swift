@@ -22,6 +22,8 @@ private final class JackFeed {
 @MainActor
 final class JackTransport {
     var onGesture: ((Gesture) -> Void)?
+    /// The mic moved its red LEDs to this channel (0-based).
+    var onPage: ((Int) -> Void)?
     /// The mic's signal appeared or went away.
     var onSignalChange: (() -> Void)?
 
@@ -114,6 +116,8 @@ final class JackTransport {
                 // The mic never plays a heartbeat while the handle is held: if we think it is held,
                 // the release code was lost. Close the take here.
                 if handleHeld { release(at: event.onsetSample, ms: ms) }
+            case .page(let index):
+                onPage?(index)
             case .gesture(.pttDown):
                 guard !handleHeld else { continue }
                 recorder.captureFrom = event.onsetSample - Int(rate * 0.05)

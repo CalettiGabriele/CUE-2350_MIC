@@ -163,6 +163,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
         device.delegate = self
         jack.onGesture = { [weak self] gesture in self?.handle([gesture]) }
+        jack.onPage = { [weak self] index in self?.goToPage(index) }
         media.configure(config.audio.pauseMedia)
         media.warmUp()
         dictation.onHold = { [weak self] on in on ? self?.media.holdStarted() : self?.media.holdEnded() }
@@ -519,6 +520,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     }
 
     // MARK: - Channels (One-Pager 004 §4)
+
+    /// Over the jack the mic pages its red LEDs on its own and says which page it landed on: go
+    /// there, not one step from wherever the mouse took us, so LEDs and screen always agree.
+    private func goToPage(_ index: Int) {
+        guard engine.channels.indices.contains(index) else {
+            hud.toast(L.f("No channel %d: long-press orange on a window to add it", index + 1))
+            return
+        }
+        engine.select(channel: index)
+        channelChanged()
+    }
 
     /// Orange took you to a channel: bring its window forward, take its profile, show it.
     private func channelChanged() {

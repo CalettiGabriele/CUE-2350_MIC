@@ -122,6 +122,9 @@ import Testing
         #expect(JackMessage(name: "veryLongPress.orange") == .gesture(.veryLongPress(.orange)))
         #expect(JackMessage(name: "heartbeat") == .heartbeat)
         #expect(JackMessage(name: "tap.purple") == nil)
+        #expect(JackMessage(name: "page.1") == .page(0))
+        #expect(JackMessage(name: "page.4") == .page(3))
+        #expect(JackMessage(name: "page.0") == nil)
     }
 }
 

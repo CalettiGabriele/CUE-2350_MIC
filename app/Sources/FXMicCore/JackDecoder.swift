@@ -4,6 +4,9 @@ import Foundation
 public enum JackMessage: Equatable, Sendable {
     case heartbeat
     case gesture(Gesture)
+    /// Orange took the mic's LEDs to this page (0-based): the Mac goes to that channel, whatever
+    /// it was showing before.
+    case page(Int)
 
     /// `name` is a key of `JackCodebook.messages`.
     public init?(name: String) {
@@ -20,6 +23,7 @@ public enum JackMessage: Equatable, Sendable {
         case "shakeHold": self = .gesture(.shakeHold)
         default:
             let parts = name.split(separator: ".")
+            if parts.count == 2, parts[0] == "page", let n = Int(parts[1]), n >= 1 { self = .page(n - 1); return }
             guard parts.count == 2, let b = button(parts[1]) else { return nil }
             switch parts[0] {
             case "tap": self = .gesture(.tap(b))

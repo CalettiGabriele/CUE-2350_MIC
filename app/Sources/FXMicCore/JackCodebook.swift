@@ -27,6 +27,10 @@ public enum JackCodebook {
         "veryLongPress.orange": [1, 0, 2],
         "chordGrey": [1, 0, 3],
         "shake": [1, 2, 1],
-        "shakeHold": [1, 2, 3]
+        "shakeHold": [1, 2, 3],
+        "page.1": [1, 3, 0],
+        "page.2": [1, 3, 1],
+        "page.3": [1, 3, 2],
+        "page.4": [2, 0, 1]
     ]
 }
