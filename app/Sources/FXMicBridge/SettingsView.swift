@@ -577,9 +577,15 @@ private struct LLMTab: View {
             LabeledContent(L.t("Status"), value: model.llmStatus)
             HStack {
                 TextField(L.t("Model"), text: $model.draft.llm.model)
-                if !model.llmModels.isEmpty {
+                let suggested = provider.wrappedValue.preset.suggestedModels
+                let listed = model.llmModels.filter { !suggested.contains($0) }
+                if !suggested.isEmpty || !listed.isEmpty {
                     Menu(L.t("Choose")) {
-                        ForEach(model.llmModels, id: \.self) { name in
+                        ForEach(suggested, id: \.self) { name in
+                            Button(name) { model.draft.llm.model = name }
+                        }
+                        if !suggested.isEmpty && !listed.isEmpty { Divider() }
+                        ForEach(listed, id: \.self) { name in
                             Button(name) { model.draft.llm.model = name }
                         }
                     }

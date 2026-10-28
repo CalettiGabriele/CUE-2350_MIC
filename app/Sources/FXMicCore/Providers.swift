@@ -30,9 +30,24 @@ public enum ProviderPreset: String, Codable, CaseIterable, Sendable {
     public var defaultModel: String {
         switch self {
         case .ollama: return "qwen3.5:4b"
-        case .openai: return "gpt-5-mini"
+        case .openai: return "gpt-6.1-terra"
         case .anthropic: return "claude-haiku-5-5"
         default: return ""
+        }
+    }
+
+    /// Recent models offered in the Settings menu, newest first. Only a shortcut: the model field
+    /// takes any string, so models newer than this list still work.
+    public var suggestedModels: [String] {
+        switch self {
+        case .openai:
+            return ["gpt-6-astra", "gpt-6.1-sol", "gpt-6.1-terra", "gpt-6-luna", "gpt-6-sol",
+                    "gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]
+        case .anthropic:
+            return ["claude-fable-5-1", "claude-opus-5-5", "claude-sonnet-5-5", "claude-haiku-5-5",
+                    "claude-fable-5", "claude-opus-5", "claude-sonnet-5"]
+        default:
+            return []
         }
     }
 
