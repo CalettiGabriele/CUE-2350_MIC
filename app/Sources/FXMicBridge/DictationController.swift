@@ -43,6 +43,8 @@ final class DictationController {
     }
 
     var onPhase: ((Phase) -> Void)?
+    /// A take started (true) or ended for any reason (false): the music pauses and resumes.
+    var onHold: ((Bool) -> Void)?
     /// RMS level in dBFS while recording (called on the main queue).
     var onLevel: ((Float) -> Void)?
     /// Provides profile/mode/slot and the frontmost app at push-to-talk time.
@@ -96,6 +98,7 @@ final class DictationController {
             context = contextProvider?()
             do {
                 try recorder.start()
+                onHold?(true)
                 onPhase?(.recording)
             } catch {
                 _ = machine.send(.failed)
@@ -132,6 +135,7 @@ final class DictationController {
         let releasedAt = now()
         let effect = machine.send(.pttUp(at: releasedAt))
         let audio = recorder.stop()
+        onHold?(false)
         switch effect {
         case .discardRecording(let reason):
             // Handle clicks (double-click = new line) are short takes: don't flash a message.
@@ -146,7 +150,7 @@ final class DictationController {
     func cancel() {
         let wasRecording = isRecording
         if case .discardRecording = machine.send(.cancel) {
-            if wasRecording { _ = recorder.stop() }
+            if wasRecording { _ = recorder.stop(); onHold?(false) }
             job?.cancel()
             onPhase?(.message(L.t("Cancelled")))
         }

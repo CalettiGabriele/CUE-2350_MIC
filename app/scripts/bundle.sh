@@ -36,6 +36,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>LSMinimumSystemVersion</key><string>14.0</string>
   <key>LSUIElement</key><true/>
   $ICON_PLIST
+  <key>NSAppleEventsUsageDescription</key>
+  <string>CUE-2350 MIC mette in pausa Spotify o Musica mentre tieni premuta la maniglia e la riprende dopo.</string>
   <key>NSMicrophoneUsageDescription</key>
   <string>CUE-2350 MIC registra la voce mentre tieni premuta la maniglia, per trascriverla in locale.</string>
 </dict>

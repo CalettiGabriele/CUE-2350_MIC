@@ -62,6 +62,17 @@ public struct AppConfig: Codable, Equatable, Sendable {
         public var inputDeviceUID: String?
         public var minDurationMs: Double = 300
         public var silenceThresholdDBFS: Float = -50
+        /// One-Pager 005: pause the music while the handle is held.
+        public var pauseMedia = PauseMedia()
+        public init() {}
+    }
+
+    public struct PauseMedia: Codable, Equatable, Sendable {
+        public var enabled = false
+        /// Player ids (`MediaPlayerID`).
+        public var apps: [String] = [MediaPlayerID.spotify, MediaPlayerID.music]
+        /// The pause is sent after the handle has been held this long: a click does not stop the music.
+        public var holdMs: Double = 150
         public init() {}
     }
 
@@ -527,13 +538,25 @@ extension AppConfig {
 }
 
 extension AppConfig.Audio {
-    private enum CodingKeys: String, CodingKey { case inputDeviceUID, minDurationMs, silenceThresholdDBFS }
+    private enum CodingKeys: String, CodingKey { case inputDeviceUID, minDurationMs, silenceThresholdDBFS, pauseMedia }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = Self()
         inputDeviceUID = c.value(.inputDeviceUID, nil)
         minDurationMs = c.value(.minDurationMs, d.minDurationMs)
         silenceThresholdDBFS = c.value(.silenceThresholdDBFS, d.silenceThresholdDBFS)
+        pauseMedia = c.value(.pauseMedia, d.pauseMedia)
+    }
+}
+
+extension AppConfig.PauseMedia {
+    private enum CodingKeys: String, CodingKey { case enabled, apps, holdMs }
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = Self()
+        enabled = c.value(.enabled, d.enabled)
+        apps = c.value(.apps, d.apps)
+        holdMs = min(1000, max(0, c.value(.holdMs, d.holdMs)))
     }
 }
 

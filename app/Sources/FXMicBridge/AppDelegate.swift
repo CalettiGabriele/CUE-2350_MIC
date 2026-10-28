@@ -13,6 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private let device = DeviceService()
     private var recognizer = GestureRecognizer()
     private let jack: JackTransport
+    private let media = MediaController()
     private let dictation: DictationController
     private let historyStore: HistoryStore
     private let hud = HUD()
@@ -142,6 +143,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
         device.delegate = self
         jack.onGesture = { [weak self] gesture in self?.handle([gesture]) }
+        media.configure(config.audio.pauseMedia)
+        media.warmUp()
+        dictation.onHold = { [weak self] on in on ? self?.media.holdStarted() : self?.media.holdEnded() }
         jack.onSignalChange = { [weak self] in self?.jackStatusChanged() }
         applyTransport()
 
@@ -162,6 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     func applicationWillTerminate(_ notification: Notification) {
         // Restores the factory callback, LEDs and preset on the mic (ADR-001).
         device.restoreSync = (engine.channels.count, engine.channelPosition ?? -1, engine.slotNumber ?? 0)
+        media.holdEnded()   // never leave the music paused
         device.stop()
         jack.stop()
     }
@@ -1049,6 +1054,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         if save { ConfigStore.save(newConfig) }
         engine.reload(newConfig)
         dictation.config = newConfig
+        media.configure(newConfig.audio.pauseMedia)
+        media.warmUp()
         if old.device.transport != newConfig.device.transport { applyTransport() }
         else if old.audio.inputDeviceUID != newConfig.audio.inputDeviceUID, jack.isListening { jack.restart() }
         leds.map = newConfig.device.ledMap
