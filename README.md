@@ -31,6 +31,10 @@ and above all in the sessions where your coding agents are waiting for their nex
 
 Think of it as an unofficial new chapter of the mic's user guide: **chapter 8, talking to your agent.**
 
+It works over **USB-C**, and — even better — through the mic's **original 3.5 mm jack** with a USB audio
+adapter: the mic says its buttons with short high-pitched codes and the app listens. The jack route needs
+a one-time, reversible firmware install: see [get started](#89-get-started).
+
 <table>
   <tr>
     <td width="50%" valign="top">
@@ -52,8 +56,9 @@ Think of it as an unofficial new chapter of the mic's user guide: **chapter 8, t
     </td>
     <td width="50%" valign="top">
       <h3>/ nothing permanent</h3>
-      The app talks to the mic through a tiny agent that lives only in its RAM.
-      Quit the app, or switch the mic off: it is factory-fresh again. No firmware is touched.
+      Over USB-C the app talks to the mic through a tiny agent that lives only in its RAM: quit the app,
+      or switch the mic off, and it is factory-fresh again. The jack route uses a firmware you install
+      once, and can remove with one command.
     </td>
   </tr>
 </table>
@@ -70,6 +75,9 @@ text is written where your cursor is: terminal, editor, browser, chat, anything 
 Nothing jumps, nothing needs to be set up first.
 
 No mic plugged in? Hold <kbd>right ⌥ Option</kbd> and talk.
+
+Music playing? Turn on **Settings › Audio › Music** and Spotify or Apple Music pause while you hold the
+handle and resume, by themselves, when you let go.
 
 <br>
 
@@ -205,7 +213,7 @@ The full reference lives in [docs/GESTURES.md](docs/GESTURES.md) *(in Italian)*.
 | voice commands and LLM rewrites | on your Mac, with any OpenAI-compatible local server — [Ollama](https://ollama.com) by default; OpenAI, Anthropic or OpenRouter only if you add them |
 | your audio | never saved |
 | your history | on your Mac only, readable by your user only, with a retention you choose — or off |
-| the mic | untouched: the app's agent lives in the mic's RAM and disappears when you quit |
+| the mic | over USB-C untouched: the app's agent lives in the mic's RAM and disappears when you quit; for the jack route, a firmware you install once and can restore to the factory one |
 
 Add a remote provider in **Settings › Model** and Settings warns you, right under the address, that your
 words — and what the voice command reads on screen — would leave this Mac. Its API key goes to the macOS Keychain, never to `config.json`.
@@ -214,8 +222,10 @@ words — and what the voice command reads on screen — would leave this Mac. I
 
 ## ((8.9)) get started.
 
-**You need** a Mac with Apple silicon on macOS 14 or later, an EP-2350 FX-MIC and a USB-C **data**
-cable. For voice commands and LLM rewrites, a local model server such as Ollama.
+**You need** a Mac with Apple silicon on macOS 14 or later and an EP-2350 FX-MIC, connected either with
+a USB-C **data** cable, or through its 3.5 mm jack with a USB audio adapter that has an input (the jack
+route needs the FXMic firmware, see below). For voice commands and LLM rewrites, a local model server
+such as Ollama.
 
 ```bash
 # 1. build the app (Command Line Tools are enough, no Xcode)
@@ -233,10 +243,17 @@ permissions, the speech model download, plugging in the mic. Switch the mic on b
 handle, wait for the LEDs to run their little boot sweep — and start talking. To make your first
 channel, open a Claude Code session and long-press orange.
 
+**Want to use the jack instead of the cable?** Install the FXMic firmware once with the
+[firmware install guide](docs/INSTALL-FIRMWARE.md) (about 5 minutes, reversible, written for people and
+for AI agents), then choose **Settings › Device › Connection › Jack only**. How the mic talks to the app
+through the jack is explained in [the jack channel, step by step](docs/JACK-CHANNEL.md).
+
 <details>
 <summary><b>for the curious</b></summary>
 <br>
 
+- The jack route: [install the firmware](docs/INSTALL-FIRMWARE.md) and [how the jack channel works](docs/JACK-CHANNEL.md)
+  (with sounds, charts and the decoder in slow motion).
 - Architecture, protocol and decisions: [technical design](docs/design-docs/tdd-v1-fxmic-bridge.md),
   [ADR-001 — RAM-only agent](docs/adr/adr-001-device-control-via-ram-repl-agent.md),
   [channels, skills and voice commands](docs/design-docs/onepager-004-channels-and-commands.md) *(in Italian)*.
