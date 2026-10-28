@@ -355,10 +355,66 @@ private struct AudioTab: View {
                     Text(L.f("Silence threshold %d dBFS", Int(model.draft.audio.silenceThresholdDBFS)))
                 }
             }
+            Section(L.t("Music")) {
+                Toggle(L.t("Pause the music while I talk"), isOn: $model.draft.audio.pauseMedia.enabled)
+                if model.draft.audio.pauseMedia.enabled {
+                    MediaPlayerRow(title: "Spotify", player: MediaController.players[0], model: model)
+                    MediaPlayerRow(title: "Apple Music", player: MediaController.players[1], model: model)
+                }
+                Text(L.t("Pauses what is playing while the handle is held and resumes only that when you let go."))
+                    .font(.caption).foregroundStyle(.secondary)
+            }
         }
         .formStyle(.grouped)
         .scrollContentBackground(.hidden)
         .onAppear { model.refreshDevices() }
+    }
+}
+
+/// One player of the "Pause the music" setting, with the state of its Automation permission.
+private struct MediaPlayerRow: View {
+    let title: String
+    let player: AppleScriptPlayer
+    @ObservedObject var model: SettingsModel
+    @State private var permission: AppleScriptPlayer.Permission = .undetermined
+
+    private var isOn: Binding<Bool> {
+        Binding(
+            get: { model.draft.audio.pauseMedia.apps.contains(player.id) },
+            set: { on in
+                var apps = model.draft.audio.pauseMedia.apps.filter { $0 != player.id }
+                if on { apps.append(player.id) }
+                model.draft.audio.pauseMedia.apps = apps
+            })
+    }
+
+    private var status: String {
+        switch permission {
+        case .allowed: return L.t("Allowed")
+        case .denied: return L.t("Not allowed: grant it in System Settings › Privacy & Security › Automation")
+        case .undetermined: return L.t("Not asked yet")
+        case .notRunning: return L.t("Not running")
+        }
+    }
+
+    var body: some View {
+        HStack {
+            Toggle(title, isOn: isOn)
+            Spacer()
+            Text(status).font(.caption).foregroundStyle(.secondary).multilineTextAlignment(.trailing)
+            if permission == .undetermined {
+                Button(L.t("Allow")) { check(ask: true) }
+            }
+        }
+        .onAppear { check(ask: false) }
+    }
+
+    private func check(ask: Bool) {
+        let player = player
+        Task.detached {
+            let result = player.permission(ask: ask)
+            await MainActor.run { permission = result }
+        }
     }
 }
 
