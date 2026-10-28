@@ -52,7 +52,9 @@ public struct OpenAICompatibleClient: ChatProvider {
             body["tool_choice"] = "auto"
         }
         if let temperature, provider.preset.sendsTemperature { body["temperature"] = temperature }
-        if let maxTokens = maxTokens ?? provider.preset.defaultMaxTokens { body["max_tokens"] = maxTokens }
+        if let maxTokens = maxTokens ?? provider.preset.defaultMaxTokens {
+            body[provider.preset.maxTokensField] = max(maxTokens, provider.preset.minOutputTokens)
+        }
         if disableThinking, provider.preset.canDisableThinking {
             // Ollama's own `think: false` is ignored on the OpenAI-compatible endpoint.
             body["reasoning_effort"] = "none"

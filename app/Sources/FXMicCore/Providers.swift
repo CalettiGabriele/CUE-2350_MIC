@@ -56,8 +56,15 @@ public enum ProviderPreset: String, Codable, CaseIterable, Sendable {
     /// Anthropic's own API requires `max_tokens`: sent when the caller gives none.
     public var defaultMaxTokens: Int? { self == .anthropic ? 4096 : nil }
 
-    /// Claude 4.7 and later reject a temperature below 1 on the compatibility layer: not sent.
-    public var sendsTemperature: Bool { self != .anthropic }
+    /// OpenAI's reasoning models (GPT-5 and later) reject `max_tokens`: they take `max_completion_tokens`.
+    public var maxTokensField: String { self == .openai ? "max_completion_tokens" : "max_tokens" }
+
+    /// Reasoning tokens count against the limit: a small cap leaves nothing for the answer or the tool call.
+    public var minOutputTokens: Int { self == .openai ? 1024 : 0 }
+
+    /// Claude 4.7 and later reject a temperature below 1 on the compatibility layer, and OpenAI's
+    /// reasoning models only accept their default: not sent.
+    public var sendsTemperature: Bool { self != .anthropic && self != .openai }
 
     /// `reasoning_effort: "none"` turns thinking off on Ollama (0.7 s instead of 54 s). Other
     /// servers ignore it or reject it on models without reasoning, so it is not sent there.

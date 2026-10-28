@@ -87,6 +87,15 @@ import Testing
         #expect(client(.ollama).body([.user("hi")], tools: [], temperature: nil, maxTokens: nil)["max_tokens"] == nil)
     }
 
+    @Test func openAIUsesMaxCompletionTokensAndNoTemperature() {
+        let body = client(.openai).body([.user("hi")], tools: [echo], temperature: 0, maxTokens: 200)
+        #expect(body["max_tokens"] == nil)
+        #expect(body["max_completion_tokens"] as? Int == 1024)
+        #expect(body["temperature"] == nil)
+        #expect(body["reasoning_effort"] == nil)
+        #expect(client(.openai).body([.user("hi")], tools: [], temperature: nil, maxTokens: nil)["max_completion_tokens"] == nil)
+    }
+
     @Test func toolMessagesGoOnTheWire() {
         let call = ToolCall(id: "c1", name: "echo", arguments: #"{"word":"ok"}"#)
         let assistant = OpenAICompatibleClient.wire(ChatMessage(role: .assistant, content: nil, toolCalls: [call]))
