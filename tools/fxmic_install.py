@@ -99,7 +99,7 @@ def read_file(mic, path):
     out = b""
     while True:
         chunk = mic.ex("print(_f.read(256).hex())")
-        if not chunk:
+        if chunk in ("", "b''"):   # the mic prints b'' for an empty .hex() at the end of the file
             break
         out += bytes.fromhex(chunk)
     mic.ex("_f.close()")

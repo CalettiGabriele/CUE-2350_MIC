@@ -3,6 +3,8 @@
 # The Mac owns mode and slot. Fixed buffers, nothing grows in callbacks.
 # Handle release is repeated once (REP ms later) and the heartbeat is never played while the handle
 # is held or right after a gesture, so the Mac can always recover a lost release code.
+# On batteries: SLEEP ms without any touch -> LEDs off and no heartbeat (power save, still listening);
+# OFF ms later still untouched -> ui.shutdown(). On USB power the mic never sleeps or shuts down.
 import ui, spl, fx, time
 from fxmic_cfg import *
 
@@ -33,6 +35,8 @@ _n = 0            # channel pages bound (0..4), counted from the long presses of
 _sl = 0           # white LEDs: slot number in binary (0..15), 0 = none
 _fr = -1          # recording sweep frame on show
 _bf = 8           # boot sweep: frame being shown, 8 = done
+_act = 0          # last touch: handle, button or shake
+_sv = False       # power save on
 _SW = (0, 1, 2, 3, 2, 1)
 
 
@@ -71,6 +75,34 @@ def _page(k, b):
     _leds()
 
 
+def _touch(t):
+    global _act, _sv
+    _act = t
+    if _sv:
+        _sv = False
+        if _bf == 8:
+            _leds()
+
+
+def _idle(t):
+    # Called every tick. Power save and shutdown only on batteries; USB power restarts the count.
+    global _act, _sv
+    if _hd:
+        _act = t
+        return
+    d = td(t, _act)
+    if d < SLEEP or (_sv and d < SLEEP + OFF):
+        return
+    if ui.get_vbus() > 4.0:
+        _touch(t)
+    elif not _sv:
+        _sv = True
+        for i in range(8):
+            ui.led_level(i, 0)
+    else:
+        ui.shutdown()
+
+
 def _anim(t):
     # Same animations as the app drives over USB: boot pass down the 8 LEDs, red sweep while the
     # handle is held. (Processing and confirmation come from the Mac: not possible over the jack.)
@@ -102,6 +134,7 @@ def _emit(i):
 
 def _btn(b, act, t):
     global _chord, _lf, _vf
+    _touch(t)
     m = 1 << b
     if act:
         _pr[b] = t
@@ -139,6 +172,7 @@ def _hnd(act, t):
         return
     _hd = act
     _la = t
+    _touch(t)
     if act:
         _hp = t
         _rep = 0
@@ -165,6 +199,7 @@ def _shake(t):
         _hs = 0
         _hf = False
     if s > SHK:
+        _touch(t)
         _sc += 1
         if _sc >= SHKN and td(t, _lsh) >= SHKCD:
             _lsh = t
@@ -237,7 +272,8 @@ def _cb(m):
             _pollt = n
             _shake(n)
         _play(n)
-        if _ps < 0 and _qh == _qt and not _hd and td(n, _hb) >= HB and td(n, _la) >= QUIET:
+        _idle(n)
+        if _ps < 0 and _qh == _qt and not _hd and not _sv and td(n, _hb) >= HB and td(n, _la) >= QUIET:
             _hb = n
             _emit(0)
         if _pr[2] and td(n, _t0) < 8000 and td(n, _pr[2]) >= 1500:
@@ -266,7 +302,7 @@ def _run_factory(_):
 
 
 def _reset():
-    global _qh, _qt, _ps, _lf, _vf, _hd, _chord, _hp, _rep, _la, _sc, _hs, _hl, _hf, _t0, _hb, _bf
+    global _qh, _qt, _ps, _lf, _vf, _hd, _chord, _hp, _rep, _la, _sc, _hs, _hl, _hf, _t0, _hb, _bf, _act, _sv
     _qh = _qt = 0
     _ps = -1
     _lf = _vf = 0
@@ -277,6 +313,8 @@ def _reset():
     _t0 = tm() | 1
     _hb = _t0
     _bf = 0
+    _act = _t0
+    _sv = False
 
 
 def version():
