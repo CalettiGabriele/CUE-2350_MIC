@@ -32,6 +32,8 @@ final class HUD {
     private var clock: Timer?
     private var startedAt: Date?
     private var visible = false
+    private var idleTitle: String?
+    private var showingIdle = true
     /// Invalidates a fade-out that a newer notice has overtaken.
     private var closeToken = 0
     private var glyph: Glyph = .none
@@ -71,12 +73,25 @@ final class HUD {
 
     // MARK: - API
 
+    /// With no physical mic, keep its LEDs and selection visible between actions.
+    /// Updating this context must not replace a recording, confirmation or other active notice.
+    func setIdle(_ title: String?) {
+        guard title != idleTitle else { return }
+        idleTitle = title
+        if showingIdle {
+            hide()
+        } else if visible {
+            present(label.attributedStringValue, glyph: glyph)
+        }
+    }
+
     /// Persistent state. `showsMeter` = recording: elapsed time in the right wing.
     func show(_ title: String, detail: String = "", showsMeter: Bool = false, glyph: Glyph = .working) {
+        showingIdle = false
         hideTimer?.invalidate()
         clock?.invalidate()
         if showsMeter {
-            startedAt = Date()
+            if startedAt == nil { startedAt = Date() }
             clock = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { self?.updateClock() }
             }
@@ -89,6 +104,7 @@ final class HUD {
 
     /// Short notice that hides itself. `.done` flashes the orange rule.
     func toast(_ title: String, detail: String = "", duration: TimeInterval = 0.9, glyph: Glyph = .none) {
+        showingIdle = false
         clock?.invalidate()
         startedAt = nil
         updateClock()
@@ -99,6 +115,7 @@ final class HUD {
 
     /// Selection card: orange mono kicker + lowercase Barlow title, e.g. "MODE 2/4  enhanced".
     func card(kicker: String, title: String, duration: TimeInterval = 1.0) {
+        showingIdle = false
         clock?.invalidate()
         startedAt = nil
         updateClock()
@@ -123,6 +140,13 @@ final class HUD {
     func hide() {
         hideTimer?.invalidate()
         clock?.invalidate()
+        showingIdle = true
+        if let idleTitle {
+            startedAt = nil
+            updateClock()
+            present(Self.chrome(idleTitle), glyph: .info)
+            return
+        }
         guard visible else { return }
         visible = false
         if Theme.reduceMotion || notchSize == nil {
@@ -191,7 +215,7 @@ final class HUD {
     private func present(_ text: NSAttributedString, glyph: Glyph) {
         self.glyph = glyph
         label.attributedStringValue = text
-        leds.isHidden = glyph == .none || glyph == .done
+        leds.isHidden = idleTitle == nil && (glyph == .none || glyph == .done)
         guard let screen = activeScreen() else { return }
         screenFrame = screen.frame
         notchSize = notch(of: screen)

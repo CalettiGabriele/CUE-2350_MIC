@@ -82,6 +82,14 @@ command. At a confirmation, tap right Command to approve, or hold it for at leas
 to refuse. Command gestures commit only on release, using the mic's duration thresholds; pressing
 another key during the hold cancels grey and leaves the shortcut untouched. Left Command is unchanged.
 
+Without an FX-MIC connection, the island stays visible at idle with the current profile, channel
+and slot, and mirrors the mic's logical LEDs. Recording keeps the red sweep and timer through the
+voice-command chord; processing and risky confirmations use the existing mic patterns, while
+ordinary grey outcomes show their message without inventing a new LED pattern. After feedback, the
+idle context returns. Connecting USB (including read-only) or a signal-bearing jack restores the
+usual hardware-connected idle behavior. Reduce Motion replaces the recording and processing sweep
+with steady red LEDs. Keyboard arrow mappings for the other mic buttons are not implemented yet.
+
 Music playing? Turn on **Settings › Audio › Music** and Spotify or Apple Music pause while you hold the
 handle and resume, by themselves, when you let go.
 

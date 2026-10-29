@@ -15,9 +15,11 @@ Use this checklist after a change to handle ownership, recording or transport be
 
 Disconnect the FX-MIC or disable its transports. Record the macOS version, app build/signing identity and input device with the results.
 
-- [ ] Physically hold **right Option**, speak a distinct phrase and release. Recording starts on hold, ends on release and the phrase appears in the throwaway document.
+- [ ] At startup, the idle island shows the current profile, channel and slot and the corresponding logical red/white mic LEDs. Change the frontmost app, channel and slot; check the caption and LEDs follow, including clearing or consuming a slot.
+
+- [ ] Physically hold **right Option**, speak a distinct phrase and release. The island shows the recording timer and red sweep while held; recording ends on release and the phrase appears in the throwaway document. Processing and outcome feedback return to the idle context.
 - [ ] Repeat, holding left Option too; releasing right Option still ends the take. Releasing left Option must not end a right-Option-owned take.
-- [ ] Quickly double-click right Option. The configured handle double-click action runs (by default Shift-Return inserts a newline), without leaving a recording active.
+- [ ] Quickly double-click right Option. The configured handle double-click action runs (by default Shift-Return inserts a newline), without leaving a recording active; any outcome feedback returns to the idle context.
 - [ ] Repeat a normal hold/release after the double-click to check that recording still works.
 
 ### Keyboard grey and confirmations
@@ -28,9 +30,10 @@ and in the throwaway document to cover local and global event monitors.
 - [ ] With no command slot selected, tap **right Command alone**. One Return is sent after the double-tap window. Select a harmless command slot and repeat; its action runs instead.
 - [ ] Dictate a harmless phrase, then double-tap right Command within 300 ms. The last insertion is undone once, with no extra Return.
 - [ ] Hold right Command for at least 600 ms. Nothing interrupts while it is held; releasing it runs the profile's interrupt action, Esc by default.
+- [ ] For Return, slot execution, undo and interrupt, check the outcome feedback and return to the current idle caption and LEDs. Do not expect a new LED pattern where the physical mic has none.
 - [ ] Use right Command-C and right Command-V in the throwaway document. Repeat after holding Command for more than 600 ms before pressing C or V. Copy/paste still works, with no Return, undo or Esc. Repeat with another modifier pressed while Command is down, and with Caps Lock toggled both on and off.
 - [ ] Tap and hold **left Command**. Neither produces a grey gesture. Hold left Command too and verify that releasing right Command is still recognised independently.
-- [ ] Hold right Option, then press and release right Command while Option remains held. The island changes to Voice command before Option is released. Speak a harmless command and release Option; it executes rather than typing the command sentence.
+- [ ] Hold right Option, then press and release right Command while Option remains held. The island names Voice command but retains the recording timer and red sweep until Option is released. Speak a harmless command and release Option; it executes rather than typing the command sentence.
 - [ ] Repeat the chord, but press C while Command is down. No voice-command transition occurs; releasing Option still ends the dictation.
 - [ ] Release Option before Command in a candidate chord. Dictation ends normally, without a later grey tap or interrupt.
 
@@ -39,13 +42,18 @@ Settings › Voice command › My tools. Give it an English description saying i
 smoke marker, one text step containing `SMOKE CONFIRMED`, and Risk = **Asks on the mic**.
 Keep the throwaway document focused. The speech model and local model server must be ready.
 
-- [ ] Hold right Option, press and release right Command, say "run Smoke confirmation", then release Option. Wait for the confirmation, tap right Command and wait for the double-tap window. The marker is inserted exactly once.
-- [ ] Repeat the voice command. At the confirmation, hold right Command for at least 600 ms and release it before the confirmation timeout. The action is refused and no marker is inserted.
+- [ ] Hold right Option, press and release right Command, say "run Smoke confirmation", then release Option. Wait for the confirmation and blinking red LEDs; tap right Command and wait for the double-tap window. The marker is inserted exactly once; processing/outcome feedback returns to the idle context.
+- [ ] Repeat the voice command. At the confirmation, hold right Command for at least 600 ms and release it before the confirmation timeout. The action is refused, no marker is inserted, and the idle context returns after feedback.
 - [ ] During another confirmation, use right Command-C. It must not approve or refuse; no answer still times out to no.
 - [ ] Remove the temporary macro and restore any profile or slot changes.
 
 The island still names the physical grey/shake buttons until the connection-aware hints ticket;
 use the keyboard answers above even when the wording names the mic.
+
+- [ ] Turn on macOS Reduce Motion and repeat a recording, chord and processing: red LEDs are steady rather than sweeping or alternating; the timer and outcomes still work. Restore the setting.
+- [ ] Connect USB, including read-only firmware if available, then disconnect it; repeat with a signal-bearing jack and loss of signal or listener stop. The keyboard-only idle island disappears on connection and returns with the current selection on loss. Change connection during recording, processing and confirmation: those overlays are not replaced by idle context.
+
+Keyboard arrow mappings for the remaining mic buttons are not implemented yet.
 
 ## Hardware ownership and recovery
 

@@ -31,6 +31,16 @@ does not send heartbeats while its handle is held.
 Right Option uses the same click timing and profile actions as the physical handle; holding left
 Option at the same time does not prevent a right Option release from ending the take.
 
+With no connected USB FX-MIC (including read-only) or signal-bearing jack, the island stays visible
+at idle with the profile, channel and slot and mirrors the logical mic LEDs. Its red and white LEDs
+follow the current channel and slot, including after a slot is consumed or cleared. Connecting a mic
+restores the usual hardware-connected idle behavior; losing it restores the keyboard idle context.
+The recording sweep and elapsed timer continue through the voice-command chord until release.
+Processing, error and risky-confirmation feedback use the existing mic LED patterns. Grey actions
+with no dedicated physical pattern show their outcome without a new LED pattern, then return to idle
+context. With Reduce Motion, recording and processing use steady red LEDs instead of motion.
+Keyboard arrow mappings for the other mic buttons are not implemented yet.
+
 ### Grey on the keyboard mic
 
 Right Command uses the same grey profile actions and gesture thresholds as the FX-MIC:
