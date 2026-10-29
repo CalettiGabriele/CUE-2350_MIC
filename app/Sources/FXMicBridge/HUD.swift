@@ -140,10 +140,10 @@ final class HUD {
     func hide() {
         hideTimer?.invalidate()
         clock?.invalidate()
+        startedAt = nil
+        updateClock()
         showingIdle = true
         if let idleTitle {
-            startedAt = nil
-            updateClock()
             present(Self.chrome(idleTitle), glyph: .info)
             return
         }
