@@ -4,6 +4,7 @@
 > Updated 2026-10-23: channels on orange, skills and commands on white, voice command on grey ([One-Pager 004](design-docs/onepager-004-channels-and-commands.md)). Updated 2026-10-25: the voice command is an agent with tools and confirmation on the mic ([TDD voice command agent](design-docs/tdd-v1-voice-command-agent.md)).
 > **Interface language:** English by default, changeable in Settings › General › Language (English, Italiano, Français, Español, Português, Deutsch, 中文, 日本語, Русский) or in `config.json` (`ui.language`).
 > Channels, skills, intents and gestures are configured in Settings (the **Channels** and **Profiles** chapters) or in `~/Library/Application Support/FXMicBridge/config.json`. This file describes the **defaults**. The reference code is `app/Sources/FXMicCore/Config.swift` (`Profile.defaults`) and `GestureRecognizer.swift` (`GestureSettings`).
+> This is the current gesture reference. One-pagers record proposals in their original context; accepted ADRs govern architecture until explicitly superseded. For repeatable validation, see [smoke checks](SMOKE-CHECKS.md). For acoustic codes and timing, see [the jack channel](JACK-CHANNEL.md) and the [receiver implementation](../app/Sources/FXMicBridge/JackTransport.swift).
 
 ## At a glance
 
@@ -19,7 +20,7 @@
 | Connection | What it carries | What it enables |
 |---|---|---|
 | **USB-C** (data) | MicroPython serial console, plus power | All gestures and LEDs. The app installs a RAM-only agent (ADR-001). |
-| **3.5 mm jack** | Analogue audio only | Voice only, through a USB audio interface with a line input (Settings › Audio). **No gestures** (a proposal for gestures via acoustic codes: [One-Pager 002](design-docs/onepager-002-jack-only-transport.md)). The Mac's headset jack with a TRS→TRRS adapter was tried without success: the Mac detects the microphone but gets no signal. |
+| **3.5 mm jack** | Analogue voice and acoustic gesture codes | With the installed [FXMic firmware](INSTALL-FIRMWARE.md), a USB audio interface with an input carries voice and supported gestures; see [the jack channel](JACK-CHANNEL.md). Original firmware and the USB RAM-only agent do not provide this acoustic channel. The Mac's headset jack with a TRS→TRRS adapter was tried without success: the Mac detects the microphone but gets no signal. |
 | **Mac keyboard** | Keyboard mic handle gestures | Hold **right Option** to talk; double click it for a new line (⇧↩ by default, or the profile's handle double-click action). |
 
 The keyboard mic works alongside the FX-MIC. The source that starts a take owns the handle until

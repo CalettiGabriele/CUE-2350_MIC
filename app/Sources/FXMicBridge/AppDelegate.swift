@@ -13,7 +13,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private let device = DeviceService()
     private var recognizer = GestureRecognizer()
     private var keyboardMic = KeyboardMic()
-    private var handleArbiter = HandleArbiter()
+    private var gestureRouter = GestureRouter()
     private let jack: JackTransport
     private let media = MediaController()
     private let dictation: DictationController
@@ -451,33 +451,27 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     private func handle(_ gestures: [FXMicCore.Gesture], from source: GestureSource,
                         captureSample: Int? = nil) {
-        for gesture in gestures where handleArbiter.accept(gesture, from: source) {
+        for gesture in gestures {
+            guard let effect = gestureRouter.route(gesture, from: source, captureSample: captureSample,
+                                                   awaitingConfirmation: riskGate.isWaiting) else { continue }
             log.debug("gesture \(String(describing: gesture), privacy: .public)")
-            // While the agent waits for a yes, grey answers yes, a shake answers no; nothing else runs.
-            if riskGate.isWaiting {
-                switch gesture {
-                case .tap(.grey): riskGate.resolve(true)
-                case .shake, .longPress(.grey): riskGate.resolve(false)
-                default: break
-                }
-                continue
-            }
-            // Jack boundaries must be applied only after ownership and confirmation checks.
-            if source == .jack {
-                if gesture == .pttDown { dictation.recorder.captureFrom = captureSample }
-                if gesture == .pttUp { dictation.recorder.captureTo = captureSample }
-            }
-            switch gesture {
-            case .pttDown: pttDown()
-            case .pttUp: dictation.pttUp()
-            default:
+            switch effect {
+            case .startRecording(let sample):
+                dictation.recorder.captureFrom = sample
+                pttDown()
+            case .stopRecording(let sample):
+                dictation.recorder.captureTo = sample
+                dictation.pttUp()
+            case .perform(let gesture):
                 if let action = engine.action(for: gesture) { perform(action) }
+            case .confirm(let approved):
+                riskGate.resolve(approved)
             }
         }
     }
 
     private func inputDisconnected(_ source: GestureSource) {
-        if handleArbiter.disconnect(source) { dictation.cancel() }
+        if gestureRouter.disconnect(source) { dictation.cancel() }
     }
 
     // MARK: - Actions (TDD §3.3)
