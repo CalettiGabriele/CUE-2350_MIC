@@ -712,20 +712,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     private func installKeyboardMic() {
         let handler: (NSEvent) -> Void = { [weak self] event in
-            guard let self, event.keyCode == 61 else { return }
-            // Device-dependent right Option flag. The aggregate .option stays set
-            // when left Option is held, even after right Option has been released.
-            let down = event.modifierFlags.rawValue & 0x40 != 0
+            guard let self else { return }
+            let down: Bool
+            if event.type == .flagsChanged {
+                // Device-dependent flags distinguish each side even when its peer is held.
+                let mask: UInt
+                switch event.keyCode {
+                case 54: mask = 0x10     // right Command
+                case 55: mask = 0x08     // left Command
+                case 56: mask = 0x02     // left Shift
+                case 60: mask = 0x04     // right Shift
+                case 58: mask = 0x20     // left Option
+                case 61: mask = 0x40     // right Option
+                case 59: mask = 0x01     // left Control
+                case 62: mask = 0x2000   // right Control
+                case 57: mask = NSEvent.ModifierFlags.capsLock.rawValue
+                case 63: mask = NSEvent.ModifierFlags.function.rawValue
+                default: return
+                }
+                down = event.modifierFlags.rawValue & mask != 0
+            } else {
+                down = true
+            }
             let result = self.keyboardMic.handle(keyCode: event.keyCode, isDown: down,
+                                                isRepeat: event.type == .keyDown && event.isARepeat,
                                                 at: event.timestamp * 1000)
             self.handle(result.gestures, from: .keyboard)
         }
-        if let monitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged, handler: { event in
+        let events: NSEvent.EventTypeMask = [.flagsChanged, .keyDown]
+        if let monitor = NSEvent.addGlobalMonitorForEvents(matching: events, handler: { event in
             MainActor.assumeIsolated { handler(event) }
         }) {
             keyboardMonitors.append(monitor)
         }
-        if let monitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged, handler: { event in
+        if let monitor = NSEvent.addLocalMonitorForEvents(matching: events, handler: { event in
             MainActor.assumeIsolated { handler(event) }
             return event
         }) {

@@ -20,6 +20,33 @@ Disconnect the FX-MIC or disable its transports. Record the macOS version, app b
 - [ ] Quickly double-click right Option. The configured handle double-click action runs (by default Shift-Return inserts a newline), without leaving a recording active.
 - [ ] Repeat a normal hold/release after the double-click to check that recording still works.
 
+### Keyboard grey and confirmations
+
+Use the built app with no FX-MIC connected. Repeat the shortcut checks both in its Settings window
+and in the throwaway document to cover local and global event monitors.
+
+- [ ] With no command slot selected, tap **right Command alone**. One Return is sent after the double-tap window. Select a harmless command slot and repeat; its action runs instead.
+- [ ] Dictate a harmless phrase, then double-tap right Command within 300 ms. The last insertion is undone once, with no extra Return.
+- [ ] Hold right Command for at least 600 ms. Nothing interrupts while it is held; releasing it runs the profile's interrupt action, Esc by default.
+- [ ] Use right Command-C and right Command-V in the throwaway document. Repeat after holding Command for more than 600 ms before pressing C or V. Copy/paste still works, with no Return, undo or Esc. Repeat with another modifier pressed while Command is down.
+- [ ] Tap and hold **left Command**. Neither produces a grey gesture. Hold left Command too and verify that releasing right Command is still recognised independently.
+- [ ] Hold right Option, then press and release right Command while Option remains held. The island changes to Voice command before Option is released. Speak a harmless command and release Option; it executes rather than typing the command sentence.
+- [ ] Repeat the chord, but press C while Command is down. No voice-command transition occurs; releasing Option still ends the dictation.
+- [ ] Release Option before Command in a candidate chord. Dictation ends normally, without a later grey tap or interrupt.
+
+For repeatable confirmation checks, temporarily add a macro named `Smoke confirmation` under
+Settings › Voice command › My tools. Give it an English description saying it types a harmless
+smoke marker, one text step containing `SMOKE CONFIRMED`, and Risk = **Asks on the mic**.
+Keep the throwaway document focused. The speech model and local model server must be ready.
+
+- [ ] Hold right Option, press and release right Command, say "run Smoke confirmation", then release Option. Wait for the confirmation, tap right Command and wait for the double-tap window. The marker is inserted exactly once.
+- [ ] Repeat the voice command. At the confirmation, hold right Command for at least 600 ms and release it before the confirmation timeout. The action is refused and no marker is inserted.
+- [ ] During another confirmation, use right Command-C. It must not approve or refuse; no answer still times out to no.
+- [ ] Remove the temporary macro and restore any profile or slot changes.
+
+The island still names the physical grey/shake buttons until the connection-aware hints ticket;
+use the keyboard answers above even when the wording names the mic.
+
 ## Hardware ownership and recovery
 
 These cases require the physical FX-MIC. For USB use a data cable; for jack install [FXMic firmware](INSTALL-FIRMWARE.md) and connect its jack to a suitable USB audio input. Original firmware and the USB RAM agent do not emit the jack gesture codes. Configure the relevant connection and audio input. Run USB and jack cases separately and record firmware, connection and input details.
@@ -29,6 +56,7 @@ These cases require the physical FX-MIC. For USB use a data cable; for jack inst
 - [ ] During a USB-owned take, disconnect USB. The take is cancelled rather than committed; a subsequent right Option take still works. Reconnect USB and confirm a new physical take works.
 - [ ] During a jack-owned take, stop the jack listener by changing the connection away from jack, or change the audio input to restart the listener. The take is cancelled rather than committed; a subsequent right Option take still works. Restore the jack connection/listener and confirm a new physical take works.
 - [ ] Hold the jack handle for more than 12 seconds, speaking throughout, then release. No heartbeat is sent while held; heartbeat silence alone must not cancel the take. Confirm the recording lasts through the hold and completes on release.
+- [ ] With an FX-MIC connected, check physical grey tap, double tap, long press and handle-plus-grey voice command. Approve and refuse a harmless risky command using the mic, then using right Command. Physical long press/chord still fire while held; only keyboard Command waits for release.
 
 ## Audio boundary regression
 
