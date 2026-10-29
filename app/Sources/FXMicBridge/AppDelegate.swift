@@ -12,6 +12,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private var engine: ProfileEngine
     private let device = DeviceService()
     private var recognizer = GestureRecognizer()
+    private var keyboardMic = KeyboardMic()
+    private var handleArbiter = HandleArbiter()
     private let jack: JackTransport
     private let media = MediaController()
     private let dictation: DictationController
@@ -43,7 +45,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private var messageTimer: Timer?
     private var deviceStatus: DeviceStatus = .stopped
     private var currentPhase: DictationController.Phase = .idle
-    private var hotkeyDown = false
+    private var keyboardMonitors: [Any] = []
     private var frontmost: NSRunningApplication?
     /// Confirmation of risky voice command actions on the mic.
     private let riskGate = RiskGate()
@@ -162,7 +164,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         frontmostChanged(NSWorkspace.shared.frontmostApplication)
 
         device.delegate = self
-        jack.onGesture = { [weak self] gesture in self?.handle([gesture]) }
+        jack.onGesture = { [weak self] gesture, sample in
+            self?.handle([gesture], from: .jack, captureSample: sample)
+        }
+        jack.onStop = { [weak self] in self?.inputDisconnected(.jack) }
         jack.onPage = { [weak self] index in self?.goToPage(index) }
         media.configure(config.audio.pauseMedia)
         media.warmUp()
@@ -180,11 +185,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
                 self.updateFocus()
             }
         }
-        installHotkeyFallback()
+        installKeyboardMic()
         if let configError { show(.message(configError)) }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        keyboardMonitors.forEach(NSEvent.removeMonitor)
+        keyboardMonitors.removeAll()
         // Restores the factory callback, LEDs and preset on the mic (ADR-001).
         device.restoreSync = (engine.channels.count, engine.channelPosition ?? -1, engine.slotNumber ?? 0)
         media.holdEnded()   // never leave the music paused
@@ -344,6 +351,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     nonisolated func device(_ service: DeviceService, didChange status: DeviceStatus) {
         MainActor.assumeIsolated {
             deviceStatus = status
+            switch status {
+            case .connected: break
+            default:
+                recognizer = GestureRecognizer()
+                inputDisconnected(.usb)
+            }
             defer {
                 if jack.isListening {
                     jackStatusChanged()   // the jack's state is the one to show
@@ -375,9 +388,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             switch line {
             case .control(let control, let active):
                 if active { settings.pressedControls.insert(control) } else { settings.pressedControls.remove(control) }
-                handle(recognizer.handle(control, active: active, at: timeMs))
+                handle(recognizer.handle(control, active: active, at: timeMs), from: .usb)
             case .poll(_, let shaker, _):
-                handle(recognizer.poll(shaker: shaker, at: timeMs))
+                handle(recognizer.poll(shaker: shaker, at: timeMs), from: .usb)
             case .deviceError(let text):
                 log.error("device: \(text, privacy: .public)")
             default:
@@ -431,11 +444,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     }
 
     private func tick() {
-        handle(recognizer.tick(at: ProcessInfo.processInfo.systemUptime * 1000))
+        let time = ProcessInfo.processInfo.systemUptime * 1000
+        handle(recognizer.tick(at: time), from: .usb)
+        handle(keyboardMic.tick(at: time), from: .keyboard)
     }
 
-    private func handle(_ gestures: [FXMicCore.Gesture]) {
-        for gesture in gestures {
+    private func handle(_ gestures: [FXMicCore.Gesture], from source: GestureSource,
+                        captureSample: Int? = nil) {
+        for gesture in gestures where handleArbiter.accept(gesture, from: source) {
             log.debug("gesture \(String(describing: gesture), privacy: .public)")
             // While the agent waits for a yes, grey answers yes, a shake answers no; nothing else runs.
             if riskGate.isWaiting {
@@ -446,6 +462,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
                 }
                 continue
             }
+            // Jack boundaries must be applied only after ownership and confirmation checks.
+            if source == .jack {
+                if gesture == .pttDown { dictation.recorder.captureFrom = captureSample }
+                if gesture == .pttUp { dictation.recorder.captureTo = captureSample }
+            }
             switch gesture {
             case .pttDown: pttDown()
             case .pttUp: dictation.pttUp()
@@ -453,6 +474,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
                 if let action = engine.action(for: gesture) { perform(action) }
             }
         }
+    }
+
+    private func inputDisconnected(_ source: GestureSource) {
+        if handleArbiter.disconnect(source) { dictation.cancel() }
     }
 
     // MARK: - Actions (TDD §3.3)
@@ -689,22 +714,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         }
     }
 
-    // MARK: - Fallback push-to-talk (right Option held)
+    // MARK: - Keyboard mic
 
-    private func installHotkeyFallback() {
+    private func installKeyboardMic() {
         let handler: (NSEvent) -> Void = { [weak self] event in
-            guard let self, event.keyCode == 61 else { return }   // right Option
-            let down = event.modifierFlags.contains(.option)
-            guard down != self.hotkeyDown else { return }
-            self.hotkeyDown = down
-            down ? self.pttDown() : self.dictation.pttUp()
+            guard let self, event.keyCode == 61 else { return }
+            // Device-dependent right Option flag. The aggregate .option stays set
+            // when left Option is held, even after right Option has been released.
+            let down = event.modifierFlags.rawValue & 0x40 != 0
+            let result = self.keyboardMic.handle(keyCode: event.keyCode, isDown: down,
+                                                at: event.timestamp * 1000)
+            self.handle(result.gestures, from: .keyboard)
         }
-        NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { event in
+        if let monitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged, handler: { event in
             MainActor.assumeIsolated { handler(event) }
+        }) {
+            keyboardMonitors.append(monitor)
         }
-        NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
+        if let monitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged, handler: { event in
             MainActor.assumeIsolated { handler(event) }
             return event
+        }) {
+            keyboardMonitors.append(monitor)
         }
     }
 

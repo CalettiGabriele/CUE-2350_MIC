@@ -20,7 +20,15 @@
 |---|---|---|
 | **USB-C** (data) | MicroPython serial console, plus power | All gestures and LEDs. The app installs a RAM-only agent (ADR-001). |
 | **3.5 mm jack** | Analogue audio only | Voice only, through a USB audio interface with a line input (Settings › Audio). **No gestures** (a proposal for gestures via acoustic codes: [One-Pager 002](design-docs/onepager-002-jack-only-transport.md)). The Mac's headset jack with a TRS→TRRS adapter was tried without success: the Mac detects the microphone but gets no signal. |
-| **Mac keyboard** | — | Fallback push-to-talk: hold **right Option**. |
+| **Mac keyboard** | Keyboard mic handle gestures | Hold **right Option** to talk; double click it for a new line (⇧↩ by default, or the profile's handle double-click action). |
+
+The keyboard mic works alongside the FX-MIC. The source that starts a take owns the handle until
+it releases it: pressing or releasing another source's handle cannot start or stop that take.
+If the owning USB connection goes away or the jack listener stops, the take is cancelled and the
+keyboard mic remains available. Heartbeat silence alone does not end a jack take: the FX-MIC
+does not send heartbeats while its handle is held.
+Right Option uses the same click timing and profile actions as the physical handle; holding left
+Option at the same time does not prevent a right Option release from ending the take.
 
 ## The voice goes where you are
 
