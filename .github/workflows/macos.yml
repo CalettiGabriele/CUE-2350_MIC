@@ -16,7 +16,7 @@ jobs:
   build-and-test:
     runs-on: macos-15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - name: Test
         run: app/scripts/test.sh
       - name: Build release
