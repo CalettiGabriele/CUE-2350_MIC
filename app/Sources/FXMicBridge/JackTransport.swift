@@ -21,7 +21,9 @@ private final class JackFeed {
 /// a take starts where the "handle down" code started and ends where "handle up" started.
 @MainActor
 final class JackTransport {
-    var onGesture: ((Gesture) -> Void)?
+    /// Handle events include their capture boundary in the continuous audio stream.
+    var onGesture: ((Gesture, Int?) -> Void)?
+    var onStop: (() -> Void)?
     /// The mic moved its red LEDs to this channel (0-based).
     var onPage: ((Int) -> Void)?
     /// The mic's signal appeared or went away.
@@ -80,6 +82,7 @@ final class JackTransport {
     }
 
     func stop() {
+        onStop?()
         timer?.invalidate(); timer = nil
         if let observer { NotificationCenter.default.removeObserver(observer) }
         observer = nil
@@ -120,16 +123,16 @@ final class JackTransport {
                 onPage?(index)
             case .gesture(.pttDown):
                 guard !handleHeld else { continue }
-                recorder.captureFrom = event.onsetSample - Int(rate * 0.05)
                 handleHeld = true
-                forward(handle.handle(.handle, active: true, at: ms))
+                forward(handle.handle(.handle, active: true, at: ms),
+                        captureSample: event.onsetSample - Int(rate * 0.05))
             case .gesture(.pttUp):
                 // The mic repeats the release code: the second one finds the handle already up.
                 guard handleHeld else { continue }
                 release(at: event.onsetSample, ms: ms)
             case .gesture(let gesture):
                 log.debug("jack \(String(describing: gesture), privacy: .public)")
-                onGesture?(gesture)
+                onGesture?(gesture, nil)
             }
         }
     }
@@ -138,11 +141,10 @@ final class JackTransport {
 
     private func release(at sample: Int, ms: Double) {
         handleHeld = false
-        recorder.captureTo = sample
-        forward(handle.handle(.handle, active: false, at: ms))
+        forward(handle.handle(.handle, active: false, at: ms), captureSample: sample)
     }
 
-    private func forward(_ gestures: [Gesture]) {
-        for gesture in gestures { onGesture?(gesture) }
+    private func forward(_ gestures: [Gesture], captureSample: Int? = nil) {
+        for gesture in gestures { onGesture?(gesture, captureSample) }
     }
 }

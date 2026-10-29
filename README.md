@@ -74,7 +74,8 @@ sweep plays in a small black island at the top of your screen, next to the timer
 text is written where your cursor is: terminal, editor, browser, chat, anything with a text field.
 Nothing jumps, nothing needs to be set up first.
 
-No mic plugged in? Hold <kbd>right ⌥ Option</kbd> and talk.
+No mic plugged in? Hold <kbd>right ⌥ Option</kbd> and talk; release to finish, or double-click it for
+a new line. Right Option is the currently implemented keyboard handle.
 
 Music playing? Turn on **Settings › Audio › Music** and Spotify or Apple Music pause while you hold the
 handle and resume, by themselves, when you let go.
@@ -186,7 +187,8 @@ A long press on grey interrupts it (<kbd>Esc</kbd>). Your hands never leave the 
 | a short shake | cancel the dictation |
 | a hard shake for 2 s | clear the text field |
 
-The full reference lives in [docs/GESTURES.md](docs/GESTURES.md) *(in Italian)*.
+The current gesture reference is [docs/GESTURES.md](docs/GESTURES.md); use the
+[smoke checklist](docs/SMOKE-CHECKS.md) to check keyboard and hardware behavior.
 
 <br>
 
@@ -222,10 +224,10 @@ words — and what the voice command reads on screen — would leave this Mac. I
 
 ## ((8.9)) get started.
 
-**You need** a Mac with Apple silicon on macOS 14 or later and an EP-2350 FX-MIC, connected either with
-a USB-C **data** cable, or through its 3.5 mm jack with a USB audio adapter that has an input (the jack
-route needs the FXMic firmware, see below). For voice commands and LLM rewrites, a local model server
-such as Ollama.
+**You need** a Mac with Apple silicon on macOS 14 or later. The keyboard handle works without an
+EP-2350 FX-MIC; for hardware gestures, connect the mic with a USB-C **data** cable or through its
+3.5 mm jack with a USB audio adapter that has an input (the jack route needs the FXMic firmware,
+see below). For voice commands and LLM rewrites, a local model server such as Ollama.
 
 ```bash
 # 1. build the app (Command Line Tools are enough, no Xcode)
@@ -254,10 +256,13 @@ through the jack is explained in [the jack channel, step by step](docs/JACK-CHAN
 
 - The jack route: [install the firmware](docs/INSTALL-FIRMWARE.md) and [how the jack channel works](docs/JACK-CHANNEL.md)
   (with sounds, charts and the decoder in slow motion).
-- Architecture, protocol and decisions: [technical design](docs/design-docs/tdd-v1-fxmic-bridge.md),
-  [ADR-001 — RAM-only agent](docs/adr/adr-001-device-control-via-ram-repl-agent.md),
-  [channels, skills and voice commands](docs/design-docs/onepager-004-channels-and-commands.md) *(in Italian)*.
-- Tests: `cd app && ./scripts/test.sh`.
+- Current behavior: [gesture reference](docs/GESTURES.md) and [smoke checklist](docs/SMOKE-CHECKS.md).
+- Design background and architectural decisions: [technical design](docs/design-docs/tdd-v1-fxmic-bridge.md),
+  [ADR-001 — RAM-only agent](docs/adr/adr-001-device-control-via-ram-repl-agent.md), and
+  [channels, skills and voice commands](docs/design-docs/onepager-004-channels-and-commands.md).
+  Check each document's date and status: proposals describe their original context, while accepted
+  ADRs govern architecture until explicitly superseded. Use the gesture reference for current controls.
+- Automated tests: `cd app && ./scripts/test.sh`; physical hardware checks are separate and pending.
 - Translations: edit `app/scripts/l10n/translations.py`, then run `python3 app/scripts/l10n/generate.py`.
 - The illustrations in this README are generated: `python3 docs/readme/build_art.py`.
 - The teaser video: [videos/fxmic-bridge-teaser/renders/video.mp4](videos/fxmic-bridge-teaser/renders/video.mp4).

@@ -23,5 +23,9 @@ videos/**/assets/sfx/
 # Local Claude Code session config
 .claude/
 
+# Agent skills installed locally (npx skills add mattpocock/skills)
+.agents/
+skills-lock.json
+
 # Generated firmware assets (firmware/fxmic/build.py)
 firmware/fxmic/build/
