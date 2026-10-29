@@ -92,8 +92,19 @@ import Testing
         #expect(body["max_tokens"] == nil)
         #expect(body["max_completion_tokens"] as? Int == 1024)
         #expect(body["temperature"] == nil)
-        #expect(body["reasoning_effort"] == nil)
         #expect(client(.openai).body([.user("hi")], tools: [], temperature: nil, maxTokens: nil)["max_completion_tokens"] == nil)
+    }
+
+    @Test func openAIToolsTurnReasoningOffAndFallBackWithoutIt() {
+        let withTools = client(.openai).body([.user("hi")], tools: [echo], temperature: nil, maxTokens: nil)
+        #expect(withTools["reasoning_effort"] as? String == "none")
+        #expect(client(.openai).body([.user("hi")], tools: [], temperature: nil, maxTokens: nil)["reasoning_effort"] == nil)
+        let retry = client(.openai).body([.user("hi")], tools: [echo], temperature: nil, maxTokens: nil, reasoningEffort: false)
+        #expect(retry["reasoning_effort"] == nil)
+        let unsupported = #"{"error": {"message": "Unsupported parameter: 'reasoning_effort' is not supported with this model."}}"#
+        #expect(OpenAICompatibleClient.rejectsReasoningEffort(Data(unsupported.utf8)))
+        let other = #"{"error": {"message": "Function tools with reasoning_effort are not supported for x"}}"#
+        #expect(!OpenAICompatibleClient.rejectsReasoningEffort(Data(other.utf8)))
     }
 
     @Test func toolMessagesGoOnTheWire() {
