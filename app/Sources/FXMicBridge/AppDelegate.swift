@@ -714,7 +714,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         let handler: (NSEvent) -> Void = { [weak self] event in
             guard let self else { return }
             let down: Bool
-            if event.type == .flagsChanged {
+            if event.type == .flagsChanged, event.keyCode != 57 {
                 // Device-dependent flags distinguish each side even when its peer is held.
                 let mask: UInt
                 switch event.keyCode {
@@ -726,12 +726,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
                 case 61: mask = 0x40     // right Option
                 case 59: mask = 0x01     // left Control
                 case 62: mask = 0x2000   // right Control
-                case 57: mask = NSEvent.ModifierFlags.capsLock.rawValue
                 case 63: mask = NSEvent.ModifierFlags.function.rawValue
                 default: return
                 }
                 down = event.modifierFlags.rawValue & mask != 0
             } else {
+                // Caps Lock reports its latched state; toggling it either way is key activity.
                 down = true
             }
             let result = self.keyboardMic.handle(keyCode: event.keyCode, isDown: down,

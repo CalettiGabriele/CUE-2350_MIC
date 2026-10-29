@@ -28,7 +28,7 @@ and in the throwaway document to cover local and global event monitors.
 - [ ] With no command slot selected, tap **right Command alone**. One Return is sent after the double-tap window. Select a harmless command slot and repeat; its action runs instead.
 - [ ] Dictate a harmless phrase, then double-tap right Command within 300 ms. The last insertion is undone once, with no extra Return.
 - [ ] Hold right Command for at least 600 ms. Nothing interrupts while it is held; releasing it runs the profile's interrupt action, Esc by default.
-- [ ] Use right Command-C and right Command-V in the throwaway document. Repeat after holding Command for more than 600 ms before pressing C or V. Copy/paste still works, with no Return, undo or Esc. Repeat with another modifier pressed while Command is down.
+- [ ] Use right Command-C and right Command-V in the throwaway document. Repeat after holding Command for more than 600 ms before pressing C or V. Copy/paste still works, with no Return, undo or Esc. Repeat with another modifier pressed while Command is down, and with Caps Lock toggled both on and off.
 - [ ] Tap and hold **left Command**. Neither produces a grey gesture. Hold left Command too and verify that releasing right Command is still recognised independently.
 - [ ] Hold right Option, then press and release right Command while Option remains held. The island changes to Voice command before Option is released. Speak a harmless command and release Option; it executes rather than typing the command sentence.
 - [ ] Repeat the chord, but press C while Command is down. No voice-command transition occurs; releasing Option still ends the dictation.

@@ -42,7 +42,7 @@ import Testing
         #expect(mic.tick(at: 1000).isEmpty)
     }
 
-    @Test(arguments: [UInt16(0), 8, 9, 55, 56, 58, 61])
+    @Test(arguments: [UInt16(0), 8, 9, 55, 56, 57, 58, 61])
     func anotherKeyCancelsEvenAfterTheLongPressThreshold(keyCode: UInt16) {
         var mic = KeyboardMic()
         _ = mic.handle(keyCode: 54, isDown: true, at: 0)
