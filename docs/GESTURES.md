@@ -21,7 +21,7 @@
 |---|---|---|
 | **USB-C** (data) | MicroPython serial console, plus power | All gestures and LEDs. The app installs a RAM-only agent (ADR-001). |
 | **3.5 mm jack** | Analogue voice and acoustic gesture codes | With the installed [FXMic firmware](INSTALL-FIRMWARE.md), a USB audio interface with an input carries voice and supported gestures; see [the jack channel](JACK-CHANNEL.md). Original firmware and the USB RAM-only agent do not provide this acoustic channel. The Mac's headset jack with a TRS→TRRS adapter was tried without success: the Mac detects the microphone but gets no signal. |
-| **Mac keyboard** | Keyboard mic handle gestures | Hold **right Option** to talk; double click it for a new line (⇧↩ by default, or the profile's handle double-click action). |
+| **Mac keyboard** | Keyboard mic handle and grey gestures | Hold **right Option** to talk; double click it for a new line. **Right Command alone** acts as grey; press and release it while right Option stays held for a voice command. |
 
 The keyboard mic works alongside the FX-MIC. The source that starts a take owns the handle until
 it releases it: pressing or releasing another source's handle cannot start or stop that take.
@@ -30,6 +30,40 @@ keyboard mic remains available. Heartbeat silence alone does not end a jack take
 does not send heartbeats while its handle is held.
 Right Option uses the same click timing and profile actions as the physical handle; holding left
 Option at the same time does not prevent a right Option release from ending the take.
+
+With no connected USB FX-MIC (including read-only) or signal-bearing jack, the island stays visible
+at idle with the profile, channel and slot and mirrors the logical mic LEDs. Its red and white LEDs
+follow the current channel and slot, including after a slot is consumed or cleared. Connecting a mic
+restores the usual hardware-connected idle behavior; losing it restores the keyboard idle context.
+The recording sweep and elapsed timer continue through the voice-command chord until release.
+Processing, error and risky-confirmation feedback use the existing mic LED patterns. Grey actions
+with no dedicated physical pattern show their outcome without a new LED pattern, then return to idle
+context. With Reduce Motion, recording and processing use steady red LEDs instead of motion.
+Keyboard arrow mappings for the other mic buttons are not implemented yet.
+
+### Grey on the keyboard mic
+
+Right Command uses the same grey profile actions and gesture thresholds as the FX-MIC:
+
+| Keyboard gesture | Result |
+|---|---|
+| Right Command tap, at most 450 ms | Run the selected command, otherwise Return; waits for the 300 ms double-tap window |
+| Two right Command taps within the double-tap window | Undo the last insertion |
+| Right Command held for at least 600 ms, then released | Interrupt, Esc by default |
+| Right Option held, then right Command pressed and released | Voice command; release Command before Option so the chord commits before recording ends |
+| Right Command tap during confirmation | Approve |
+| Right Command held for at least 600 ms, then released during confirmation | Refuse |
+
+Unlike the physical grey button, right Command stays provisional until it is released.
+Long press and chord therefore fire on release, not while held. This preserves ordinary shortcuts
+even when another key is pressed after the long-press threshold. Any other key pressed during the
+Command hold cancels its grey gesture; all keyboard events pass through unchanged. Left Command
+never acts as grey. Releasing right Option before Command cancels the candidate chord and ends the
+dictation normally, without a stray Return or Esc. A hold longer than 450 ms but shorter than 600 ms
+is neither tap nor long press, as on the mic.
+
+These keys work both in the app's own windows and in other apps. Observing keys in other apps needs
+the app's Accessibility grant; Secure Keyboard Entry can prevent delivery.
 
 ## The voice goes where you are
 

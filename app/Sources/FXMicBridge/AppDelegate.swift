@@ -142,6 +142,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         leds.slotNumber = { [weak self] in self?.engine.slotNumber }
         leds.map = config.device.ledMap
         leds.frameMs = config.device.ledAnimationMs
+        leds.refresh()
         wireSettings()
 
         let firstRun = !UserDefaults.standard.bool(forKey: Self.onboardingKey)
@@ -167,7 +168,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         jack.onGesture = { [weak self] gesture, sample in
             self?.handle([gesture], from: .jack, captureSample: sample)
         }
-        jack.onStop = { [weak self] in self?.inputDisconnected(.jack) }
+        jack.onStop = { [weak self] in
+            self?.inputDisconnected(.jack)
+            // JackTransport invokes onStop before clearing its listening and signal state.
+            DispatchQueue.main.async { [weak self] in self?.updateIdleHUD() }
+        }
         jack.onPage = { [weak self] index in self?.goToPage(index) }
         media.configure(config.audio.pauseMedia)
         media.warmUp()
@@ -281,6 +286,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             selectionChanged(announce: false, title: engine.active.name)
         }
         updateFocus()
+        updateIdleHUD()
     }
 
     /// Where the voice goes now: the channel whose window is in front, or free. Nothing jumps:
@@ -316,6 +322,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     private var selectionDetail: String {
         "\(engine.active.name) · \(channelName) · \(slotName)"
+    }
+
+    private func updateIdleHUD() {
+        let usbConnected: Bool
+        switch deviceStatus {
+        case .connected, .readOnly: usbConnected = config.device.transport != .jack
+        default: usbConnected = false
+        }
+        let jackConnected = jack.isListening && jack.hasSignal
+        hud.setIdle(usbConnected || jackConnected ? nil : selectionDetail)
     }
 
     /// "CHANNEL 2/3", or "FREE" when you are not on a channel.
@@ -366,6 +382,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
                     else if case .readOnly = status { settings.deviceConnected = true }
                     else { settings.deviceConnected = false }
                 }
+                updateIdleHUD()
             }
             switch status {
             case .searching: deviceItem.title = L.t("Mic: not connected (right Option = talk)")
@@ -410,6 +427,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             device.start()
         }
         _ = updateJackUse()
+        updateIdleHUD()
         jackStatusChanged()
     }
 
@@ -433,6 +451,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     }
 
     private func jackStatusChanged() {
+        updateIdleHUD()
         guard jack.isListening else { return }
         let connected = jack.hasSignal
         deviceItem.title = jack.failed ? L.t("Mic: audio input not available")
@@ -674,6 +693,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
                 return .failed
             }
             engine.select(slot: index)
+            leds.refresh()
+            rebuildProfileMenu()
             runSelectedSlot()
             return .done
         case .intent(let name):
@@ -712,20 +733,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     private func installKeyboardMic() {
         let handler: (NSEvent) -> Void = { [weak self] event in
-            guard let self, event.keyCode == 61 else { return }
-            // Device-dependent right Option flag. The aggregate .option stays set
-            // when left Option is held, even after right Option has been released.
-            let down = event.modifierFlags.rawValue & 0x40 != 0
+            guard let self else { return }
+            let down: Bool
+            if event.type == .flagsChanged, event.keyCode != 57 {
+                // Device-dependent flags distinguish each side even when its peer is held.
+                let mask: UInt
+                switch event.keyCode {
+                case 54: mask = 0x10     // right Command
+                case 55: mask = 0x08     // left Command
+                case 56: mask = 0x02     // left Shift
+                case 60: mask = 0x04     // right Shift
+                case 58: mask = 0x20     // left Option
+                case 61: mask = 0x40     // right Option
+                case 59: mask = 0x01     // left Control
+                case 62: mask = 0x2000   // right Control
+                case 63: mask = NSEvent.ModifierFlags.function.rawValue
+                default: return
+                }
+                down = event.modifierFlags.rawValue & mask != 0
+            } else {
+                // Caps Lock reports its latched state; toggling it either way is key activity.
+                down = true
+            }
             let result = self.keyboardMic.handle(keyCode: event.keyCode, isDown: down,
+                                                isRepeat: event.type == .keyDown && event.isARepeat,
                                                 at: event.timestamp * 1000)
             self.handle(result.gestures, from: .keyboard)
         }
-        if let monitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged, handler: { event in
+        let events: NSEvent.EventTypeMask = [.flagsChanged, .keyDown]
+        if let monitor = NSEvent.addGlobalMonitorForEvents(matching: events, handler: { event in
             MainActor.assumeIsolated { handler(event) }
         }) {
             keyboardMonitors.append(monitor)
         }
-        if let monitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged, handler: { event in
+        if let monitor = NSEvent.addLocalMonitorForEvents(matching: events, handler: { event in
             MainActor.assumeIsolated { handler(event) }
             return event
         }) {
@@ -794,6 +835,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     }
 
     private func rebuildProfileMenu() {
+        updateIdleHUD()
         profileItem.title = L.f("Profile: %@", engine.active.name)
         settings.activeProfileID = engine.active.id
         channelMenu.removeAllItems()
@@ -876,6 +918,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     }
 
     private func show(_ phase: DictationController.Phase) {
+        if case .message(let text) = phase, dictation.isRecording {
+            currentPhase = .recording
+            messageTimer?.invalidate()
+            leds.set(.recording)
+            phaseItem.title = "● " + L.t("Recording…")
+            hud.show(statusLine(text), detail: selectionDetail, showsMeter: true, glyph: .recording)
+            updateIcon()
+            return
+        }
         currentPhase = phase
         messageTimer?.invalidate()
         let detail = selectionDetail
