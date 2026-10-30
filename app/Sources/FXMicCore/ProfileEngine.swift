@@ -42,8 +42,6 @@ public struct ProfileEngine {
     public private(set) var config: AppConfig
     public private(set) var active: Profile
     private var modes: [String: InteractionMode] = [:]
-    /// Selected slot index per profile (nil = no slot).
-    private var slots: [String: Int] = [:]
 
     public init(config: AppConfig) {
         self.config = config
@@ -55,7 +53,6 @@ public struct ProfileEngine {
         self.config = config
         active = config.profiles.first { $0.id == activeID } ?? Self.fallback(in: config)
         modes = modes.filter { id, _ in config.profiles.contains { $0.id == id } }
-        slots = slots.filter { id, _ in config.profiles.contains { $0.id == id } }
         position = channelPosition
     }
 
@@ -196,39 +193,49 @@ public struct ProfileEngine {
 
     // MARK: Slots (white)
 
+    /// What the white LEDs show: 0 = none, 1…15 in binary. One counter for the whole mic, like the
+    /// firmware's own (it pages 0…15 whatever the profile has): a number beyond the profile's
+    /// slots lights the LEDs and selects nothing.
+    private var slotCounter = 0
+    /// The slot was used by a dictation or run: the LEDs keep the number (the mic cannot be told
+    /// to clear it over the jack) but nothing is selected until the next slot gesture.
+    private var slotUsed = false
+
     public var slotIndex: Int? {
-        guard let i = slots[active.id], active.slots.indices.contains(i) else { return nil }
-        return i
+        guard !slotUsed, slotCounter > 0, active.slots.indices.contains(slotCounter - 1) else { return nil }
+        return slotCounter - 1
     }
 
     public var slot: Slot? { slotIndex.map { active.slots[$0] } }
 
     /// Slot number shown on the white LEDs in binary (1…15), nil = none.
-    public var slotNumber: Int? { slotIndex.map { $0 + 1 } }
+    public var slotNumber: Int? { slotCounter > 0 ? slotCounter : nil }
 
-    /// none → 1 → 2 … → last → none
+    /// none → 1 → 2 … → 15 → none
     public mutating func nextSlot() {
-        guard !active.slots.isEmpty else { return }
-        let next = (slotIndex ?? -1) + 1
-        slots[active.id] = next < active.slots.count ? next : nil
+        slotCounter = (slotCounter + 1) % 16
+        slotUsed = false
     }
 
-    /// none → last → … → 1 → none
+    /// none → 15 → … → 1 → none
     public mutating func previousSlot() {
-        guard !active.slots.isEmpty else { return }
-        if let i = slotIndex {
-            slots[active.id] = i > 0 ? i - 1 : nil
-        } else {
-            slots[active.id] = active.slots.count - 1
-        }
+        slotCounter = (slotCounter + 15) % 16
+        slotUsed = false
     }
 
     public mutating func clearSlot() {
-        slots[active.id] = nil
+        slotCounter = 0
+        slotUsed = false
+    }
+
+    /// A dictation or run used the selected slot: it stops applying, the LEDs keep the number.
+    public mutating func consumeSlot() {
+        slotUsed = true
     }
 
     public mutating func select(slot index: Int?) {
-        slots[active.id] = index.flatMap { active.slots.indices.contains($0) ? $0 : nil }
+        slotCounter = index.flatMap { active.slots.indices.contains($0) ? $0 + 1 : nil } ?? 0
+        slotUsed = false
     }
 
     // MARK: Labels

@@ -142,7 +142,7 @@ import Testing
         #expect(engine.mode == .dictation)
     }
 
-    @Test func whiteWalksSlotsThroughNone() {
+    @Test func whiteWalksLikeTheMic() {
         var engine = ProfileEngine(config: AppConfig())   // "Generale": 4 slots
         #expect(engine.slotNumber == nil)
         engine.nextSlot()
@@ -150,21 +150,40 @@ import Testing
         #expect(engine.slotName == "Email")
         for _ in 0..<3 { engine.nextSlot() }
         #expect(engine.slotNumber == 4)
+        // Past the profile's slots the LEDs keep counting (the mic pages 0…15), nothing is selected.
+        engine.nextSlot()
+        #expect(engine.slotNumber == 5)
+        #expect(engine.slot == nil)
+        for _ in 0..<10 { engine.nextSlot() }
+        #expect(engine.slotNumber == 15)
         engine.nextSlot()
         #expect(engine.slotNumber == nil)
         engine.previousSlot()
-        #expect(engine.slotNumber == 4)
+        #expect(engine.slotNumber == 15)
         engine.clearSlot()
         #expect(engine.slot == nil)
+        #expect(engine.slotNumber == nil)
     }
 
-    @Test func selectionIsPerProfile() {
+    @Test func usedSlotKeepsItsNumberOnTheLEDs() {
+        var engine = ProfileEngine(config: AppConfig())
+        engine.nextSlot()
+        #expect(engine.slot != nil)
+        engine.consumeSlot()
+        #expect(engine.slot == nil)
+        #expect(engine.slotNumber == 1)
+        engine.nextSlot()
+        #expect(engine.slot != nil)
+    }
+
+    @Test func modeIsPerProfileSlotIsTheMics() {
         var engine = ProfileEngine(config: AppConfig())
         engine.cycleMode()
         engine.nextSlot()
         engine.activate(bundleID: Profile.claudeDesktopID)
         #expect(engine.mode == .dictation)
-        #expect(engine.slot == nil)
+        // One counter for the mic: the number stays, the slot is the one this profile has there.
+        #expect(engine.slotNumber == 1)
         engine.activate(bundleID: nil)
         #expect(engine.mode == .enhanced)
         #expect(engine.slotNumber == 1)

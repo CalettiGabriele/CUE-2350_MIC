@@ -130,7 +130,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         }
         dictation.onSlotConsumed = { [weak self] in
             guard let self else { return }
-            self.engine.clearSlot()
+            self.engine.consumeSlot()
             self.leds.refresh()
             self.rebuildProfileMenu()
         }
@@ -669,7 +669,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         }
         switch slot.kind {
         case .run:
-            engine.clearSlot()
+            engine.consumeSlot()
             leds.refresh()
             rebuildProfileMenu()
             perform(slot.action)
