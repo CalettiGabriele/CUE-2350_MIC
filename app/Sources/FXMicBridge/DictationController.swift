@@ -38,8 +38,10 @@ final class DictationController {
         case done(String)
         /// An error: same as a message, plus the LED error blink.
         case failure(String)
-        /// The voice command agent at work: the step being run.
-        case working(String)
+        /// The voice command agent at work: the step being run, what you said and the step count.
+        case working(String, request: String, step: Int, steps: Int)
+        /// The voice command ran: what it did and how long it took.
+        case commandDone(String, seconds: Double)
     }
 
     var onPhase: ((Phase) -> Void)?
@@ -90,6 +92,11 @@ final class DictationController {
         return false
     }
 
+    /// The dictation in progress is a voice command: the profile's mode, or grey pressed while talking.
+    var isCommand: Bool {
+        context.map { $0.editSelection || $0.mode == .command } ?? false
+    }
+
     // MARK: - Push-to-talk
 
     func pttDown() {
@@ -116,7 +123,9 @@ final class DictationController {
     func markEditSelection() {
         guard isRecording, context?.editSelection == false else { return }
         context?.editSelection = true
-        onPhase?(.message(L.t("Voice command")))
+        // Still recording: the island stays and takes the command look (a message would replace it
+        // with a notice that hides, leaving nothing on screen until the handle is released).
+        onPhase?(.recording)
         // The model is usually loaded already; this only makes sure it stays so.
         config.llm.client.warmUp()
         Task { [weak self] in
@@ -274,12 +283,16 @@ final class DictationController {
                              },
                              progress: { [weak self] event in
                                  let text: String
+                                 let step: Int
                                  switch event {
-                                 case .thinking(let step): text = step == 1 ? L.t("Voice command") : L.f("Voice command · %d/%d", step, maxSteps)
-                                 case .running(_, let summary), .ran(_, let summary, _): text = summary
-                                 case .confirming(let pending): text = pending.summary
+                                 case .thinking(let n): (text, step) = (L.t("Voice command"), n)
+                                 case .running(let n, let summary), .ran(let n, let summary, _): (text, step) = (summary, n)
+                                 // The risk gate shows the confirmation itself.
+                                 case .confirming: return
                                  }
-                                 Task { @MainActor in self?.onPhase?(.working(text)) }
+                                 Task { @MainActor in
+                                     self?.onPhase?(.working(text, request: raw, step: step, steps: maxSteps))
+                                 }
                              })
         let run = await loop.run(screen, command: raw)
         guard !Task.isCancelled, run.outcome != .cancelled else { return }
@@ -291,10 +304,11 @@ final class DictationController {
         switch run.outcome {
         case .done(let summary):
             record(raw: raw, processed: summary + " · " + run.path, context: context)
-            onPhase?(.done(L.f("Command: %@", summary.isEmpty ? L.t("done") : summary)))
+            onPhase?(.commandDone(summary, seconds: latency / 1000))
         case .cannot(let reason):
             record(raw: raw, processed: L.t("(no action)") + " · " + reason, context: context)
-            onPhase?(.failure(reason.isEmpty ? L.t("Command not recognised") : reason))
+            // "Title: detail": the island splits it into a title and a detail line.
+            onPhase?(.failure(L.t("Command not recognised") + (reason.isEmpty ? "" : ": " + reason)))
         case .budget:
             record(raw: raw, processed: L.t("out of steps") + " · " + run.path, context: context)
             onPhase?(.failure(L.t("Voice command: out of steps")))
