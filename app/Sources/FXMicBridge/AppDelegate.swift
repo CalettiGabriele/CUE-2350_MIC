@@ -120,8 +120,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         riskGate.onAsk = { [weak self] pending in
             guard let self else { return }
             self.leds.set(.confirm)
-            // The island has one line: the action, then how to answer.
-            self.hud.show(L.f("Confirm %@ · grey = yes · shake = no", pending.summary), glyph: .info)
+            // The action as the title, how to answer as the detail (the last two parts of the text).
+            let parts = L.f("Confirm %@ · grey = yes · shake = no", pending.summary).components(separatedBy: " · ")
+            self.hud.show(parts.dropLast(2).joined(separator: " · "), detail: parts.suffix(2).joined(separator: " · "))
             self.phaseItem.title = L.f("Confirm · %@", pending.summary)
         }
         riskGate.onEnd = { [weak self] yes in
@@ -130,7 +131,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         }
         dictation.onSlotConsumed = { [weak self] in
             guard let self else { return }
-            self.engine.clearSlot()
+            self.engine.consumeSlot()
             self.leds.refresh()
             self.rebuildProfileMenu()
         }
@@ -297,31 +298,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         return engine.channelIndex(forWindow: window)
     }
 
-    /// "Recording · Enhanced · Summarize": phase, mode and the selected slot, if any.
-    private func statusLine(_ phase: String) -> String {
-        ([phase, channelName] + (engine.slot.map { [$0.name] } ?? [])).joined(separator: " · ")
-    }
-
     private var modeName: String { L.t(engine.mode.label) }
-    /// "Claude · progetto" on a channel; "Free · Mail" anywhere else (the voice goes where the cursor is).
-    private var channelName: String { engine.channel?.name ?? L.f("Free · %@", frontmost?.localizedName ?? "?") }
-    private var slotName: String { engine.slot?.name ?? L.t("No slot") }
-
-    private var selectionDetail: String {
-        "\(engine.active.name) · \(channelName) · \(slotName)"
+    /// App icon of a channel (nil when the app is not installed any more).
+    private func icon(forBundleID bundleID: String) -> NSImage? {
+        guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
+        return NSWorkspace.shared.icon(forFile: url.path)
     }
 
-    /// "CHANNEL 2/3", or "FREE" when you are not on a channel.
-    private var channelKicker: String {
-        engine.channelPosition.map { L.f("Channel %d/%d", $0 + 1, engine.channels.count) } ?? L.t("Free")
+    /// What the island's title row shows now: the app's icon and the part of the name the icon
+    /// does not already say ("Claude · Strategia di marketing" → "Strategia di marketing").
+    private var hudTarget: (icon: NSImage?, title: String) {
+        if let channel = engine.channel {
+            let parts = channel.name.components(separatedBy: " · ")
+            return (icon(forBundleID: channel.bundleID), parts.count > 1 ? parts.dropFirst().joined(separator: " · ") : channel.name)
+        }
+        return (frontmost?.icon, frontmost?.localizedName ?? L.t("Free"))
+    }
+
+    /// "2/3" while on a channel, nothing while free.
+    private var channelTrailing: HUD.Trailing {
+        engine.channelPosition.map { .text("\($0 + 1)/\(engine.channels.count)") } ?? .none
+    }
+
+    /// Glyph of the selected slot's kind in the right wing.
+    private var slotTrailing: HUD.Trailing {
+        switch engine.slot?.kind {
+        case .run: return .glyph("play.fill")
+        case .template: return .glyph("pencil")
+        case .llm: return .glyph("sparkles")
+        case nil: return .none
+        }
     }
 
     /// LEDs, menu and HUD after a profile/mode/slot change.
-    private func selectionChanged(announce: Bool, kicker: String = "", title: String) {
+    private func selectionChanged(announce: Bool, trailing: HUD.Trailing = .none, icon: NSImage? = nil, title: String) {
         leds.refresh()
         rebuildProfileMenu()
         if announce, !dictation.isRecording {
-            hud.card(kicker: kicker, title: title)
+            hud.setChannels(engine.channels.count)
+            hud.card(title: title, icon: icon, trailing: trailing)
         }
         // One warm-up per minute at most: Ollama keeps the model loaded for ~5 minutes.
         let needsLLM = engine.mode.usesLLM || engine.slot?.kind == .llm
@@ -474,10 +489,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             clearAllChannels()
         case .cycleMode:
             engine.cycleMode()
-            selectionChanged(announce: true, kicker: L.t("Mode"), title: modeName)
+            selectionChanged(announce: true, trailing: .text(L.t("Mode").uppercased()), title: modeName)
         case .resetMode:
             engine.resetMode()
-            selectionChanged(announce: true, kicker: L.t("Mode"), title: modeName)
+            selectionChanged(announce: true, trailing: .text(L.t("Mode").uppercased()), title: modeName)
         case .nextSlot:
             engine.nextSlot()
             announceSlot()
@@ -535,7 +550,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     /// Orange took you to a channel: bring its window forward, take its profile, show it.
     private func channelChanged() {
         guard let channel = engine.channel else {
-            hud.card(kicker: L.t("Channels"), title: L.t("No channels yet: long-press orange on a window to add it"))
+            hud.setChannels(engine.channels.count)
+            hud.card(title: L.t("No channels yet: long-press orange on a window to add it"))
             return
         }
         focusLockedUntil = Date().addingTimeInterval(2)
@@ -543,7 +559,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         ChannelNavigator.bringToFront(channel, learn: { [weak self] organization, label in
             self?.learnOrganization(organization, label: label)
         }, status: { [weak self] text in self?.hud.toast(text, duration: 2.5) })
-        selectionChanged(announce: true, kicker: channelKicker, title: channel.name)
+        let target = hudTarget
+        selectionChanged(announce: true, trailing: channelTrailing, icon: target.icon, title: target.title)
     }
 
     /// A switch ended in `organization` after pressing `label`: remember it for next time.
@@ -582,7 +599,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         case .updated: title = L.f("Channel %d updated: %@", outcome.index + 1, channel.name)
         case .replaced: title = L.f("Channel %d replaced: %@", outcome.index + 1, channel.name)
         }
-        hud.card(kicker: channelKicker, title: title)
+        let target = hudTarget
+        hud.setChannels(engine.channels.count)
+        hud.card(title: title, icon: target.icon, trailing: channelTrailing)
     }
 
     /// Orange held for 3 s, or the menu: unbinds every channel. Windows and sessions are untouched.
@@ -594,7 +613,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         }
         clearedChannels = removed
         applyConfig(engine.config, save: true)
-        hud.card(kicker: L.t("Channels"), title: L.t("All channels cleared"))
+        hud.setChannels(engine.channels.count)
+        hud.card(title: L.t("All channels cleared"))
     }
 
     /// The voice goes where you are: on a channel's window it is that channel, anywhere else it is
@@ -605,19 +625,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     }
 
     private func announceSlot() {
-        guard let slot = engine.slot, let number = engine.slotNumber else {
-            selectionChanged(announce: true, kicker: L.t("Slot"), title: L.t("No slot"))
+        guard let slot = engine.slot else {
+            selectionChanged(announce: true, title: L.t("No slot"))
             return
-        }
-        let kind: String
-        switch slot.kind {
-        case .run: kind = L.t("grey to run")
-        case .template: kind = L.t("applies to the next dictation")
-        case .llm: kind = L.t("LLM on the next dictation")
         }
         leds.refresh()
         rebuildProfileMenu()
-        hud.card(kicker: L.f("Slot %d", number) + " · " + kind, title: slot.name)
+        hud.setChannels(engine.channels.count)
+        hud.card(title: slot.name, trailing: slotTrailing)
         if slot.kind == .llm, Date().timeIntervalSince(lastWarmUp) > 60 {
             lastWarmUp = Date()
             config.llm.client.warmUp()
@@ -669,7 +684,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         }
         switch slot.kind {
         case .run:
-            engine.clearSlot()
+            engine.consumeSlot()
             leds.refresh()
             rebuildProfileMenu()
             perform(slot.action)
@@ -680,7 +695,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     private func report(_ outcome: TextInjector.Outcome, done: String) {
         switch outcome {
-        case .done: hud.toast(done, glyph: .done)
+        case .done: hud.toast(done, trailing: .success())
         case .secureInput: hud.toast(L.t("Protected field: no keys sent"))
         case .notTrusted:
             log.error("action not sent: Accessibility not granted")
@@ -823,7 +838,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     @objc private func unbindChannel() {
         guard engine.unbindChannel() else { return }
         applyConfig(engine.config, save: true)
-        hud.card(kicker: L.t("Channels"), title: L.t("Channel unbound"))
+        hud.setChannels(engine.channels.count)
+        hud.card(title: L.t("Channel unbound"))
     }
 
     /// Asks first: from the menu this is one click away, unlike the 3 s hold on the mic.
@@ -842,7 +858,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         engine.restoreChannels(clearedChannels)
         clearedChannels = []
         applyConfig(engine.config, save: true)
-        hud.card(kicker: L.t("Channels"), title: L.t("Channels restored"))
+        hud.setChannels(engine.channels.count)
+        hud.card(title: L.t("Channels restored"))
     }
 
     @objc private func selectSlot(_ sender: NSMenuItem) {
@@ -853,7 +870,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private func show(_ phase: DictationController.Phase) {
         currentPhase = phase
         messageTimer?.invalidate()
-        let detail = selectionDetail
+        let target = hudTarget
+        hud.setChannels(engine.channels.count)
         switch phase {
         case .idle:
             phaseItem.title = L.t("Ready")
@@ -862,29 +880,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         case .recording:
             leds.set(.recording)
             phaseItem.title = "● " + L.t("Recording…")
-            hud.show(statusLine(L.t("Recording")), detail: detail, showsMeter: true, glyph: .recording)
+            hud.show(target.title, icon: target.icon, showsMeter: true)
         case .transcribing:
             leds.set(.processing)
             phaseItem.title = L.t("Transcribing…")
-            hud.show(statusLine(L.t("Transcribing")), detail: detail)
+            hud.show(L.t("Transcribing"), icon: target.icon)
         case .processing:
             leds.set(.processing)
             phaseItem.title = L.f("Processing with %@…", config.llm.model)
-            hud.show(statusLine(L.t("Processing")), detail: detail)
+            hud.show(L.t("Processing"), icon: target.icon)
         case .working(let step):
             leds.set(.processing)
             phaseItem.title = step
-            hud.show(statusLine(step), detail: detail)
+            hud.show(step, icon: target.icon)
         case .message(let text), .done(let text), .failure(let text):
             if case .failure = phase { leds.set(.error) } else { leds.set(.idle) }
             phaseItem.title = text
-            let glyph: HUD.Glyph
-            switch phase {
-            case .done: glyph = .done
-            case .failure: glyph = .info      // the LED mirror shows the error blink
-            default: glyph = .none
-            }
-            hud.toast(text, duration: 0.9, glyph: glyph)
+            announceResult(phase, text: text, icon: target.icon)
             messageTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: false) { [weak self] _ in
                 MainActor.assumeIsolated {
                     guard let self else { return }
@@ -899,6 +911,40 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             }
         }
         updateIcon()
+    }
+
+    /// A dictation ended: what happened as an island notice. "Written (1.2 s)" → title and latency
+    /// in the right wing; a message or failure "Title: detail" → title and a grey detail line.
+    private func announceResult(_ phase: DictationController.Phase, text: String, icon: NSImage?) {
+        var title = text
+        var detail: String?
+        var latency: String?
+        if let open = title.lastIndex(of: "("), title.hasSuffix(")"), open > title.startIndex {
+            latency = String(title[title.index(after: open)..<title.index(before: title.endIndex)])
+            title = String(title[..<open]).trimmingCharacters(in: .whitespaces)
+        }
+        var symbol: String?
+        var tone = HUD.Tone.normal
+        var showsIcon = false
+        switch phase {
+        case .done:
+            showsIcon = true
+        case .failure:
+            symbol = "exclamationmark.triangle"
+            tone = .bad
+        default:
+            tone = .muted
+            if text == L.t("Cancelled") { symbol = "xmark" }
+            else if text == L.t("No speech") || text == L.t("Microphone is silent: check its permission and input") { symbol = "mic.slash" }
+        }
+        if !showsIcon, let colon = title.range(of: ": ") {
+            detail = String(title[colon.upperBound...])
+            title = String(title[..<colon.lowerBound])
+        }
+        hud.toast(title, detail: detail, icon: showsIcon ? icon : nil,
+                  trailing: showsIcon ? .success(text: latency)
+                                      : symbol.map { .glyph($0, text: latency, tone: tone) } ?? .none,
+                  duration: detail == nil ? 0.9 : 2.2)
     }
 
     // MARK: - Menu bar icon (ui.menuBarIcon)
@@ -976,6 +1022,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         if Theme.reduceMotion, leds.state == .recording || leds.state == .processing {
             shown = 0x0F | (mask & 0xF0)
         }
+        hud.setChannels(engine.channels.count)
         hud.setLEDs(shown)
         settings.ledMask = shown
     }
