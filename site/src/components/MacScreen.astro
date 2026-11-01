@@ -1,8 +1,10 @@
 ---
 // A MacBook lid in the same flat line-art as the mic: outer lid, display, notch. The app's island
-// lives in the notch exactly as in HUD.swift: a black shape with a flat top that grows out of the
-// notch with a spring; left wing = the mic's 8 LEDs in two columns, right wing = elapsed time,
-// one line of text below the notch. Driven by scripts/island.js.
+// lives in the notch as in HUD.swift (docs/design-docs/onepager-006-status-island.md): a black
+// shape with a flat top that grows out of the notch with a spring. Left wing = two rows of pips
+// (red = channel, white = slot) that light like the mic's LEDs, right wing = time / "2/3" / a
+// glyph, below the notch the app icon, a title and sometimes a grey detail. While recording the
+// title row folds away and the island stays as the two wings. Driven by scripts/island.js.
 //   cropped: only the upper half of the lid, fading out (used above the mic in the hero).
 interface Props { class?: string; cropped?: boolean }
 const { class: cls = '', cropped = false } = Astro.props;
@@ -10,12 +12,15 @@ const { class: cls = '', cropped = false } = Astro.props;
 <div class={`mac ${cropped ? 'mac-cropped' : ''} ${cls}`}>
   <div class="mac-display">
     <div class="notch-island" data-island aria-hidden="true">
-      <span class="ni-leds">
-        {[1, 2, 3, 4].map((n) => <i class={`ni-led red r${n}`} />)}
-        {[1, 2, 3, 4].map((n) => <i class={`ni-led white w${n}`} />)}
+      <span class="ni-pips">
+        <span class="ni-prow">{[1, 2, 3, 4].map((n) => <i class={`ni-pip red r${n}${n <= 3 ? ' bound' : ''}`} />)}</span>
+        <span class="ni-prow">{[1, 2, 3, 4].map((n) => <i class={`ni-pip white w${n}`} />)}</span>
       </span>
-      <span class="ni-time" data-island-time></span>
-      <span class="ni-row"><span class="ni-dot"></span><span class="ni-text" data-island-text></span></span>
+      <span class="ni-right" data-island-right></span>
+      <span class="ni-body">
+        <span class="ni-row"><span class="ni-icon" data-island-icon></span><span class="ni-title" data-island-title></span></span>
+        <span class="ni-detail" data-island-detail></span>
+      </span>
     </div>
     <div class="mac-content"><slot /></div>
   </div>
@@ -25,9 +30,7 @@ const { class: cls = '', cropped = false } = Astro.props;
   .mac {
     --nw: 120px;   /* notch width */
     --nh: 24px;    /* notch height */
-    --wing: 46px;  /* space the island adds on each side of the notch */
-    --row: 26px;   /* text row below the notch */
-    --ni-font: 10.5px;
+    --s: 0.75;     /* scale of the island against the app's points (the app's notch is 32 pt) */
     position: relative;
     background: var(--ink);          /* solid bezel, the notch is part of it */
     border: 3px solid var(--ink);
@@ -50,50 +53,71 @@ const { class: cls = '', cropped = false } = Astro.props;
   }
   .mac-cropped .mac-display { border-radius: 8px 8px 0 0; }
 
-  /* ---- the island ---- */
+  /* ---- the island: every size is the app's point value times --s ---- */
   .notch-island {
+    --wing: calc(72px * var(--s));
+    --row: calc(28px * var(--s));
+    --row-d: calc(44px * var(--s));
+    --compact: calc(6px * var(--s));
+    --wy: calc(var(--nh) / 2);          /* middle of the wings */
     position: absolute; top: 0; left: 50%; z-index: 4;
     width: var(--nw); height: var(--nh);
     transform: translateX(-50%);
-    background: var(--ink); color: #edede8;
+    background: var(--ink); color: #fff;
     border-radius: 0 0 11px 11px;
     transition:
       width 0.62s cubic-bezier(0.34, 1.42, 0.64, 1),
       height 0.62s cubic-bezier(0.34, 1.42, 0.64, 1),
       border-radius 0.4s ease;
-    font-family: var(--font-mono); font-weight: 500; font-size: var(--ni-font);
-    letter-spacing: 0.14em; text-transform: uppercase; white-space: nowrap;
+    white-space: nowrap;
   }
   .notch-island.open { height: calc(var(--nh) + var(--row)); border-radius: 0 0 16px 16px; }
+  .notch-island.open.has-detail { height: calc(var(--nh) + var(--row-d)); }
+  /* recording, title row folded away: a little thicker than the notch, never below it */
+  .notch-island.open.folded { height: calc(var(--nh) + var(--compact)); --wy: calc((var(--nh) + var(--compact)) / 2); }
   .notch-island > * { opacity: 0; transition: opacity 0.18s ease; }
   .notch-island.open > * { opacity: 1; transition: opacity 0.3s ease 0.22s; }
+  .notch-island.folded .ni-body { opacity: 0; transition: opacity 0.15s ease; }
 
-  .ni-leds {
-    position: absolute; top: calc(var(--nh) / 2); left: calc(var(--wing) / 2); transform: translate(-50%, -50%);
-    display: grid; grid-template-columns: repeat(2, 4px); grid-template-rows: repeat(4, 4px); grid-auto-flow: column; gap: 1.5px 2.5px;
+  /* left wing: the pips; a lit pip is a capsule, an unlit one a dot, each in its own cell */
+  .ni-pips {
+    position: absolute; top: var(--wy); left: calc(var(--wing) / 2); transform: translate(-50%, -50%);
+    display: flex; flex-direction: column; gap: calc(4px * var(--s)); transition: top 0.4s ease;
   }
-  .ni-led { width: 4px; height: 4px; border-radius: 50%; background: #3a2220; }
-  .ni-led.white { background: #3a3a38; }
-  .ni-led.red.on { background: var(--led-red); box-shadow: 0 0 4px #ff3b30; }
-  .ni-led.white.on { background: #fff; box-shadow: 0 0 4px #fff; }
-  .ni-time {
-    position: absolute; top: calc(var(--nh) / 2); right: calc(var(--wing) / 2); transform: translate(50%, -50%);
-    color: #edede8; font-variant-numeric: tabular-nums; letter-spacing: 0.06em;
+  .ni-prow { display: grid; grid-template-columns: repeat(4, calc(12px * var(--s))); gap: 0 calc(3px * var(--s)); }
+  .ni-pip { width: calc(6px * var(--s)); height: calc(6px * var(--s)); justify-self: center; border-radius: 999px; background: #3a2220; }
+  .ni-pip.red.bound { background: rgba(227, 36, 43, 0.45); }
+  .ni-pip.white { background: rgba(110, 110, 106, 0.55); }
+  .ni-pip.red.on { width: calc(12px * var(--s)); background: var(--led-red); box-shadow: 0 0 4px #ff3b30; }
+  .ni-pip.white.on { width: calc(12px * var(--s)); background: #fff; box-shadow: 0 0 4px #fff; }
+
+  /* right wing: time, "2/3", a glyph, the check in a ring */
+  .ni-right {
+    position: absolute; top: var(--wy); right: calc(var(--wing) / 2); transform: translate(50%, -50%);
+    display: flex; align-items: center; gap: calc(6px * var(--s)); transition: top 0.4s ease;
+    font-family: var(--font-mono); font-weight: 600; font-size: calc(11px * var(--s)); letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums; color: rgba(255, 255, 255, 0.85);
   }
-  .ni-row {
-    position: absolute; left: 0; right: 0; top: var(--nh); height: var(--row);
-    display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 14px 2px;
+  .ni-right svg, .ni-icon svg { display: block; width: calc(16px * var(--s)); height: calc(16px * var(--s)); }
+  .ni-right svg.ni-check { width: calc(20px * var(--s)); height: calc(20px * var(--s)); }
+  .ni-rec { width: calc(7px * var(--s)); height: calc(7px * var(--s)); border-radius: 50%; background: var(--led-red); animation: ni-breathe 1s ease-in-out infinite alternate; }
+  @keyframes ni-breathe { from { opacity: 1; } to { opacity: 0.35; } }
+  .ni-check circle { stroke-dasharray: 51; stroke-dashoffset: 0; animation: ni-ring 0.2s ease-out 0.25s backwards; }
+  .ni-check path { stroke-dasharray: 14; stroke-dashoffset: 0; animation: ni-tick 0.15s ease-out 0.4s backwards; }
+  @keyframes ni-ring { from { stroke-dashoffset: 51; } }
+  @keyframes ni-tick { from { stroke-dashoffset: 14; } }
+
+  /* title row: icon + title, and the grey detail under them */
+  .ni-body {
+    position: absolute; left: 0; right: 0; top: var(--nh); bottom: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: calc(2px * var(--s));
   }
-  .ni-dot { width: 6px; height: 6px; border-radius: 50%; background: #555; flex: none; }
-  .notch-island.rec .ni-dot { background: var(--led-red); animation: ni-radar 1.2s ease-out infinite; }
-  .notch-island.think .ni-dot { background: #fff; animation: ni-pulse 0.9s ease-in-out infinite; }
-  .notch-island.done .ni-dot { background: var(--accent); }
-  @keyframes ni-radar { 0% { box-shadow: 0 0 0 0 rgba(227, 36, 43, 0.65); } 100% { box-shadow: 0 0 0 8px rgba(227, 36, 43, 0); } }
-  @keyframes ni-pulse { 50% { opacity: 0.25; } }
-  /* the text flashes in with a thin orange underline, as in the app */
-  .ni-text { position: relative; }
-  .ni-text.flash::after { content: ''; position: absolute; left: 0; right: 0; bottom: -4px; height: 1.5px; background: var(--accent); animation: ni-flash 0.6s ease-out forwards; transform-origin: left; }
-  @keyframes ni-flash { from { transform: scaleX(0); } 60% { transform: scaleX(1); opacity: 1; } to { transform: scaleX(1); opacity: 0; } }
+  .ni-row { display: flex; align-items: center; gap: calc(8px * var(--s)); }
+  .ni-icon { display: flex; color: rgba(255, 255, 255, 0.9); }
+  .ni-icon:empty { display: none; }
+  .ni-title { font-family: var(--font-display); font-weight: 600; font-size: calc(14px * var(--s)); line-height: 1.15; color: #fff; }
+  .ni-detail { font-family: var(--font-display); font-weight: 600; font-size: calc(12px * var(--s)); line-height: 1.15; color: rgba(255, 255, 255, 0.5); }
+  .ni-detail:empty { display: none; }
 
   @media (prefers-reduced-motion: reduce) {
     .notch-island { transition: none; }

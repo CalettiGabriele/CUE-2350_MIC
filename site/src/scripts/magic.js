@@ -112,9 +112,7 @@ export function initMagic() {
   let dotDep = [];
 
   // ---------------------------------------------------------------- frame
-  function setIsland(cls, text, time = '') {
-    island.set({ open: !!text, cls, text, time });
-  }
+  const setIsland = (state) => island.set(state);
   const press = (el, t, a) => el.classList.toggle('pressed', t >= a && t < a + 0.06);
   const show = (el, t, a, dur = 0.08) => {
     const k = easeOut(seg(t, a, a + dur));
@@ -160,20 +158,25 @@ export function initMagic() {
     }
 
     // ---- island
-    if (t < 0.12) setIsland('', '');
-    else if (t < 0.95) setIsland('rec', 'recording · claude · shop', `0:0${Math.min(4, Math.floor(seg(t, 0.12, 0.95) * 5))}`);
-    else if (t < 1.9) setIsland('think', 'transcribing');
-    else if (t < 2.0) setIsland('done', 'written ✓ 0.9 s');
-    else if (t < 2.5) setIsland('rec', 'voice command', `0:0${Math.min(1, Math.floor(seg(t, 2.0, 2.5) * 2))}`);
-    else if (t < 2.92) setIsland('think', 'voice command · thinking');
-    else if (t < 3.1) setIsland('done', 'replaced the selection ✓');
-    else if (t < 3.35) setIsland('done', 'sent ⏎');
-    else if (t < 4.08) setIsland('', '');
-    else if (t < 4.5) setIsland('', slot ? `slot ${slot} · ${SLOTS[slot - 1]}` : 'slot');
-    else if (t < 5.05) setIsland('done', 'run · /review');
-    else if (t < 5.1) setIsland('', '');
-    else if (t < 5.75) setIsland('done', 'channel 2/3 · codex');
-    else setIsland('', '');
+    const clock = (a, b, n) => `0:0${Math.min(n - 1, Math.floor(seg(t, a, b) * n))}`;
+    if (t < 0.12) setIsland({});
+    // A: recording: the title row folds away after a moment
+    else if (t < 0.95) setIsland({ open: true, rec: true, folded: t > 0.3, icon: 'app', title: 'shop', right: { type: 'time', text: clock(0.12, 0.95, 5) } });
+    else if (t < 1.9) setIsland({ open: true, icon: 'app', title: 'Transcribing' });
+    else if (t < 2.0) setIsland({ open: true, icon: 'app', title: 'Written', right: { type: 'check', text: '0.9 s' } });
+    // C: voice command: recording, at work (step, what you said), done with a summary
+    else if (t < 2.5) setIsland({ open: true, rec: true, folded: t > 2.14, icon: 'ai', title: 'shop', detail: 'Voice command', right: { type: 'time', text: clock(2.0, 2.5, 2) } });
+    else if (t < 2.92) setIsland({ open: true, icon: 'ai', title: 'Rewriting the selection', detail: '“clean it up”', right: { type: 'text', text: '1/2' } });
+    else if (t < 3.1) setIsland({ open: true, icon: 'ai', title: 'Done', detail: 'Replaced the selection', right: { type: 'check', text: '1.2 s' } });
+    else if (t < 3.35) setIsland({ open: true, icon: 'app', title: 'Sent', right: { type: 'check' } });
+    else if (t < 4.08) setIsland({});
+    // E: the slot card (name and type), then the run
+    else if (t < 4.5) setIsland({ open: true, title: slot ? SLOTS[slot - 1] : 'No slot', right: slot ? { type: 'run' } : null });
+    else if (t < 5.05) setIsland({ open: true, icon: 'app', title: '/review', right: { type: 'check' } });
+    else if (t < 5.1) setIsland({});
+    // F: the channel card
+    else if (t < 5.75) setIsland({ open: true, icon: 'app', title: 'Codex', right: { type: 'text', text: '2/3' } });
+    else setIsland({});
 
     // ---- terminal: raw dictation decodes in (B)
     const shown = seg(t, TYPE_A, TYPE_B) * nChars;
