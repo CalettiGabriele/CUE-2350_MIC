@@ -110,7 +110,7 @@ flowchart LR
    - asks `RiskGate` when the tool is risky;
    - runs the tool;
    - adds a `tool` message with the result.
-   The island shows the step: `VOICE COMMAND · 2/8 · click «Share»`.
+   The island shows the step as its title (`Click «Share»`), what you said in grey under it and the step count on the right (`2/8`), with the AI mark ✦ in place of the app icon ([One-Pager 006](onepager-006-status-island.md) §3.1).
 6. The loop ends:
    - when all the calls of an answer worked and at least one changed something, unless the model
      also called `continue` (**implicit finish**, added in phase 3: see §3.5);
@@ -121,8 +121,7 @@ flowchart LR
    - at an error.
    Actions sent together with `finish` in the same answer are run first. If one of them fails,
    the loop goes on instead of stopping, so the model can fix it.
-7. The island shows the summary from `finish`, or the actions that ran ("✓ shift+return"), and
-   the history stores the transcript, the steps and the outcome.
+7. The island shows "Done" with the summary from `finish` (or the actions that ran, "shift+return") and the time taken, for 2 to 6 s depending on its length; a failure shows "Command not recognised" and the reason as the detail. The history stores the transcript, the steps and the outcome.
 
 ## 3. Detailed Design
 
@@ -367,9 +366,9 @@ return .budget
 - **Text generation and rewriting** need no special tool. The model writes the text in the
   arguments of `type_text` or `replace_selection`.
 - **Cancellation:** a short shake during the agent cancels the task, both the HTTP call and any
-  running tool. The steps already done are not undone, and the island says how many ran.
+  running tool. The steps already done are not undone, and the island says how many ran (the step count it was showing).
 - **Confirmation (`RiskGate`):**
-  - the island shows `CONFIRM · click «Delete» · grey = yes · shake = no`, and the red LEDs blink;
+  - the island shows the action as its title (`Click «Delete»`), two chips (`grey = yes`, `shake = no`, the second with a shaking mic) and a ring that empties over `confirmTimeoutMs`, and the red LEDs blink;
   - grey tap = yes; short shake, or no answer within `confirmTimeoutMs`, = no;
   - during a confirmation, grey and shake are routed to the gate, not to their usual actions.
 - **State machine:** the agent runs inside the current `postProcessing` state. A new handle press
@@ -495,7 +494,7 @@ return .budget
 - **Prompt injection** from screen content. Mitigation: the prompt rule, risky tools always
   confirmed, blocked keys.
 - **Point of failure:** when the provider is down or times out, the command is not run, the
-  island says "Model not available", and no action is taken half-way unless it was already
+  island says "Model not available" (as a failure notice with the reason as the detail), and no action is taken half-way unless it was already
   confirmed and done. LLM skills keep falling back to the raw text, as today.
 
 ## 7. Migration Strategy
@@ -628,7 +627,7 @@ Risk, in practice:
     in rich text it is a new line).
 
 **RiskGate** (`RiskGate.swift`):
-- the island shows `Confirm click «Delete» · grey = yes · shake = no`, and the red LEDs blink
+- the island shows the action as its title, the two answer chips and the countdown ring (One-Pager 006 §3.1), and the red LEDs blink
   (new LED state `confirm`);
 - grey tap = yes; short shake or grey long press = no; no answer within
   `agent.confirmTimeoutMs` (10 s) = no; cancelling the command = no;

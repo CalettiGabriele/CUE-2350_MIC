@@ -41,8 +41,8 @@ It is the heart of the site and of the wow effect. On the left the **mic**, on t
 
 | Scene | Title · sentence | Mic | Screen | Where you see the AI |
 |---|---|---|---|---|
-| **A. hold. talk.** | *hold the handle and talk.* | The handle goes down; the red LEDs start the stepped KITT sweep; the black island drops from the top with REC and the timer. | The **grille dots** come off the mic like a sound wave and fly towards the screen. | The voice becomes visible matter. |
-| **B. the AI listens.** | *your words, written where your cursor is.* | LEDs in "thinking" (1+3 / 2+4 alternating); island on *thinking*. | The dots arrive and **turn into letters**: the raw text decodes character by character (random Plex Mono letters that settle into Barlow). | Transcription: from sound to text. |
+| **A. hold. talk.** | *hold the handle and talk.* | The handle goes down; the red LEDs start the stepped KITT sweep; the island grows out of the notch with the pips (the red row sweeping), the app icon and the session's name and the timer; after a moment the title folds away and the two wings stay, with a red dot by the time. | The **grille dots** come off the mic like a sound wave and fly towards the screen. | The voice becomes visible matter. |
+| **B. the AI listens.** | *your words, written where your cursor is.* | LEDs in "thinking" (1+3 / 2+4 alternating); island on *Transcribing* (the pips alternate 1+3 / 2+4). | The dots arrive and **turn into letters**: the raw text decodes character by character (random Plex Mono letters that settle into Barlow). | Transcription: from sound to text. |
 | **C. the AI cleans up.** | *enhanced mode turns rambling into writing.* | Orange pressed: red LED 2 lights up. | The raw text *"ehm so the the login page crashes when like you hit enter twice"* **rewrites itself**: the filler words are struck through and vanish, punctuation and capitals appear, the rest slides into place. Result: *"The login page crashes when you press Enter twice."* | It is the most "magic" moment: the text changes before your eyes. |
 | **D. one button to the agent.** | *pick a skill. press grey. done.* | White pressed three times: the white LEDs count in binary up to 3, and `/review` appears beside them. Grey pressed. | The window becomes a **terminal**: `> /review` is typed, the agent answers with lines that appear one at a time and a final `✓`. | The AI acts: the voice becomes work done. |
 
@@ -76,7 +76,7 @@ The magic does not come from generic "AI" effects (neon gradients, blue particle
 - **Live rewriting.** In scene C the text corrects itself: it is the clearest picture of what the model does.
 - **Orange cursor** that types titles and sentences, as in the teaser.
 - **Stepped LEDs** (about 8 steps per second), never faded: it is the rhythm of the real hardware.
-- **"Thinking" state:** the only concession to glow, a soft orange halo behind the island while the AI is processing.
+- **"Transcribing" state:** no glow; the island only changes its title and the pips alternate (1+3 / 2+4), as in the app. *(Rev. 2026-11-01: the orange halo was dropped with the orange rule and square, see One-Pager 006.)*
 
 ### 4.3 Motion rules
 - Every animation is tied to scrolling (you can go back and watch it again), except the small idle loops.
@@ -121,7 +121,7 @@ site/
     layouts/Base.astro      # <head>, top bar, footer
     components/
       Mic.astro             # mic SVG with addressable LEDs, buttons, handle
-      Island.astro          # black island (REC / thinking / written)
+      MacScreen.astro       # MacBook lid with the notch island (pips, title row, folded recording, results); see One-Pager 006
       Screen.astro          # paper window that becomes a terminal
       ChapterProgress.astro # ((8.1)) … ((8.4))
       GitHubButton.astro

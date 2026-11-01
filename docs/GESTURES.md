@@ -1,7 +1,7 @@
 # CUE-2350 MIC gestures and commands
 
 > The single reference for the EP-2350 FX MIC gestures and the actions behind them.
-> Updated 2026-10-23: channels on orange, skills and commands on white, voice command on grey ([One-Pager 004](design-docs/onepager-004-channels-and-commands.md)). Updated 2026-10-25: the voice command is an agent with tools and confirmation on the mic ([TDD voice command agent](design-docs/tdd-v1-voice-command-agent.md)).
+> Updated 2026-10-23: channels on orange, skills and commands on white, voice command on grey ([One-Pager 004](design-docs/onepager-004-channels-and-commands.md)). Updated 2026-10-25: the voice command is an agent with tools and confirmation on the mic ([TDD voice command agent](design-docs/tdd-v1-voice-command-agent.md)). Updated 2026-11-01: new status island, white LEDs and the slot counter as on the mic ([One-Pager 006](design-docs/onepager-006-status-island.md), [ADR-005](adr/adr-005-one-slot-counter-like-the-mic.md)).
 > **Interface language:** English by default, changeable in Settings › General › Language (English, Italiano, Français, Español, Português, Deutsch, 中文, 日本語, Русский) or in `config.json` (`ui.language`).
 > Channels, skills, intents and gestures are configured in Settings (the **Channels** and **Profiles** chapters) or in `~/Library/Application Support/FXMicBridge/config.json`. This file describes the **defaults**. The reference code is `app/Sources/FXMicCore/Config.swift` (`Profile.defaults`) and `GestureRecognizer.swift` (`GestureSettings`).
 
@@ -29,7 +29,7 @@ When you hold the handle, the app looks at the window in front of you:
 - if it belongs to a **channel**, the voice goes to that channel and its red LED is lit;
 - otherwise you are **free**: all four red LEDs are lit and the voice goes **where your cursor is**, in any app, with no jump and nothing to set up.
 
-The profile, that is the white button's skills and the intents, always follows the app in front of you. The pill says where the voice goes: "Recording · Claude · api" on a channel, "Recording · Free · Mail" elsewhere.
+The profile, that is the white button's skills and the intents, always follows the app in front of you. The island says where the voice goes: the app icon and the session's name ("Claude" and its session title) on a channel, the icon and name of the app in front ("Mail") when you are free, with the pips showing the channel.
 
 ## The three buttons
 
@@ -55,7 +55,9 @@ How the app finds a channel again:
 If a window belongs to more than one channel, the most specific wins (a session or a chat before a document, then a title, then a whole app). Other apps with several sessions in one window can be added with an adapter in `config.json` (`sessionAdapters`). Channels can also be managed from the menu › Channel and from Settings › Channels (rename, reorder, remove, add a whole app, clear with confirmation).
 
 ### White: skills and commands (white LEDs in binary)
-Up to **15 per profile**. The 4 white LEDs show the number in binary, with the top LED = 1, then 2, 4, 8. **All off = none.** The pill always shows the name. The list follows the app in front of you, so on a channel it is the list of that channel's app.
+Up to **15 per profile**. The 4 white LEDs show the number in binary, with the top LED = 1, then 2, 4, 8. **All off = none.** The island always shows the name and the type of the slot (▶ run, ✎ template, ✦ LLM). The list follows the app in front of you, so on a channel it is the list of that channel's app.
+
+The number is **one counter for the whole mic**, 0 to 15, as in the mic's own firmware: a number beyond the slots the app in front has lights the LEDs and selects nothing ("No slot"), and a slot you have used keeps its number on the LEDs until the next slot gesture ([ADR-005](adr/adr-005-one-slot-counter-like-the-mic.md)). The slot is not remembered per app any more.
 
 | Type | What happens |
 |---|---|
@@ -81,9 +83,9 @@ Up to **15 per profile**. The 4 white LEDs show the number in binary, with the t
   - **the app's interface:** "click Share", "export as PDF", "reply all" (buttons and menu commands), "open Notes", "close this window";
   - **your own tools:** macros and Shortcuts app shortcuts from Settings › Voice command › *My tools*.
 
-  **Confirmation on the mic:** before a risky action (sending, deleting, closing, a click on «Delete», a shortcut) the pill shows `Confirm … · grey = yes · shake = no` and the red LEDs blink. **Grey tap = yes**, a short shake or a grey long press = no, no answer within 10 s = no. Quitting apps, logging out, shutting down are never done; ⌘Q, ⌘W and similar stay blocked.
+  **Confirmation on the mic:** before a risky action (sending, deleting, closing, a click on «Delete», a shortcut) the island shows the action as the title, two chips (`grey = yes`, `shake = no`, with a mic drawn shaking) and a ring that empties with the time left; the red LEDs blink. **Grey tap = yes**, a short shake or a grey long press = no, no answer within 10 s = no. Quitting apps, logging out, shutting down are never done; ⌘Q, ⌘W and similar stay blocked.
 
-  If the command is unclear nothing happens, and the pill says so. A simple command takes about 1.5 s with the default local model. Settings › Voice command has the limits, a switch and a risk level for every tool, your own tools, and *Test a voice command* (a dry run that shows every step).
+  If the command is unclear nothing happens, and the island says why ("Command not recognised" and the reason). A simple command takes about 1.5 s with the default local model. While it works the island shows the step it is on, what you said and how many steps ran; at the end, "Done" with a summary for 2 to 6 s. Settings › Voice command has the limits, a switch and a risk level for every tool, your own tools, and *Test a voice command* (a dry run that shows every step).
 
 ## Handle and accelerometer
 | Gesture | Action |
@@ -94,15 +96,17 @@ Up to **15 per profile**. The 4 white LEDs show the number in binary, with the t
 | Short shake | Cancels the dictation in progress |
 | Strong shake for at least 2 s | Clears the whole field (⌘A ⌫; in terminals Ctrl+E Ctrl+U) |
 
-## Status pill and icon
+## Status island and icon
 
-- **Pill at the top:**
-  - **MacBook (notch, Dynamic Island style, no border):**
-    - left of the notch, the status dot: red with a **radar** effect while recording, pulsing white while processing;
-    - on the right, the **recorded time**;
-    - below, a line with phase, destination and skill, for example "Recording · Claude · api · Summarize" or "Recording · Free · Mail".
-  - **Other screens:** a black pill under the menu bar with a thin light border: [dot] text [time].
-  - Short cards (channel change "Channel 2/3 · Codex", skill "Slot 3 · /review", "Voice command", "Written", errors) show only the text. They fade in and out.
+The island is described in full in [One-Pager 006](design-docs/onepager-006-status-island.md). In short:
+
+- **MacBook (notch, Dynamic Island style, no border):** a black shape that grows out of the notch.
+  - **Left of the notch, the pips:** two rows of four dots that mirror the mic's LEDs (red = channel, white = slot in binary). While recording the red row does the same KITT sweep as the mic.
+  - **Right of the notch:** the recorded time; or `2/3` on a channel card; the type of the slot; a ✓ with the time taken after a dictation; a ✕, a muted mic or a red ⚠ for cancelled, no speech and errors.
+  - **Below the notch:** the app's icon and a title, for example the session you are talking to, and sometimes a grey line with the detail. A title that does not fit fades out. While recording this row folds away after 1.2 s and only the two wings stay, with a red dot next to the time.
+- **Other screens:** a black pill under the menu bar with a thin light border: [pips] icon title [right].
+- **Short cards** (channel change, skill, mode) and **results** ("Written", "Cancelled", errors) fade in and out by themselves; a result with a detail stays 2 to 6 s, the time to read it.
+- **Voice command:** the app's icon becomes the AI mark (✦) and "Voice command" appears under the title; then the step, what you said and the step count; the confirmation with its two chips and the ring; at the end "Done" and the summary. Pressing grey while you talk makes the island take this look without disappearing.
 - **Menu bar icon:** it is **always the one you chose** (menu › Menu bar icon) and does not change while recording, because macOS already shows its own microphone indicator. The status is in the tooltip and in the first line of the menu.
 
 ## LEDs

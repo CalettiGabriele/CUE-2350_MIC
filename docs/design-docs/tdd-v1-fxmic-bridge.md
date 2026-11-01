@@ -73,7 +73,7 @@ flowchart LR
 
 **Main flow (dictation with post-processing)**
 1. **Listening:** the user keeps the cursor in a text field. The agent on the mic sends `E 2 4` (handle pressed), and `GestureRecognizer` turns it into `pttDown`.
-2. **Recording:** `DictationController` moves to `Recording`. `AudioCaptureService` records from the chosen input, converted to 16 kHz mono. The HUD shows the state, the active Mode and Style and the level meter.
+2. **Recording:** `DictationController` moves to `Recording`. `AudioCaptureService` records from the chosen input, converted to 16 kHz mono. The island shows the channel the voice goes to, the timer and the mic's LED state (the first version of this page said "Mode, Style and level meter": superseded, see [One-Pager 006](onepager-006-status-island.md)).
 3. **Release:** when the handle is released (`E 1 4`), `pttUp` arrives.
    - If the recording lasts less than 300 ms, or contains only silence, it is discarded.
    - Otherwise the audio goes to `TranscriptionService`, which returns the raw text.
@@ -356,6 +356,8 @@ The strategies can be chosen per profile:
 - **The HUD becomes a black "island" at the top of the active screen**, that is the one under the pointer:
   - on screens with a notch it comes out of the notch, with a status symbol on the left and the timer on the right of the notch, and title, detail and level below;
   - without a notch it is a black pill centred just below the menu bar.
+
+**Update of 2026-11-01 (island redesign).** The island is now specified in [One-Pager 006](onepager-006-status-island.md), which replaces the three HUD descriptions above: two rows of pips that mirror the LED mask (red channel, white slot) on the left, time / `2/3` / glyph on the right, app icon and title (and a grey detail) below; the title row folds away while recording; results get a check in a ring, a glyph or a red warning; there is no level meter and no orange rule.
 - **The menu bar icon is chosen from a submenu** and saved in `config.json`:
   - it can be set with `ui.menuBarIcon`, which is `auto`, `logo`, one of the SF Symbols presets (`mic`, `micCircle`, `waveform`, `dot`, `sparkles`) or `file`;
   - with `file` you set `ui.menuBarIconFile`, an SVG, PDF or PNG that is copied into `icons/` and drawn monochrome;
