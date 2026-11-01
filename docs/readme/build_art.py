@@ -59,6 +59,11 @@ def svg(width, height, body, fonts=ALL_FONTS, title=""):
 MEASURED = {
     ("refactor the auth middleware and add tests for expired tokens.", 38, 600): 958,
     ("gabriele caletti", 44, 800): 273,
+    # the island's titles (15) and details (12.7), Barlow 600
+    **{(t, 15, 600): w for t, w in [("api", 20.1), ("Notes", 39.1), ("Transcribing", 82.8), ("Written", 49.8),
+                                   ("Rewriting the selection", 152.5), ("Done", 33.8)]},
+    **{(t, 12.7, 600): w for t, w in [("Voice command", 88.8), ("“translate it into italian”", 130.5),
+                                     ("Replaced the selection", 127.3)]},
 }
 WIPE_MARGIN = 24
 
@@ -85,6 +90,19 @@ def tween(attr, frames, period, ease=EASE, once=False):
     repeat = 'fill="freeze"' if once else 'repeatCount="indefinite"'
     return (f'<animate attributeName="{attr}" dur="{period}s" {repeat} calcMode="spline" '
             f'keyTimes="{times}" values="{values}" keySplines="{splines}"/>')
+
+
+def tween_translate(frames, period, ease=EASE):
+    """A group moved through (time, x, y) keyframes."""
+    if frames[0][0] != 0:
+        frames = [(0, frames[0][1], frames[0][2])] + frames
+    if frames[-1][0] < period:
+        frames = frames + [(period, frames[-1][1], frames[-1][2])]
+    times = ";".join(_fmt(t / period) for t, _, _ in frames)
+    values = ";".join(f"{x} {y}" for _, x, y in frames)
+    splines = ";".join(ease if (a[1], a[2]) != (b[1], b[2]) else LINEAR for a, b in zip(frames, frames[1:]))
+    return (f'<animateTransform attributeName="transform" type="translate" dur="{period}s" repeatCount="indefinite" '
+            f'calcMode="spline" keyTimes="{times}" values="{values}" keySplines="{splines}"/>')
 
 
 def steps(attr, frames, period, once=False):
@@ -219,37 +237,128 @@ def mic(x, y, scale, period, masks, handle_frames=None, press=None, tag="CUE-235
 
 # ---------------------------------------------------------------------------- the island
 
-def island(cx, period, open_at, close_at, masks, rows, timer=None, width=420, height=78, flash_at=None):
-    """Status island hanging from the top edge: grows out of a notch-sized shape, holds,
-    retracts. `rows`: [(start, end, text, color)] for the line under the notch."""
+ISLAND_S = 1.06                  # the app's points → drawing units (the app's notch is 32 pt, here 34)
+TITLE_SIZE, DETAIL_SIZE, MONO_SIZE = 15, 12.7, 11.7
+SPARKLES = ('<path d="M6.5 2.5l1.1 3.1 3.1 1.1-3.1 1.1-1.1 3.1-1.1-3.1-3.1-1.1 3.1-1.1z" fill="#FFFFFF"/>'
+            '<path d="M12 9.5l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6z" fill="#FFFFFF"/>')
+APP_GLYPH = ('<rect x="1.5" y="2.5" width="13" height="11" rx="3" fill="none" stroke="#E8E8E4" stroke-width="1.3"/>'
+             '<path d="M5 6.5l2.2 1.7L5 9.9M8.6 10h2.6" fill="none" stroke="#E8E8E4" stroke-width="1.3" '
+             'stroke-linecap="round" stroke-linejoin="round"/>')
+
+
+def island(cx, period, open_at, close_at, masks, states):
+    """Status island hanging from the top edge (One-Pager 006): grows out of a notch-sized shape,
+    follows each state, retracts. Left wing: two rows of pips mirroring the LED mask (red =
+    channel, white = slot); right wing: red dot + time, a check in a ring, or a short text; below
+    the notch: app icon or AI mark, a title and a grey detail. A folded state (recording, title
+    row gone) is only a little thicker than the notch.
+    `states`: dicts with start, end, title, icon ('app'|'ai'), detail, folded, and `right`:
+    ('time', [(start, end, "0:01"), …]) | ('check', "1.2 s") | ('text', "1/2")."""
+    s = ISLAND_S
     notch_w, notch_h = 190, 34
+    wing = 72 * s
+    width = notch_w + 2 * wing
+    row, row_d, compact = 28 * s, 44 * s, 6 * s
+    dot, cell, gap, row_gap = 6 * s, 12 * s, 3 * s, 4 * s
+    pips_w, pips_h = 4 * cell + 3 * gap, 2 * dot + row_gap
+    icon_w, icon_gap = 16 * s, 8 * s
+
+    def height(st):
+        return notch_h + (compact if st.get("folded") else (row_d if st.get("detail") else row))
+
+    def mid(st):
+        return (notch_h + compact) / 2 if st.get("folded") else notch_h / 2
+
+    first = states[0]
     w_frames = [(0, notch_w), (open_at, notch_w), (open_at + 0.45, width), (close_at, width), (close_at + 0.4, notch_w)]
-    h_frames = [(0, notch_h), (open_at, notch_h), (open_at + 0.45, height), (close_at, height), (close_at + 0.4, notch_h)]
+    h_frames = [(0, notch_h), (open_at, notch_h), (open_at + 0.45, height(first))]
+    y_frames = [(0, 0, mid(first)), (open_at + 0.45, 0, mid(first))]
+    prev = first
+    for st in states[1:]:
+        if height(st) != height(prev):
+            h_frames += [(st["start"], height(prev)), (st["start"] + 0.35, height(st))]
+            y_frames += [(st["start"], 0, mid(prev)), (st["start"] + 0.35, 0, mid(st))]
+        prev = st
+    h_frames += [(close_at, height(prev)), (close_at + 0.4, notch_h)]
     x_frames = [(t, cx - w / 2) for t, w in w_frames]
-    show = [(open_at, close_at + 0.4)]
-    content_spans = [(open_at + 0.3, close_at + 0.1)]
     parts = [f'<g>{steps("opacity", [(0, 0), (open_at, 1), (close_at + 0.4, 0)], period)}',
              f'<rect y="-20" rx="18" fill="#000" width="{notch_w}" height="{notch_h + 20}" x="{cx - notch_w / 2}">'
              f'{tween("width", w_frames, period)}{tween("x", x_frames, period)}'
              f'{tween("height", [(t, h + 20) for t, h in h_frames], period)}</rect>',
-             f'<g opacity="0">{fade_between(content_spans, period, fade=0.18)}']
-    # LED mirror: two vertical columns in the left wing
-    lx, ly = cx - width / 2 + 34, 6
+             f'<g opacity="0">{fade_between([(open_at + 0.3, close_at + 0.1)], period, fade=0.18)}']
+    # left wing: the pips, centred in the wing; a lit pip is a capsule, an unlit one a dot, each in
+    # its own cell. The group follows the wings' middle (it moves when the island folds).
+    px = cx - width / 2 + wing / 2 - pips_w / 2
+    parts.append(f'<g transform="translate({px:.2f} {mid(first) - pips_h / 2:.2f})">'
+                 + tween_translate([(t, round(px, 2), round(y - pips_h / 2, 2)) for t, _, y in y_frames], period) )
     for bit in range(8):
-        col, row = bit // 4, bit % 4
+        col, prow = bit % 4, bit // 4
         red = bit < 4
-        parts.append(f'<circle cx="{lx + col * 10}" cy="{ly + row * 7.4}" r="2.8" fill="{RED_OFF if red else WHITE_OFF}">'
-                     f'{led_fills(masks, period, bit, red)}</circle>')
-    if timer:
-        for start, end, text in timer:
-            parts.append(f'<text x="{cx + width / 2 - 40}" y="22" text-anchor="middle" class="m" font-weight="600" '
-                         f'font-size="13" letter-spacing="1" fill="#DADAD6" opacity="0">{visible_between([(start, end)], period)}{text}</text>')
-    for start, end, text, color in rows:
-        parts.append(f'<text x="{cx}" y="{notch_h + 30}" text-anchor="middle" class="m" font-weight="600" '
-                     f'font-size="14" fill="{color}" opacity="0">{visible_between([(start, end)], period)}{text}</text>')
-    if flash_at:
-        parts.append(f'<rect x="{cx - 70}" y="{notch_h + 37}" width="140" height="2.5" fill="{ORANGE}" opacity="0">'
-                     f'{tween("opacity", [(0, 0), (flash_at, 0), (flash_at + 0.1, 1), (flash_at + 0.35, 1), (flash_at + 0.6, 0)], period)}</rect>')
+        on_c, off_c = (RED if red else "#FFFFFF"), (RED_OFF if red else WHITE_OFF)
+        lit = [(t, bool(m & (1 << bit))) for t, m in masks]
+        cell_x = col * (cell + gap)
+        parts.append(f'<rect x="{cell_x + (cell - dot) / 2:.2f}" y="{prow * (dot + row_gap):.2f}" width="{dot:.2f}" '
+                     f'height="{dot:.2f}" rx="{dot / 2:.2f}" fill="{off_c}">'
+                     f'{steps("fill", [(t, on_c if l else off_c) for t, l in lit], period)}'
+                     f'{steps("width", [(t, round(cell if l else dot, 2)) for t, l in lit], period)}'
+                     f'{steps("x", [(t, round(cell_x + (cell - (cell if l else dot)) / 2, 2)) for t, l in lit], period)}</rect>')
+    parts.append('</g>')
+    # the states
+    rx = cx + width / 2 - wing / 2          # middle of the right wing
+    for st in states:
+        span = [(st["start"], st["end"])]
+        y = mid(st)
+        title, detail = st["title"], st.get("detail")
+        g = [f'<g opacity="0">{visible_between(span, period)}']
+        # right wing
+        kind, arg = st["right"]
+        mono_w = lambda text: len(text) * (MONO_SIZE * 0.6 + 0.5)
+        dotted = bool(st.get("folded"))
+        if kind == "time":
+            for t0, t1, text in arg:
+                w = (7 * s + 6 * s if dotted else 0) + mono_w(text)
+                x0 = rx - w / 2
+                inner = ""
+                if dotted:
+                    inner += (f'<circle cx="{x0 + 3.5 * s:.1f}" cy="{y:.1f}" r="{3.5 * s:.1f}" fill="{RED}">'
+                              f'{tween("opacity", [(0, 1), (t0 + 0.5, 0.35), (t0 + 1.0, 1)], period)}</circle>')
+                inner += (f'<text x="{x0 + (13 * s if dotted else 0):.1f}" y="{y + 4:.1f}" class="m" font-weight="600" '
+                          f'font-size="{MONO_SIZE}" letter-spacing="0.5" fill="#DADAD6" style="letter-spacing:.5px;text-transform:none">{text}</text>')
+                g.append(f'<g opacity="0">{visible_between([(t0, t1)], period)}{inner}</g>')
+        elif kind == "check":
+            w = 21 * s + ((6 * s + mono_w(arg)) if arg else 0)
+            x0 = rx - w / 2
+            g.append(f'<g transform="translate({x0:.1f} {y - 10.5 * s:.1f}) scale({1.05 * s:.3f})" fill="none" stroke="#DADAD6" '
+                     f'stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">'
+                     f'<circle cx="10" cy="10" r="8" stroke-dasharray="51" stroke-dashoffset="51">'
+                     f'{tween("stroke-dashoffset", [(0, 51), (st["start"] + 0.25, 51), (st["start"] + 0.45, 0)], period, ease=LINEAR)}</circle>'
+                     f'<path d="M6 10.5l3 3 5-6" stroke-dasharray="14" stroke-dashoffset="14">'
+                     f'{tween("stroke-dashoffset", [(0, 14), (st["start"] + 0.4, 14), (st["start"] + 0.55, 0)], period, ease=LINEAR)}</path></g>')
+            if arg:
+                g.append(f'<text x="{x0 + 27 * s:.1f}" y="{y + 4:.1f}" class="m" font-weight="600" font-size="{MONO_SIZE}" '
+                         f'fill="#DADAD6" style="letter-spacing:.5px;text-transform:none">{arg}</text>')
+        elif kind == "text":
+            g.append(f'<text x="{rx:.1f}" y="{y + 4:.1f}" text-anchor="middle" class="m" font-weight="600" '
+                     f'font-size="{MONO_SIZE}" fill="#DADAD6" style="letter-spacing:.5px;text-transform:none">{arg}</text>')
+        # the title row: icon + title centred together, the detail under them
+        if not st.get("folded"):
+            tw = measured(title, TITLE_SIZE, 600)
+            has_icon = bool(st.get("icon"))
+            total = (icon_w + icon_gap if has_icon else 0) + tw
+            top_pad = (height(st) - notch_h - (17.3 + ((2.1 + 14.6) if detail else 0))) / 2
+            ty = notch_h + top_pad + 8.65             # middle of the title line
+            x0 = cx - total / 2
+            if has_icon:
+                glyph = APP_GLYPH if st["icon"] == "app" else SPARKLES
+                g.append(f'<g transform="translate({x0:.1f} {ty - icon_w / 2:.1f}) scale({icon_w / 16:.3f})">{glyph}</g>')
+                x0 += icon_w + icon_gap
+            g.append(f'<text x="{x0:.1f}" y="{ty + 5.3:.1f}" class="d" font-weight="600" font-size="{TITLE_SIZE}" '
+                     f'fill="#FFFFFF">{title}</text>')
+            if detail:
+                g.append(f'<text x="{cx}" y="{ty + 8.65 + 2.1 + 11.8:.1f}" text-anchor="middle" class="d" font-weight="600" '
+                         f'font-size="{DETAIL_SIZE}" fill="#808080">{detail}</text>')
+        g.append('</g>')
+        parts.append("".join(g))
     parts.append('</g></g>')
     return "".join(parts)
 
@@ -335,11 +444,11 @@ def hero():
             '</g>',
             mic(1090, 150, 0.92, P, masks, handle_frames=handle, uid="h"),
             callout(930, 250, "HOLD + TALK", (1060, 300), P, [(0.6, 3.8)], side="right"),
-            island(800, P, 0.9, 5.6, masks, width=440, rows=[
-                (0.9, 3.7, "RECORDING · CLAUDE · API", "#FFFFFF"),
-                (3.7, 4.7, "TRANSCRIBING", "#DADAD6"),
-                (4.7, 6.0, "WRITTEN (1.2 S)", "#FFFFFF")],
-                timer=[(0.9, 1.9, "0:00"), (1.9, 2.9, "0:01"), (2.9, 3.7, "0:02")], flash_at=4.75)]
+            island(800, P, 0.9, 5.6, masks, [
+                dict(start=0.9, end=2.1, icon="app", title="api", right=("time", [(0.9, 1.9, "0:00"), (1.9, 2.1, "0:01")])),
+                dict(start=2.1, end=3.7, icon="app", title="api", folded=True, right=("time", [(2.1, 2.9, "0:01"), (2.9, 3.7, "0:02")])),
+                dict(start=3.7, end=4.7, icon="app", title="Transcribing", right=("time", [])),
+                dict(start=4.7, end=6.0, icon="app", title="Written", right=("check", "1.2 s"))])]
     return svg(W, H, "".join(body), title="CUE-2350 MIC — talking to your agent")
 
 
@@ -355,9 +464,10 @@ def talk():
             display(80, 175, "hold. talk. release.", 76),
             kicker(82, 222, "the words go where your cursor is — no jumps, nothing to set up"),
             mic(120, 270, 0.44, P, masks, handle_frames=handle, uid="t"),
-            island(1010, P, 1.0, 5.6, masks, width=400, rows=[
-                (1.0, 4.0, "RECORDING · FREE · NOTES", "#FFFFFF"), (4.0, 6.0, "WRITTEN (0.8 S)", "#FFFFFF")],
-                timer=[(1.0, 2.0, "0:00"), (2.0, 3.0, "0:01"), (3.0, 4.0, "0:02")], flash_at=4.05)]
+            island(1010, P, 1.0, 5.6, masks, [
+                dict(start=1.0, end=2.2, icon="app", title="Notes", right=("time", [(1.0, 2.0, "0:00"), (2.0, 2.2, "0:01")])),
+                dict(start=2.2, end=4.0, icon="app", title="Notes", folded=True, right=("time", [(2.2, 3.0, "0:01"), (3.0, 4.0, "0:02")])),
+                dict(start=4.0, end=6.0, icon="app", title="Written", right=("check", "0.8 s"))])]
     # the three steps, lighting in turn
     for i, (num, word, start, end) in enumerate(steps_ui):
         x = 470 + i * 180
@@ -444,12 +554,12 @@ def voice():
             kicker(82, 222, "grey while you talk · the sentence becomes actions · any language"),
             mic(110, 250, 0.44, P, masks, handle_frames=handle, press={"grey": press}, uid="v"),
             callout(330, 410, "GREY", button_point(110, 250, 0.44, "grey"), P, [(1.0, 2.2)]),
-            island(1010, P, 0.8, 6.4, masks, width=460, rows=[
-                (0.8, 1.35, "RECORDING · FREE · NOTES", "#FFFFFF"),
-                (1.35, 3.4, "VOICE COMMAND", "#FFFFFF"),
-                (3.4, 4.4, "PROCESSING", "#DADAD6"),
-                (4.4, 6.8, "COMMAND: REPLACE THE SELECTION", "#FFFFFF")],
-                timer=[(0.8, 1.8, "0:00"), (1.8, 2.8, "0:01"), (2.8, 3.4, "0:02")], flash_at=4.45)]
+            island(1010, P, 0.8, 6.4, masks, [
+                dict(start=0.8, end=1.35, icon="app", title="Notes", right=("time", [(0.8, 1.35, "0:00")])),
+                dict(start=1.35, end=2.5, icon="ai", title="Notes", detail="Voice command", right=("time", [(1.35, 1.8, "0:00"), (1.8, 2.5, "0:01")])),
+                dict(start=2.5, end=3.4, icon="ai", title="Notes", folded=True, right=("time", [(2.5, 2.8, "0:01"), (2.8, 3.4, "0:02")])),
+                dict(start=3.4, end=4.4, icon="ai", title="Rewriting the selection", detail="“translate it into italian”", right=("text", "1/2")),
+                dict(start=4.4, end=6.8, icon="ai", title="Done", detail="Replaced the selection", right=("check", "1.4 s"))])]
     # what you say
     body.append(f'<g opacity="0">{fade_between([(1.6, 4.2)], P, 0.2)}'
                 + kicker(470, 300, "you say", color=MUTED, size=14)
@@ -560,12 +670,21 @@ def social():
     # a screen edge with the status island, then the mic
     body.append(f'<path d="M754 200 V64 a28 28 0 0 1 28 -28 H1190 a28 28 0 0 1 28 28 V200" fill="none" stroke="{INK}" stroke-width="12"/>'
                 f'<rect x="852" y="36" width="262" height="68" rx="16" fill="#000"/>')
+    # the island, as the app draws it: pips (red = channel 2, white = slot, none), a red dot and the
+    # time on the right, the app icon and the session's name below the notch
+    px, py, dot, cell, gap = 878, 45, 6, 12, 3
     for bit in range(8):
-        col, row = bit // 4, bit % 4
-        on = mask & (1 << bit)
-        body.append(f'<circle cx="{873 + col * 9}" cy="{58 + row * 7}" r="2.6" fill="{RED if on else (RED_OFF if bit < 4 else WHITE_OFF)}"/>')
-    body.append(f'<text x="1078" y="76" text-anchor="middle" class="m" font-weight="600" font-size="13" fill="#DADAD6">0:03</text>'
-                f'<text x="983" y="96" text-anchor="middle" class="m" font-weight="600" font-size="12" fill="#FFFFFF">RECORDING · CLAUDE · API</text>')
+        col, prow = bit % 4, bit // 4
+        lit = bool(mask & (1 << bit))
+        color = (RED if lit else RED_OFF) if bit < 4 else (WHITE_OFF if not lit else "#FFFFFF")
+        w = cell if lit else dot
+        body.append(f'<rect x="{px + col * (cell + gap) + (cell - w) / 2:.1f}" y="{py + prow * (dot + 4)}" width="{w}" '
+                    f'height="{dot}" rx="{dot / 2}" fill="{color}"/>')
+    body.append(f'<circle cx="1045" cy="53" r="3.5" fill="{RED}"/>'
+                f'<text x="1055" y="57" class="m" font-weight="600" font-size="13" fill="#DADAD6" '
+                f'style="letter-spacing:.5px;text-transform:none">0:03</text>'
+                f'<g transform="translate(962 79) scale(1)">{APP_GLYPH}</g>'
+                f'<text x="984" y="92" class="d" font-weight="600" font-size="15" fill="#FFFFFF">api</text>')
     for cx, cy, r in [(919, 143, 6), (962, 136, 4), (987, 151, 3), (940, 168, 5), (977, 177, 4), (931, 195, 5), (952, 212, 4), (992, 202, 2.5)]:
         body.append(f'<circle cx="{cx}" cy="{cy}" r="{r}" fill="{ORANGE}"/>')
     body.append(mic(870, 205, 0.58, 60, masks, uid="sp"))

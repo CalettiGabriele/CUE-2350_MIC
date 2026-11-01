@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="docs/readme/hero.svg" width="100%" alt="CUE-2350 MIC — talking to your agent. The EP-2350 FX-MIC drawn in flat vector: the handle goes down, the red LEDs sweep, and a black status island drops from the top of the screen: REC, transcribing, written.">
+  <img src="docs/readme/hero.svg" width="100%" alt="CUE-2350 MIC — talking to your agent. The EP-2350 FX-MIC drawn in flat vector: the handle goes down, the red LEDs sweep, and a black status island grows out of the notch: the pips sweep, the app and session name, the timer, then a check when it is written.">
 </p>
 
 <p align="center">
@@ -67,10 +67,10 @@ a one-time, reversible firmware install: see [get started](#89-get-started).
 
 ## ((8.1)) hold. talk. release.
 
-<p align="center"><img src="docs/readme/talk.svg" width="100%" alt="Hold the handle, talk, release: the island shows REC with a timer, then WRITTEN, and the sentence types itself into a note."></p>
+<p align="center"><img src="docs/readme/talk.svg" width="100%" alt="Hold the handle, talk, release: the island shows the app and the session's name with a timer, folds down to a thin bar with a red dot while you talk, then draws a check when it is written, and the sentence types itself into a note."></p>
 
 Hold the handle and talk. While you speak, the red LEDs run their sweep on the mic — and the same
-sweep plays in a small black island at the top of your screen, next to the timer. Release, and the
+sweep plays in a small black island at the top of your screen, next to the timer, with the app and the session your voice is going to. Release, and the
 text is written where your cursor is: terminal, editor, browser, chat, anything with a text field.
 Nothing jumps, nothing needs to be set up first.
 
@@ -83,7 +83,7 @@ handle and resume, by themselves, when you let go.
 
 ## ((8.2)) four channels.
 
-<p align="center"><img src="docs/readme/channels.svg" width="100%" alt="The orange button jumps between four channels, one red LED each: a Claude Code session, a Claude chat, a Codex thread and a notes file. On any other app all four red LEDs are lit and the island says FREE."></p>
+<p align="center"><img src="docs/readme/channels.svg" width="100%" alt="The orange button jumps between four channels, one red LED each: a Claude Code session, a Claude chat, a Codex thread and a notes file. On any other app all four red LEDs are lit and the island shows the app in front."></p>
 
 The **orange** button holds up to four **channels**: the places you keep going back to. One red
 LED each, so the mic tells you where you are without looking at the screen.
@@ -113,7 +113,7 @@ Other agent apps that keep several sessions in one window can be taught with a s
 
 ## ((8.3)) say what to do.
 
-<p align="center"><img src="docs/readme/voice.svg" width="100%" alt="Grey pressed while holding the handle: the island says VOICE COMMAND, and the sentence becomes an action — the selected text is translated, or the channel switches to Codex."></p>
+<p align="center"><img src="docs/readme/voice.svg" width="100%" alt="Grey pressed while holding the handle: the island takes the AI mark and says Voice command, then shows the step and what you said, and the sentence becomes an action — the selected text is translated, then Done with a summary."></p>
 
 Hold the handle, **press grey once while you talk**, and the sentence is not written: an agent
 running on a local model turns it into actions, step by step, and checks its work. Any language,
@@ -131,9 +131,10 @@ no keywords to learn.
 | *"open Notes"*, *"close this window"* | opens apps, switches and closes windows |
 | *"add my signature"* | runs one of **your own tools**: a macro of keys and text, or a Shortcuts app shortcut |
 
-Anything risky waits for you: sending, deleting, closing, a click on «Delete» — the island asks,
-the red LEDs blink, **grey = yes**, a shake = no. Quitting apps, logging out and similar are never
-done. If the request is not clear, nothing happens and the island says so. A simple command takes
+Anything risky waits for you: sending, deleting, closing, a click on «Delete» — the island asks
+(the action, a ring with the time left, two answers: **grey = yes**, shake the mic = no),
+the red LEDs blink. Quitting apps, logging out and similar are never
+done. If the request is not clear, nothing happens and the island says why. A simple command takes
 about a second and a half with the default local model; try a sentence without running it, and
 add your own tools, in **Settings › Voice command**.
 
@@ -150,7 +151,7 @@ white LEDs count them in binary. Each one is either:
 - a **skill / template** that wraps your next dictation (*"Summarize: …"*, or the prompt of a skill);
 - an **LLM rewrite** applied to your next dictation (*"rewrite as a commit message"*).
 
-The list follows the app in front, so on a channel it is the one of that channel's app:
+The list follows the app in front, so on a channel it is the one of that channel's app. The white number is one counter for the whole mic, as on the mic itself: past the last slot of an app the LEDs keep counting and nothing is selected.
 
 | profile | when | out of the box |
 |---|---|---|
@@ -193,10 +194,14 @@ The full reference lives in [docs/GESTURES.md](docs/GESTURES.md) *(in Italian)*.
 ## ((8.7)) on screen.
 
 - **The island** hangs from the notch (or floats under the menu bar on other displays). Its left
-  wing mirrors the mic's eight LEDs as two little columns; the right wing counts the seconds; the
-  line below tells you where your voice is going and what is happening — `RECORDING · CLAUDE · API`,
-  `RECORDING · FREE · MAIL`, `VOICE COMMAND`, `WRITTEN (1.2 S)`.
-- **Cards** pop in when you press a button: `CHANNEL 2/3 · Codex`, `SLOT 3 · GREY TO RUN · /review`.
+  wing has two rows of pips that mirror the mic's LEDs: red for the channel, white for the slot in
+  binary. The right wing counts the seconds, shows `2/3` on a channel card, or a ✓ with the time it
+  took. Below, the app's icon and a title say where your voice is going and what is happening, with a
+  grey line for details. While you record, the title folds away and the island stays as two wings
+  with a red dot; when it is written, a check draws itself. A voice command wears the ✦ mark and
+  shows the step it is on, what you said and, when it needs a yes, two answers with a ring that counts
+  down ([One-Pager 006](docs/design-docs/onepager-006-status-island.md)).
+- **Cards** pop in when you press a button: the channel (`2/3`) or the skill (its name and a ▶, ✎ or ✦ for what it does).
 - **Settings read like a manual**: numbered chapters, the mic drawn live on the first page (press a
   button on the real one and it lights up on screen), a chapter for your channels, and each profile
   split into short pages — profile, skills, voice command, buttons.
