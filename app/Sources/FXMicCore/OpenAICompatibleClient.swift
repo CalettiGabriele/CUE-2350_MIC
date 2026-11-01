@@ -40,7 +40,9 @@ public struct OpenAICompatibleClient: ChatProvider {
     // MARK: - Request
 
     /// The JSON body, kept separate so it can be tested without a server.
-    public func body(_ messages: [ChatMessage], tools: [ToolSpec], temperature: Double?, maxTokens: Int?) -> [String: Any] {
+    /// `reasoningEffort: false` leaves `reasoning_effort` out: the retry for models that reject it.
+    public func body(_ messages: [ChatMessage], tools: [ToolSpec], temperature: Double?, maxTokens: Int?,
+                     reasoningEffort: Bool = true) -> [String: Any] {
         var body: [String: Any] = ["model": model, "stream": false, "messages": messages.map(Self.wire)]
         if !tools.isEmpty {
             body["tools"] = tools.map { tool -> [String: Any] in
@@ -55,8 +57,9 @@ public struct OpenAICompatibleClient: ChatProvider {
         if let maxTokens = maxTokens ?? provider.preset.defaultMaxTokens {
             body[provider.preset.maxTokensField] = max(maxTokens, provider.preset.minOutputTokens)
         }
-        if disableThinking, provider.preset.canDisableThinking {
-            // Ollama's own `think: false` is ignored on the OpenAI-compatible endpoint.
+        if reasoningEffort, disableThinking, provider.preset.canDisableThinking || (provider.preset == .openai && !tools.isEmpty) {
+            // Ollama's own `think: false` is ignored on the OpenAI-compatible endpoint. OpenAI's
+            // reasoning models refuse function tools unless it is "none"; without tools it is not sent.
             body["reasoning_effort"] = "none"
         }
         return body
@@ -101,19 +104,35 @@ public struct OpenAICompatibleClient: ChatProvider {
     // MARK: - ChatProvider
 
     public func send(_ messages: [ChatMessage], tools: [ToolSpec], temperature: Double?, maxTokens: Int?) async throws -> ChatResponse {
-        var request = try request(path: "chat/completions", timeout: timeoutMs / 1000)
-        request.httpMethod = "POST"
-        request.httpBody = try JSONSerialization.data(withJSONObject: body(messages, tools: tools, temperature: temperature,
-                                                                          maxTokens: maxTokens))
         let start = Date()
-        let (data, response) = try await URLSession.shared.data(for: request)
-        let status = (response as? HTTPURLResponse)?.statusCode ?? 0
+        var (data, status) = try await post(messages, tools: tools, temperature: temperature, maxTokens: maxTokens, reasoningEffort: true)
+        // Models without reasoning (gpt-4.1...) reject `reasoning_effort`: ask again without it.
+        if status == 400, provider.preset == .openai, Self.rejectsReasoningEffort(data) {
+            Self.log.notice("llm \(model, privacy: .public) rejected reasoning_effort: retrying without it")
+            (data, status) = try await post(messages, tools: tools, temperature: temperature, maxTokens: maxTokens, reasoningEffort: false)
+        }
         guard status == 200 else { throw Failure.http(status, Self.errorMessage(data)) }
         let parsed = try Self.parse(data)
         let ms = Date().timeIntervalSince(start) * 1000
         Self.log.notice("llm \(model, privacy: .public) on \(provider.id, privacy: .public) answered in \(ms, format: .fixed(precision: 0), privacy: .public) ms, \(parsed.toolCalls.count, privacy: .public) tool calls")
         guard !parsed.text.isEmpty || !parsed.toolCalls.isEmpty else { throw Failure.empty }
         return parsed
+    }
+
+    private func post(_ messages: [ChatMessage], tools: [ToolSpec], temperature: Double?, maxTokens: Int?,
+                      reasoningEffort: Bool) async throws -> (Data, Int) {
+        var request = try request(path: "chat/completions", timeout: timeoutMs / 1000)
+        request.httpMethod = "POST"
+        request.httpBody = try JSONSerialization.data(withJSONObject: body(messages, tools: tools, temperature: temperature,
+                                                                          maxTokens: maxTokens, reasoningEffort: reasoningEffort))
+        let (data, response) = try await URLSession.shared.data(for: request)
+        return (data, (response as? HTTPURLResponse)?.statusCode ?? 0)
+    }
+
+    /// A 400 that blames the `reasoning_effort` field itself (unsupported or unknown parameter).
+    static func rejectsReasoningEffort(_ data: Data) -> Bool {
+        guard let message = errorMessage(data)?.lowercased(), message.contains("reasoning_effort") else { return false }
+        return message.contains("unsupported") || message.contains("unrecognized") || message.contains("unknown")
     }
 
     /// Reads a `/chat/completions` answer. Arguments given as an object instead of JSON text
