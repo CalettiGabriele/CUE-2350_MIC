@@ -10,6 +10,8 @@
 @font-face{font-family:"IBM Plex Mono";font-weight:600;font-style:normal;src:url("assets/fonts/ibm-plex-mono-latin-600-normal.woff2") format("woff2");}
 #root{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;font-family:"Barlow";color:#1A1A1A}
 #f04-agent-bg{position:absolute;inset:0;background:#EDEDE8}
+/* the MacBook lid (mac-notch.html) takes the top of the frame: the scene shrinks into the space below it */
+#f04-agent-stage{scale:0.78;transform-origin:50% 100%}
 .f04-agent-kicker{font-family:"IBM Plex Mono";font-weight:500;text-transform:uppercase;letter-spacing:0.14em;font-size:20px;color:#6B6B66}
 .f04-agent-callout{position:absolute;display:flex;align-items:center;gap:14px}
 .f04-agent-callout .box{background:#F05A28;color:#fff;font-family:"IBM Plex Mono";font-weight:600;letter-spacing:0.12em;font-size:30px;padding:12px 22px;text-transform:uppercase}
@@ -32,9 +34,9 @@
 .f04-agent-ok{font-size:34px;color:#EDEDE8}
 .f04-agent-ok b{color:#5BD16A}
 </style>
-<div data-hf-id="hf-791u" id="root" data-composition-id="f04-agent" data-width="1080" data-height="1080" data-duration="4">
-  <div data-hf-id="hf-dumm" id="f04-agent-bg" class="clip" data-start="0" data-duration="4" data-track-index="0"></div>
-  <div data-hf-id="hf-frvq" id="f04-agent-stage" class="clip" data-start="0" data-duration="4" data-track-index="1" style="position:absolute;inset:0">
+<div data-hf-id="hf-791u" id="root" data-composition-id="f04-agent" data-width="1080" data-height="1080" data-duration="5">
+  <div data-hf-id="hf-dumm" id="f04-agent-bg" class="clip" data-start="0" data-duration="5" data-track-index="0"></div>
+  <div data-hf-id="hf-frvq" id="f04-agent-stage" class="clip" data-start="0" data-duration="5" data-track-index="1" style="position:absolute;inset:0">
 <div data-hf-id="hf-3fsx" class="f04-agent-chrome"><span data-hf-id="hf-4khi" class="f04-agent-kicker">((8.4)) grey button</span><span data-hf-id="hf-psrm" class="f04-agent-kicker">→ claude code</span></div>
     <div data-hf-id="hf-0wl0" id="f04-agent-device"><svg data-hf-id="hf-8x96" class="fxd" viewBox="-70 0 520 760" xmlns="http://www.w3.org/2000/svg">
   
@@ -129,7 +131,11 @@
     tl.set("#f04-agent-spin", { color: "#5BD16A", opacity: 1 }, 3.05);
     typeOn("#f04-agent-stage .f04-agent-caption", 3.1, 0.6);
 
-    window.__timelines["f04-agent"] = tl;
+    // Retimed 1.25x slower (2026-11-01): the tweens above keep their original seconds, an
+    // outer timeline plays them more slowly so every step has time to be read.
+    const slow = gsap.timeline({ paused: true });
+    slow.to(tl, { time: tl.duration(), duration: tl.duration() * 1.25, ease: "none" }, 0);
+    window.__timelines["f04-agent"] = slow;
   })();
 </script>
 </template>
