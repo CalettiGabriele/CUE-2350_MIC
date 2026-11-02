@@ -171,11 +171,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         jack.onGesture = { [weak self] gesture, sample in
             self?.handle([gesture], from: .jack, captureSample: sample)
         }
-        jack.onStop = { [weak self] in
-            self?.inputDisconnected(.jack)
-            // JackTransport invokes onStop before clearing its listening and signal state.
-            DispatchQueue.main.async { [weak self] in self?.updateIdleHUD() }
-        }
+        jack.onStop = { [weak self] in self?.inputDisconnected(.jack) }
         jack.onPage = { [weak self] index in self?.goToPage(index) }
         media.configure(config.audio.pauseMedia)
         media.warmUp()
@@ -289,7 +285,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             selectionChanged(announce: false, title: engine.active.name)
         }
         updateFocus()
-        updateIdleHUD()
     }
 
     /// Where the voice goes now: the channel whose window is in front, or free. Nothing jumps:
@@ -318,21 +313,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private func icon(forBundleID bundleID: String) -> NSImage? {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
         return NSWorkspace.shared.icon(forFile: url.path)
-    }
-
-    private func updateIdleHUD() {
-        let usbConnected: Bool
-        switch deviceStatus {
-        case .connected, .readOnly: usbConnected = config.device.transport != .jack
-        default: usbConnected = false
-        }
-        let jackConnected = jack.isListening && jack.hasSignal
-        if usbConnected || jackConnected {
-            hud.setIdle(nil)
-        } else {
-            let target = hudTarget
-            hud.setIdle((target.title, target.icon, channelTrailing))
-        }
     }
 
     /// What the island's title row shows now: the app's icon and the part of the name the icon
@@ -404,7 +384,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
                     else if case .readOnly = status { settings.deviceConnected = true }
                     else { settings.deviceConnected = false }
                 }
-                updateIdleHUD()
             }
             switch status {
             case .searching: deviceItem.title = L.t("Mic: not connected (right Option = talk)")
@@ -449,7 +428,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             device.start()
         }
         _ = updateJackUse()
-        updateIdleHUD()
         jackStatusChanged()
     }
 
@@ -473,7 +451,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     }
 
     private func jackStatusChanged() {
-        updateIdleHUD()
         guard jack.isListening else { return }
         let connected = jack.hasSignal
         deviceItem.title = jack.failed ? L.t("Mic: audio input not available")
@@ -857,7 +834,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     }
 
     private func rebuildProfileMenu() {
-        updateIdleHUD()
         profileItem.title = L.f("Profile: %@", engine.active.name)
         settings.activeProfileID = engine.active.id
         channelMenu.removeAllItems()

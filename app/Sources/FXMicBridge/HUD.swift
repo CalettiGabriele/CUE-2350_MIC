@@ -40,7 +40,7 @@ final class HUD {
 
     enum Tone { case normal, muted, bad }
 
-    private struct Notice: Equatable {
+    private struct Notice {
         var title: String
         var detail: String?
         var chips: [Chip] = []
@@ -71,9 +71,6 @@ final class HUD {
     private var clock: Timer?
     private var startedAt: Date?
     private var visible = false
-    /// Keyboard-only idle context: the selection stays on the island between actions.
-    private var idleNotice: Notice?
-    private var showingIdle = true
     private var notice = Notice(title: "", detail: nil, icon: nil, trailing: .none, folds: false)
     private var folded = false
     /// Invalidates a fade-out that a newer notice has overtaken.
@@ -138,21 +135,10 @@ final class HUD {
     /// Not shown: the pips already say "recording".
     func setLevel(_ dbfs: Float) {}
 
-    /// With no physical mic, keep its LEDs and the selection visible between actions (nil: hidden
-    /// at idle, as with a mic). Updating this context never replaces a recording, a confirmation
-    /// or any other active notice.
-    func setIdle(_ idle: (title: String, icon: NSImage?, trailing: Trailing)?) {
-        let next = idle.map { Notice(title: $0.title, detail: nil, icon: $0.icon, trailing: $0.trailing, folds: false) }
-        guard next != idleNotice else { return }
-        idleNotice = next
-        if showingIdle { hide() }
-    }
-
     /// Persistent state. `showsMeter` = recording: elapsed time in the right wing and the title
     /// row folds away after a moment.
     func show(_ title: String, detail: String? = nil, chips: [Chip] = [], icon: NSImage? = nil,
               trailing: Trailing? = nil, showsMeter: Bool = false) {
-        showingIdle = false
         hideTimer?.invalidate()
         clock?.invalidate()
         if showsMeter {
@@ -172,7 +158,6 @@ final class HUD {
     /// and a result in the right wing.
     func toast(_ title: String, detail: String? = nil, icon: NSImage? = nil, trailing: Trailing = .none,
                duration: TimeInterval = 0.9) {
-        showingIdle = false
         clock?.invalidate()
         startedAt = nil
         present(Notice(title: title, detail: detail, icon: icon, trailing: trailing, folds: false))
@@ -188,12 +173,6 @@ final class HUD {
         hideTimer?.invalidate()
         foldTimer?.invalidate()
         clock?.invalidate()
-        startedAt = nil
-        showingIdle = true
-        if let idleNotice {
-            present(idleNotice)
-            return
-        }
         guard visible else { return }
         visible = false
         if Theme.reduceMotion || notchSize == nil {
