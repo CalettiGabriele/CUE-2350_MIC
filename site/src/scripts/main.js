@@ -59,23 +59,26 @@ function initHero() {
     at(1400, () => {
       mic.classList.add('held', 'talking');
       start = performance.now();
-      island.set({ open: true, cls: 'rec', text: 'recording · claude · api', time: '0:00' });
+      island.set({ open: true, rec: true, icon: 'app', title: 'api', right: { type: 'time', text: '0:00' } });
       ivl = setInterval(() => {
         leds(1 << kitt(step++));
-        island.set({ open: true, cls: 'rec', text: 'recording · claude · api', time: `0:0${Math.floor((performance.now() - start) / 1000)}` });
+        const ms = performance.now() - start;
+        // the title row folds away after 1.2 s, as in the app
+        island.set({ open: true, rec: true, folded: ms > 1200, icon: 'app', title: 'api',
+          right: { type: 'time', text: `0:0${Math.floor(ms / 1000)}` } });
       }, 125);
     });
     at(4300, () => {
       clearInterval(ivl);
       mic.classList.remove('held', 'talking');
-      island.set({ open: true, cls: 'think', text: 'transcribing' });
+      island.set({ open: true, icon: 'app', title: 'Transcribing' });
       let k = 0;
       ivl = setInterval(() => leds(k++ % 2 ? 0b0101 : 0b1010), 110);
     });
     at(5400, () => {
       clearInterval(ivl);
       leds(0b0010);
-      island.set({ open: true, cls: 'done', text: 'written ✓ 1.0 s' });
+      island.set({ open: true, icon: 'app', title: 'Written', right: { type: 'check', text: '1.0 s' } });
     });
     at(7300, () => island.set({ open: false }));
     at(8800, cycle);

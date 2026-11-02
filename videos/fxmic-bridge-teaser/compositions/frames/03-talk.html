@@ -10,6 +10,8 @@
 @font-face{font-family:"IBM Plex Mono";font-weight:600;font-style:normal;src:url("assets/fonts/ibm-plex-mono-latin-600-normal.woff2") format("woff2");}
 #root{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;font-family:"Barlow";color:#1A1A1A}
 #f02-talk-bg{position:absolute;inset:0;background:#EDEDE8}
+/* the MacBook lid (mac-notch.html) takes the top of the frame: the scene shrinks into the space below it */
+#f02-talk-stage{scale:0.78;transform-origin:50% 100%}
 .f02-talk-kicker{font-family:"IBM Plex Mono";font-weight:500;text-transform:uppercase;letter-spacing:0.14em;font-size:20px;color:#6B6B66}
 .f02-talk-callout{position:absolute;display:flex;align-items:center;gap:14px}
 .f02-talk-callout .box{background:#F05A28;color:#fff;font-family:"IBM Plex Mono";font-weight:600;letter-spacing:0.12em;font-size:30px;padding:12px 22px;text-transform:uppercase}
@@ -21,14 +23,10 @@
 
 #f02-talk-device{position:absolute;left:352px;top:136px;width:470px;height:687px}
 #f02-talk-device svg{width:100%;height:100%}
-#f02-talk-pill{position:absolute;left:50%;top:48px;margin-left:-300px;width:600px;height:76px;border-radius:38px;background:#0B0B0B;display:flex;align-items:center;gap:18px;padding:0 30px;font-family:"IBM Plex Mono";font-weight:500;font-size:24px;letter-spacing:0.08em;color:#EDEDE8;text-transform:uppercase}
-#f02-talk-dot{width:20px;height:20px;border-radius:50%;background:#E3242B;box-shadow:0 0 0 8px rgba(227,36,43,0.25)}
-#f02-talk-time{margin-left:auto;color:#9A9A95}
 </style>
-<div data-hf-id="hf-f1tv" id="root" data-composition-id="f02-talk" data-width="1080" data-height="1080" data-duration="3.5">
-  <div data-hf-id="hf-bwml" id="f02-talk-bg" class="clip" data-start="0" data-duration="3.5" data-track-index="0"></div>
-  <div data-hf-id="hf-kfhl" id="f02-talk-stage" class="clip" data-start="0" data-duration="3.5" data-track-index="1" style="position:absolute;inset:0">
-    <div data-hf-id="hf-bvvp" id="f02-talk-pill" data-layout-allow-overflow><span data-hf-id="hf-sh5z" id="f02-talk-dot"></span><span data-hf-id="hf-jcv8" id="f02-talk-label">recording · free · notes</span><span data-hf-id="hf-jkrr" id="f02-talk-time">0:00</span></div>
+<div data-hf-id="hf-f1tv" id="root" data-composition-id="f02-talk" data-width="1080" data-height="1080" data-duration="4.75">
+  <div data-hf-id="hf-bwml" id="f02-talk-bg" class="clip" data-start="0" data-duration="4.75" data-track-index="0"></div>
+  <div data-hf-id="hf-kfhl" id="f02-talk-stage" class="clip" data-start="0" data-duration="4.75" data-track-index="1" style="position:absolute;inset:0">
     <div data-hf-id="hf-jy75" id="f02-talk-device"><svg data-hf-id="hf-8x96" class="fxd" viewBox="-70 0 520 760" xmlns="http://www.w3.org/2000/svg">
   
   <style>
@@ -107,17 +105,17 @@
     tl.fromTo(D, { y: 300, opacity: 0 }, { y: 0, opacity: 1, duration: 0.65, ease: "power3.out" }, 0);
     tl.fromTo("#f02-talk-stage .f02-talk-callout", { x: -80, opacity: 0 }, { x: 0, opacity: 1, duration: 0.4, ease: "power3.out" }, 0.6);
     tl.fromTo(D + " .fxd-handle", { rotation: 0, svgOrigin: "90 250" }, { rotation: 14, svgOrigin: "90 250", duration: 0.22, ease: "power3.out" }, 1.0);
-    tl.fromTo("#f02-talk-pill", { y: -140 }, { y: 0, duration: 0.45, ease: "power3.out" }, 1.05);
     const seq = [1, 2, 3, 4, 3, 2];
     let k = 0; for (let t = 1.2; t < 3.0; t += 0.125, k++) red(D, [seq[k % seq.length]], t);
     red(D, [1, 2, 3, 4], 3.0);
-    tl.set("#f02-talk-time", { textContent: "0:01" }, 2.0); tl.set("#f02-talk-time", { textContent: "0:02" }, 2.9);
     typeOn("#f02-talk-stage .f02-talk-caption", 1.9, 0.7);
     tl.to(D + " .fxd-handle", { rotation: 0, svgOrigin: "90 250", duration: 0.3, ease: "power3.out" }, 3.0);
-    tl.set("#f02-talk-label", { textContent: "written ✓" }, 3.05);
-    tl.set("#f02-talk-dot", { backgroundColor: "#EDEDE8", boxShadow: "0 0 0 8px rgba(237,237,232,0.2)" }, 3.05);
 
-    window.__timelines["f02-talk"] = tl;
+    // Retimed 1.3571x slower (2026-11-01): the tweens above keep their original seconds, an
+    // outer timeline plays them more slowly so every step has time to be read.
+    const slow = gsap.timeline({ paused: true });
+    slow.to(tl, { time: tl.duration(), duration: tl.duration() * 1.3571, ease: "none" }, 0);
+    window.__timelines["f02-talk"] = slow;
   })();
 </script>
 </template>

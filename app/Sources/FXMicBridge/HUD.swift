@@ -27,6 +27,15 @@ final class HUD {
         case none, time, text(String)
         case glyph(String, text: String? = nil, tone: Tone = .normal)
         case success(text: String? = nil)
+        /// A ring that empties over `seconds` (the time left to answer).
+        case countdown(TimeInterval)
+    }
+
+    /// A pill under the title: how to answer (the grey button, a shake of the mic).
+    struct Chip: Equatable {
+        enum Icon { case grey, shake }
+        var icon: Icon
+        var text: String
     }
 
     enum Tone { case normal, muted, bad }
@@ -34,6 +43,7 @@ final class HUD {
     private struct Notice: Equatable {
         var title: String
         var detail: String?
+        var chips: [Chip] = []
         var icon: NSImage?
         var trailing: Trailing
         /// Recording: the title row folds away after a while, leaving the two wings.
@@ -51,6 +61,8 @@ final class HUD {
     private let timeLabel = NSTextField(labelWithString: "")
     private let symbolView = NSImageView()
     private let checkView = CheckView()
+    private let countdownView = CountdownView()
+    private let chipsView = ChipsView()
     private let recDot = RecDotView()
     private let fadeMask = CAGradientLayer()
     private let spring = IslandSpring()
@@ -70,7 +82,6 @@ final class HUD {
     private var notchSize: NSSize?
     private var screenFrame: NSRect = .zero
     private let baseRow: CGFloat = 28       // title row under the notch
-    private let detailRow: CGFloat = 44     // title row with a detail line
     /// Without the row the island is this much taller than the notch: the spring overshoots
     /// by a couple of points and must never take it below the notch.
     private let compactExtra: CGFloat = 6
@@ -95,8 +106,9 @@ final class HUD {
         label.lineBreakMode = .byClipping
         label.maximumNumberOfLines = 1
         label.wantsLayer = true
-        detailLabel.lineBreakMode = .byTruncatingTail
-        detailLabel.maximumNumberOfLines = 1
+        detailLabel.lineBreakMode = .byWordWrapping
+        detailLabel.maximumNumberOfLines = 2
+        detailLabel.cell?.truncatesLastVisibleLine = true
         timeLabel.maximumNumberOfLines = 1
         rowIcon.imageScaling = .scaleProportionallyUpOrDown
         symbolView.imageScaling = .scaleProportionallyUpOrDown
@@ -108,8 +120,8 @@ final class HUD {
         content.wantsLayer = true
         rowView.wantsLayer = true
         island.addSubview(content)
-        for view in [rowIcon, label, detailLabel] as [NSView] { rowView.addSubview(view) }
-        for view in [pips, rowView, timeLabel, symbolView, checkView, recDot] as [NSView] { content.addSubview(view) }
+        for view in [rowIcon, label, detailLabel, chipsView] as [NSView] { rowView.addSubview(view) }
+        for view in [pips, rowView, timeLabel, symbolView, checkView, countdownView, recDot] as [NSView] { content.addSubview(view) }
 
         spring.onStep = { [weak self] frame, openness in self?.apply(frame: frame, openness: openness) }
         spring.onRest = { [weak self] in self?.springSettled() }
@@ -137,20 +149,23 @@ final class HUD {
     }
 
     /// Persistent state. `showsMeter` = recording: elapsed time in the right wing and the title
-    /// row folds away after a moment. A recording that is already running keeps its clock.
-    func show(_ title: String, detail: String? = nil, icon: NSImage? = nil, showsMeter: Bool = false) {
+    /// row folds away after a moment.
+    func show(_ title: String, detail: String? = nil, chips: [Chip] = [], icon: NSImage? = nil,
+              trailing: Trailing? = nil, showsMeter: Bool = false) {
         showingIdle = false
         hideTimer?.invalidate()
         clock?.invalidate()
         if showsMeter {
-            if startedAt == nil { startedAt = Date() }
+            // Shown again while recording (it became a voice command): the time keeps running.
+            if !(visible && notice.folds && startedAt != nil) { startedAt = Date() }
             clock = Timer.scheduledTimer(withTimeInterval: 0.2, repeats: true) { [weak self] _ in
                 MainActor.assumeIsolated { self?.updateClock() }
             }
         } else {
             startedAt = nil
         }
-        present(Notice(title: title, detail: detail, icon: icon, trailing: showsMeter ? .time : .none, folds: showsMeter))
+        present(Notice(title: title, detail: detail, chips: chips, icon: icon,
+                       trailing: trailing ?? (showsMeter ? .time : .none), folds: showsMeter))
     }
 
     /// Short notice that hides itself: the pips, an optional app icon, a title, a grey detail line
@@ -216,8 +231,8 @@ final class HUD {
 
     private static let detailStyle: NSParagraphStyle = {
         let style = NSMutableParagraphStyle()
-        style.alignment = .left
-        style.lineBreakMode = .byTruncatingTail
+        style.alignment = .center
+        style.lineBreakMode = .byWordWrapping
         return style
     }()
 
@@ -267,6 +282,9 @@ final class HUD {
         label.attributedStringValue = Self.title(notice.title)
         detailLabel.attributedStringValue = Self.detail(notice.detail ?? "")
         rowIcon.image = notice.icon
+        // An SF Symbol (the AI mark) is white; an app icon keeps its colours.
+        rowIcon.contentTintColor = notice.icon?.isTemplate == true ? .white : nil
+        chipsView.chips = notice.chips
         symbolView.image = nil
         switch notice.trailing {
         case .none: timeLabel.stringValue = ""
@@ -280,6 +298,9 @@ final class HUD {
         case .success(let text):
             timeLabel.attributedStringValue = Self.mono(text ?? "")
             if !Theme.reduceMotion { checkView.draw(after: 0.25) }
+        case .countdown(let seconds):
+            timeLabel.stringValue = ""
+            countdownView.start(seconds)
         }
         recDot.pulsing = notice.folds && !Theme.reduceMotion
         if notice.folds {
@@ -378,23 +399,33 @@ final class HUD {
 
     private var showsRow: Bool { !folded }
     private var hasIcon: Bool { notice.icon != nil }
-    private var rowHeight: CGFloat { notice.detail == nil ? baseRow : detailRow }
+    private var rowHeight: CGFloat {
+        lowerHeight == 0 ? baseRow : ceil(textSize.height + 3 + lowerHeight) + 14
+    }
 
     private var textSize: NSSize {
         let size = label.fittingSize
         return NSSize(width: min(ceil(size.width), maxTitleWidth), height: ceil(size.height))
     }
 
+    /// The detail wraps to two lines at most.
     private var detailSize: NSSize {
-        guard notice.detail != nil else { return .zero }
-        let size = detailLabel.fittingSize
-        return NSSize(width: min(ceil(size.width), maxTitleWidth), height: ceil(size.height))
+        guard let detail = notice.detail, !detail.isEmpty else { return .zero }
+        let rect = detailLabel.attributedStringValue.boundingRect(
+            with: NSSize(width: maxTitleWidth, height: 200), options: [.usesLineFragmentOrigin, .usesFontLeading])
+        let font = Theme.displayNS(12, .semibold)
+        let line = ceil(font.ascender - font.descender + font.leading)
+        return NSSize(width: min(ceil(rect.width) + 8, maxTitleWidth), height: min(ceil(rect.height), 2 * line))
     }
+
+    /// What goes under the title: the chips, or the detail.
+    private var lowerHeight: CGFloat { notice.chips.isEmpty ? detailSize.height : ChipsView.size(for: notice.chips).height }
+    private var lowerWidth: CGFloat { notice.chips.isEmpty ? detailSize.width : ChipsView.size(for: notice.chips).width }
 
     /// Icon + title, centred together.
     private var titleGroupWidth: CGFloat { (hasIcon ? iconSide + 8 : 0) + textSize.width }
 
-    private var rowContentWidth: CGFloat { max(titleGroupWidth, detailSize.width) }
+    private var rowContentWidth: CGFloat { max(titleGroupWidth, lowerWidth) }
 
     /// Right wing content: glyph and/or text, or the time, centred together. While recording with
     /// the title row folded away a red dot goes before the time.
@@ -411,6 +442,8 @@ final class HUD {
         case .success(let text):
             items.append((checkView, NSSize(width: 20, height: 20)))
             if text != nil { items.append((timeLabel, Self.fitted(timeLabel))) }
+        case .countdown:
+            items.append((countdownView, NSSize(width: 20, height: 20)))
         }
         return items
     }
@@ -478,9 +511,11 @@ final class HUD {
         timeLabel.isHidden = !items.contains { $0.view === timeLabel }
         symbolView.isHidden = !items.contains { $0.view === symbolView }
         checkView.isHidden = !items.contains { $0.view === checkView }
+        countdownView.isHidden = !items.contains { $0.view === countdownView }
         recDot.isHidden = !items.contains { $0.view === recDot }
         rowIcon.isHidden = !hasIcon
-        detailLabel.isHidden = notice.detail == nil
+        detailLabel.isHidden = detail.height == 0 || !notice.chips.isEmpty
+        chipsView.isHidden = notice.chips.isEmpty
         rowView.isHidden = !showsRow
 
         // The right wing: its items centred together around `centreX`.
@@ -491,20 +526,22 @@ final class HUD {
                 x += item.size.width + 6
             }
         }
-        // Icon + title (and the detail under them) inside the row region, centred together.
+        // Icon + title (and the chips or detail under them) inside the row region, centred together.
         func placeRow(in region: NSRect) {
             rowView.frame = region
-            let gap: CGFloat = detail.height > 0 ? 1 : 0
-            let block = text.height + gap + detail.height
-            let titleY = (region.height - block) / 2 + detail.height + gap
+            let gap: CGFloat = lowerHeight > 0 ? 3 : 0
+            let block = text.height + gap + lowerHeight
+            let bottom = (region.height - block) / 2
+            let titleY = bottom + lowerHeight + gap
             var x = (region.width - titleGroupWidth) / 2
             if hasIcon {
                 rowIcon.frame = NSRect(x: x, y: titleY + (text.height - iconSide) / 2, width: iconSide, height: iconSide)
                 x += iconSide + 8
             }
             label.frame = NSRect(x: x, y: titleY, width: text.width, height: text.height)
-            detailLabel.frame = NSRect(x: (region.width - detail.width) / 2, y: (region.height - block) / 2,
-                                       width: detail.width, height: detail.height)
+            detailLabel.frame = NSRect(x: (region.width - detail.width) / 2, y: bottom, width: detail.width, height: detail.height)
+            let chips = ChipsView.size(for: notice.chips)
+            chipsView.frame = NSRect(x: (region.width - chips.width) / 2, y: bottom, width: chips.width, height: chips.height)
             let clipped = ceil(label.fittingSize.width) > text.width
             CATransaction.begin()
             CATransaction.setDisableActions(true)
@@ -687,6 +724,116 @@ private final class CheckView: NSView {
             stroke.fillMode = .backwards
             stroke.timingFunction = CAMediaTimingFunction(name: .easeOut)
             layer.add(stroke, forKey: "draw")
+        }
+    }
+}
+
+/// A ring that empties over a given time: how long is left to answer.
+private final class CountdownView: NSView {
+    private let track = CAShapeLayer()
+    private let remaining = CAShapeLayer()
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        wantsLayer = true
+        let path = CGMutablePath()
+        // From the top, clockwise.
+        path.addArc(center: CGPoint(x: 10, y: 10), radius: 8, startAngle: .pi / 2, endAngle: -1.5 * .pi, clockwise: true)
+        for (layer, alpha) in [(track, 0.2), (remaining, 0.9)] {
+            layer.frame = CGRect(x: 0, y: 0, width: 20, height: 20)
+            layer.path = path
+            layer.fillColor = nil
+            layer.strokeColor = NSColor(white: 1, alpha: alpha).cgColor
+            layer.lineWidth = 1.5
+            layer.lineCap = .round
+            self.layer?.addSublayer(layer)
+        }
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    func start(_ seconds: TimeInterval) {
+        remaining.removeAnimation(forKey: "left")
+        remaining.strokeEnd = 0
+        let empty = CABasicAnimation(keyPath: "strokeEnd")
+        empty.fromValue = 1
+        empty.toValue = 0
+        empty.duration = max(0.1, seconds)
+        empty.timingFunction = CAMediaTimingFunction(name: .linear)
+        remaining.add(empty, forKey: "left")
+    }
+}
+
+/// Answer pills under a confirmation title: a dot for the grey button, a shaking mic for a shake.
+private final class ChipsView: NSView {
+    var chips: [HUD.Chip] = [] {
+        didSet { if chips != oldValue { needsDisplay = true } }
+    }
+
+    private static let height: CGFloat = 20, side: CGFloat = 10, icon: CGFloat = 12, gap: CGFloat = 6, spacing: CGFloat = 8
+
+    private static func text(_ string: String) -> NSAttributedString {
+        NSAttributedString(string: string, attributes: [
+            .font: Theme.monoNS(11, semibold: true), .foregroundColor: NSColor(white: 1, alpha: 0.9),
+        ])
+    }
+
+    static func size(for chips: [HUD.Chip]) -> NSSize {
+        guard !chips.isEmpty else { return .zero }
+        let widths = chips.map { 2 * side + icon + gap + ceil(text($0.text).size().width) }
+        return NSSize(width: widths.reduce(0, +) + spacing * CGFloat(chips.count - 1), height: height)
+    }
+
+    override func draw(_ dirtyRect: NSRect) {
+        var x: CGFloat = 0
+        for chip in chips {
+            let label = Self.text(chip.text)
+            let width = 2 * Self.side + Self.icon + Self.gap + ceil(label.size().width)
+            let pill = NSBezierPath(roundedRect: NSRect(x: x + 0.5, y: 0.5, width: width - 1, height: Self.height - 1),
+                                    xRadius: Self.height / 2, yRadius: Self.height / 2)
+            NSColor(white: 1, alpha: 0.28).setStroke()
+            pill.lineWidth = 1
+            pill.stroke()
+            let iconRect = NSRect(x: x + Self.side, y: (Self.height - Self.icon) / 2, width: Self.icon, height: Self.icon)
+            switch chip.icon {
+            case .grey: Self.drawGrey(in: iconRect)
+            case .shake: Self.drawShake(in: iconRect)
+            }
+            label.draw(at: NSPoint(x: iconRect.maxX + Self.gap, y: (Self.height - label.size().height) / 2))
+            x += width + Self.spacing
+        }
+    }
+
+    /// The mic's grey button.
+    private static func drawGrey(in rect: NSRect) {
+        NSColor.white.setFill()
+        NSBezierPath(ovalIn: rect.insetBy(dx: 2.5, dy: 2.5)).fill()
+    }
+
+    /// A mic with vibration arcs on both sides: shake the mic.
+    private static func drawShake(in rect: NSRect) {
+        NSColor.white.setStroke()
+        let origin = rect.origin
+        func point(_ x: CGFloat, _ y: CGFloat) -> NSPoint { NSPoint(x: origin.x + x, y: origin.y + y) }
+        let head = NSBezierPath(roundedRect: NSRect(x: origin.x + 4.3, y: origin.y + 4.6, width: 3.4, height: 6.4),
+                                xRadius: 1.7, yRadius: 1.7)
+        head.lineWidth = 1
+        head.stroke()
+        let stand = NSBezierPath()
+        stand.move(to: point(6, 4.6))
+        stand.line(to: point(6, 1.6))
+        stand.move(to: point(4.2, 1.6))
+        stand.line(to: point(7.8, 1.6))
+        stand.lineWidth = 1
+        stand.lineCapStyle = .round
+        stand.stroke()
+        for (radius, left) in [(5.4, true), (5.4, false), (7.6, true), (7.6, false)] as [(CGFloat, Bool)] {
+            let arc = NSBezierPath()
+            let centre = point(6, 7.8)
+            arc.appendArc(withCenter: centre, radius: radius, startAngle: left ? 160 : -20, endAngle: left ? 200 : 20)
+            arc.lineWidth = 0.9
+            arc.lineCapStyle = .round
+            arc.stroke()
         }
     }
 }

@@ -14,7 +14,7 @@ const fullTitle = title ? `${title} · ${SITE.name}` : SITE.homeTitle;
 const canonical = new URL(Astro.url.pathname, Astro.site);
 const origin = new URL('/', Astro.site).toString();
 const og = new URL('/og.png', Astro.site);
-const ogAlt = 'CUE-2350 MIC: the EP-2350 FX-MIC drawn in flat vector below a MacBook with the status island open. Talk to your agent.';
+const ogAlt = 'CUE-2350 MIC: the EP-2350 FX-MIC drawn in flat vector. Talk to your agent.';
 
 // Structured data (what Google reads to understand the site): the site, the app, optionally the FAQ.
 const graph: Record<string, unknown>[] = [

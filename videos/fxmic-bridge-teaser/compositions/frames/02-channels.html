@@ -10,6 +10,8 @@
 @font-face{font-family:"IBM Plex Mono";font-weight:600;font-style:normal;src:url("assets/fonts/ibm-plex-mono-latin-600-normal.woff2") format("woff2");}
 #root{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;font-family:"Barlow";color:#1A1A1A}
 #f06-modes-bg{position:absolute;inset:0;background:#EDEDE8}
+/* the MacBook lid (mac-notch.html) takes the top of the frame: the scene shrinks into the space below it */
+#f06-modes-stage{scale:0.78;transform-origin:50% 100%}
 .f06-modes-kicker{font-family:"IBM Plex Mono";font-weight:500;text-transform:uppercase;letter-spacing:0.14em;font-size:20px;color:#6B6B66}
 .f06-modes-callout{position:absolute;display:flex;align-items:center;gap:14px}
 .f06-modes-callout .box{background:#F05A28;color:#fff;font-family:"IBM Plex Mono";font-weight:600;letter-spacing:0.12em;font-size:30px;padding:12px 22px;text-transform:uppercase}
@@ -31,9 +33,9 @@
 .f06-modes-row .led4 i{width:8px;height:8px;border-radius:50%;background:#5B2B28}
 .f06-modes-row.free .bar{background:#1A1A1A}
 </style>
-<div data-hf-id="hf-e7po" id="root" data-composition-id="f06-modes" data-width="1080" data-height="1080" data-duration="4.5">
-  <div data-hf-id="hf-5lxi" id="f06-modes-bg" class="clip" data-start="0" data-duration="4.5" data-track-index="0"></div>
-  <div data-hf-id="hf-op5y" id="f06-modes-stage" class="clip" data-start="0" data-duration="4.5" data-track-index="1" style="position:absolute;inset:0">
+<div data-hf-id="hf-e7po" id="root" data-composition-id="f06-modes" data-width="1080" data-height="1080" data-duration="6.75">
+  <div data-hf-id="hf-5lxi" id="f06-modes-bg" class="clip" data-start="0" data-duration="6.75" data-track-index="0"></div>
+  <div data-hf-id="hf-op5y" id="f06-modes-stage" class="clip" data-start="0" data-duration="6.75" data-track-index="1" style="position:absolute;inset:0">
 <div data-hf-id="hf-jx5m" class="f06-modes-chrome"><span data-hf-id="hf-y69e" class="f06-modes-kicker">((8.1)) orange button · channels</span><span data-hf-id="hf-bsv7" class="f06-modes-kicker" id="f06-modes-state">channel <span data-hf-id="hf-tkpf" id="f06-modes-n">1</span> / 4</span></div>
     <div data-hf-id="hf-300v" id="f06-modes-device"><svg data-hf-id="hf-8x96" class="fxd" viewBox="-70 0 520 760" xmlns="http://www.w3.org/2000/svg">
   
@@ -93,7 +95,7 @@
       <div data-hf-id="hf-dh52" class="f06-modes-row" id="f06-modes-r2"><span data-hf-id="hf-78ow" class="bar"></span><span data-hf-id="hf-8y7c" class="led"></span><div data-hf-id="hf-y7yw"><div data-hf-id="hf-4vbr" class="name">claude chat</div><div data-hf-id="hf-2i8x" class="desc">a conversation</div></div></div>
       <div data-hf-id="hf-hf93" class="f06-modes-row" id="f06-modes-r3"><span data-hf-id="hf-61rt" class="bar"></span><span data-hf-id="hf-7ra9" class="led"></span><div data-hf-id="hf-x11t"><div data-hf-id="hf-hv5c" class="name">codex</div><div data-hf-id="hf-b7th" class="desc">a thread · infra</div></div></div>
       <div data-hf-id="hf-nkyw" class="f06-modes-row" id="f06-modes-r4"><span data-hf-id="hf-6g2u" class="bar"></span><span data-hf-id="hf-85la" class="led"></span><div data-hf-id="hf-xfcu"><div data-hf-id="hf-ezcu" class="name">notes</div><div data-hf-id="hf-96dx" class="desc">a document · todo.md</div></div></div>
-      <div data-hf-id="hf-51g7" class="f06-modes-row free" id="f06-modes-r5"><span data-hf-id="hf-595r" class="bar"></span><span data-hf-id="hf-beia" class="led4"><i></i><i></i><i></i><i></i></span><div data-hf-id="hf-w8fr"><div data-hf-id="hf-m5m7" class="name">free</div><div data-hf-id="hf-7j88" class="desc">anywhere else · no jumps</div></div></div>
+      <div data-hf-id="hf-51g7" class="f06-modes-row free" id="f06-modes-r5"><span data-hf-id="hf-595r" class="bar"></span><span data-hf-id="hf-beia" class="led4"><i data-hf-id="hf-wt6k"></i><i data-hf-id="hf-zeb8"></i><i data-hf-id="hf-y7e5"></i><i data-hf-id="hf-ylp6"></i></span><div data-hf-id="hf-w8fr"><div data-hf-id="hf-m5m7" class="name">free</div><div data-hf-id="hf-7j88" class="desc">anywhere else · no jumps</div></div></div>
     </div>
   </div>
 </div>
@@ -143,7 +145,11 @@
     tl.to("#f06-modes-stage .f06-modes-callout", { opacity: 0, duration: 0.25 }, 3.75);
     active(5, 3.85);
 
-    window.__timelines["f06-modes"] = tl;
+    // Retimed 1.5x slower (2026-11-01): the tweens above keep their original seconds, an
+    // outer timeline plays them more slowly so every step has time to be read.
+    const slow = gsap.timeline({ paused: true });
+    slow.to(tl, { time: tl.duration(), duration: tl.duration() * 1.5, ease: "none" }, 0);
+    window.__timelines["f06-modes"] = slow;
   })();
 </script>
 </template>

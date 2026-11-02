@@ -122,14 +122,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         riskGate.onAsk = { [weak self] pending in
             guard let self else { return }
             self.leds.set(.confirm)
-            // The action as the title, how to answer as the detail (the last two parts of the text).
-            let parts = L.f("Confirm %@ · grey = yes · shake = no", pending.summary).components(separatedBy: " · ")
-            self.hud.show(parts.dropLast(2).joined(separator: " · "), detail: parts.suffix(2).joined(separator: " · "))
+            // The action as the title, how to answer as two chips, the time left as a ring.
+            self.hud.show(pending.summary,
+                          chips: [HUD.Chip(icon: .grey, text: L.t("grey = yes")), HUD.Chip(icon: .shake, text: L.t("shake = no"))],
+                          icon: self.aiIcon,
+                          trailing: .countdown(Double(self.config.agent.confirmTimeoutMs) / 1000))
             self.phaseItem.title = L.f("Confirm · %@", pending.summary)
         }
         riskGate.onEnd = { [weak self] yes in
             self?.leds.set(.processing)
-            self?.hud.show(yes ? L.t("Confirmed") : L.t("Not done"))
+            self?.hud.show(yes ? L.t("Confirmed") : L.t("Not done"), icon: self?.aiIcon)
         }
         dictation.onSlotConsumed = { [weak self] in
             guard let self else { return }
@@ -952,6 +954,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         currentPhase = phase
         messageTimer?.invalidate()
         let target = hudTarget
+        let command = dictation.isCommand || engine.mode == .command
         hud.setChannels(engine.channels.count)
         switch phase {
         case .idle:
@@ -961,37 +964,62 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         case .recording:
             leds.set(.recording)
             phaseItem.title = "● " + L.t("Recording…")
-            hud.show(target.title, icon: target.icon, showsMeter: true)
+            // A voice command says so under the title and wears the AI mark instead of the app icon.
+            hud.show(target.title, detail: command ? L.t("Voice command") : nil, icon: command ? aiIcon : target.icon,
+                     showsMeter: true)
         case .transcribing:
             leds.set(.processing)
             phaseItem.title = L.t("Transcribing…")
-            hud.show(L.t("Transcribing"), icon: target.icon)
+            hud.show(L.t("Transcribing"), icon: command ? aiIcon : target.icon)
         case .processing:
             leds.set(.processing)
             phaseItem.title = L.f("Processing with %@…", config.llm.model)
-            hud.show(L.t("Processing"), icon: target.icon)
-        case .working(let step):
+            hud.show(L.t("Processing"), icon: command ? aiIcon : target.icon)
+        case .working(let step, let request, let number, let steps):
             leds.set(.processing)
             phaseItem.title = step
-            hud.show(step, icon: target.icon)
+            // The step now, what you said in grey, how far along on the right.
+            hud.show(step, detail: "“\(request)”", icon: aiIcon, trailing: .text("\(number)/\(steps)"))
+        case .commandDone(let summary, let seconds):
+            leds.set(.idle)
+            phaseItem.title = L.f("Command: %@", summary.isEmpty ? L.t("done") : summary)
+            hud.toast(L.t("Done"), detail: summary.isEmpty ? nil : summary, icon: aiIcon,
+                      trailing: .success(text: String(format: "%.1f s", seconds)), duration: Self.readingTime(summary))
+            startMessageTimer()
         case .message(let text), .done(let text), .failure(let text):
             if case .failure = phase { leds.set(.error) } else { leds.set(.idle) }
             phaseItem.title = text
             announceResult(phase, text: text, icon: target.icon)
-            messageTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: false) { [weak self] _ in
-                MainActor.assumeIsolated {
-                    guard let self else { return }
-                    switch self.currentPhase {
-                    case .message, .done, .failure: break
-                    default: return
-                    }
-                    self.currentPhase = .idle
-                    self.phaseItem.title = L.t("Ready")
-                    self.updateIcon()
-                }
-            }
+            startMessageTimer()
         }
         updateIcon()
+    }
+
+    /// After a few seconds the menu goes back to "Ready" (the island hides itself).
+    private func startMessageTimer() {
+        messageTimer = Timer.scheduledTimer(withTimeInterval: 3, repeats: false) { [weak self] _ in
+            MainActor.assumeIsolated {
+                guard let self else { return }
+                switch self.currentPhase {
+                case .message, .done, .failure, .commandDone: break
+                default: return
+                }
+                self.currentPhase = .idle
+                self.phaseItem.title = L.t("Ready")
+                self.updateIcon()
+            }
+        }
+    }
+
+    /// How long a notice with `text` stays: time to read it, 2…6 s.
+    private static func readingTime(_ text: String) -> TimeInterval {
+        min(6, max(2, 1.5 + 0.05 * Double(text.count)))
+    }
+
+    /// The mark of everything the AI does (a voice command) in place of an app icon.
+    private var aiIcon: NSImage? {
+        let config = NSImage.SymbolConfiguration(pointSize: 14, weight: .medium)
+        return NSImage(systemSymbolName: "sparkles", accessibilityDescription: nil)?.withSymbolConfiguration(config)
     }
 
     /// A dictation ended: what happened as an island notice. "Written (1.2 s)" → title and latency
@@ -1025,7 +1053,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         hud.toast(title, detail: detail, icon: showsIcon ? icon : nil,
                   trailing: showsIcon ? .success(text: latency)
                                       : symbol.map { .glyph($0, text: latency, tone: tone) } ?? .none,
-                  duration: detail == nil ? 0.9 : 2.2)
+                  duration: detail.map(Self.readingTime) ?? 0.9)
     }
 
     // MARK: - Menu bar icon (ui.menuBarIcon)

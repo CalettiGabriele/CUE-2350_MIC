@@ -19,6 +19,8 @@ videos/**/.media/
 # Third-party licensed audio (HeyGen/Openverse): do not redistribute
 videos/**/assets/bgm/
 videos/**/assets/sfx/
+# App icons exported from macOS for the "app" icon version of the teaser: third-party marks
+videos/**/assets/app-icons/
 
 # Local Claude Code session config
 .claude/

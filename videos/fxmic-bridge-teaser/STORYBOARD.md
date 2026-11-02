@@ -1,12 +1,14 @@
 ---
 format: 1080x1080
-duration: 26s
+duration: 34.25s
 message: "Your FX-MIC, now a voice remote for your coding agent"
 arc: "Demo Loop — hook (chapter title) → channels → talk where you are → voice command → pick a skill → send to agent → brand"
 audience: "software engineers running agentic workflows (Claude Code), tinkerers — LinkedIn feed"
 mode: collaborative
 music: "lo-fi electronic, mechanical, playful, upbeat, ~105 bpm, punchy start"
 ---
+
+> **Revision of 2026-11-01.** The status pills of frames 3 and 4 are gone: one MacBook lid (`compositions/frames/mac-notch.html`) stays on screen from frame 2 to frame 6 and its notch holds the status island as in the app ([One-Pager 006](../../docs/design-docs/onepager-006-status-island.md)), with the real app icons. Frames 2-6 shrink to 78 % under it and play 1.25-1.5x slower (2: 6.75 s, 3: 4.75 s, 4: 6.75 s, 5: 4.5 s, 6: 5 s, 7: 4 s); the closing line is now "one mic. / every agent you work with."; the cut is rendered at 60 fps. The frame notes below describe the first cut.
 
 ## Frame 1 — ((8)) talking to your agent
 

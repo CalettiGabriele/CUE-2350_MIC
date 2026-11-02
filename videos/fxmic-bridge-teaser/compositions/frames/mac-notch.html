@@ -1,0 +1,219 @@
+<!doctype html>
+<html data-composition-variables='[{"id":"iconStyle","type":"string","label":"Island icons: app or glyph","default":"app"}]'>
+<body>
+<template>
+<style>
+@font-face{font-family:"Barlow";font-weight:600;font-style:normal;src:url("assets/fonts/barlow-latin-600-normal.woff2") format("woff2");}
+@font-face{font-family:"IBM Plex Mono";font-weight:600;font-style:normal;src:url("assets/fonts/ibm-plex-mono-latin-600-normal.woff2") format("woff2");}
+#root{position:absolute;inset:0;width:100%;height:100%;overflow:hidden;pointer-events:none}
+/* The upper part of a MacBook lid, fading out downwards (as the site's hero). The island lives in
+   its notch exactly as in the app (docs/design-docs/onepager-006-status-island.md), drawn at 2x
+   the app's points so it reads on a phone. */
+#mac-notch-lid{position:absolute;left:70px;right:70px;top:18px;height:250px;background:#1A1A1A;border-radius:36px 36px 0 0;padding:14px 14px 0;-webkit-mask-image:linear-gradient(to bottom,#000 72%,transparent);mask-image:linear-gradient(to bottom,#000 72%,transparent)}
+#mac-notch-screen{position:relative;width:100%;height:100%;background:#E6E6E1;border-radius:10px 10px 0 0;overflow:hidden}
+#mac-notch-island{position:absolute;top:0;left:0;right:0;margin:0 auto;width:220px;height:64px;background:#000;border-radius:0 0 24px 24px;overflow:hidden}
+#mac-notch-inner{position:absolute;top:0;left:50%;width:508px;margin-left:-254px;height:240px;color:#fff}
+#mac-notch-pips{position:absolute;left:0;top:0;width:144px;height:64px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px}
+.mac-notch-prow{display:grid;grid-template-columns:repeat(4,24px);column-gap:6px}
+.mac-notch-pip{display:block;justify-self:center;width:12px;height:12px;border-radius:6px;background:#2A1414}
+.mac-notch-state{position:absolute;inset:0;opacity:0}
+.mac-notch-right{position:absolute;right:0;top:0;width:144px;height:64px;display:flex;align-items:center;justify-content:center;gap:12px;font-family:"IBM Plex Mono";font-weight:600;font-size:22px;letter-spacing:0.5px;color:rgba(255,255,255,0.85)}
+.mac-notch-state.folded .mac-notch-right{height:76px}
+.mac-notch-right svg{display:block}
+.mac-notch-time{position:relative;display:block}
+.mac-notch-time span{position:absolute;left:0;top:0;opacity:0}
+.mac-notch-time i{visibility:hidden;font-style:normal}
+.mac-notch-dot{display:block;width:14px;height:14px;border-radius:50%;background:#E3242B}
+.mac-notch-row{position:absolute;left:0;right:0;top:64px;height:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px}
+.mac-notch-state.detail .mac-notch-row{height:88px}
+.mac-notch-title{display:flex;align-items:center;gap:16px;font-family:"Barlow";font-weight:600;font-size:28px;line-height:1.15;color:#fff}
+.mac-notch-title svg{display:block;width:32px;height:32px;color:rgba(255,255,255,0.92)}
+.mac-notch-title img{display:block;width:38px;height:38px;margin:-3px 0}
+.mac-notch-detail{font-family:"Barlow";font-weight:600;font-size:24px;line-height:1.15;color:rgba(255,255,255,0.5)}
+</style>
+<div data-hf-id="hf-mn01" id="root" data-composition-id="mac-notch" data-width="1080" data-height="1080" data-duration="27.75">
+  <div data-hf-id="hf-mn02" id="mac-notch-lid">
+    <div data-hf-id="hf-mn03" id="mac-notch-screen">
+      <div data-hf-id="hf-mn04" id="mac-notch-island">
+        <div data-hf-id="hf-mn05" id="mac-notch-inner">
+          <div data-hf-id="hf-mn06" id="mac-notch-pips">
+            <div data-hf-id="hf-mn07" class="mac-notch-prow"><i data-hf-id="hf-cqtc" class="mac-notch-pip" id="mac-notch-r1"></i><i data-hf-id="hf-lep7" class="mac-notch-pip" id="mac-notch-r2"></i><i data-hf-id="hf-hgl6" class="mac-notch-pip" id="mac-notch-r3"></i><i data-hf-id="hf-0wh9" class="mac-notch-pip" id="mac-notch-r4"></i></div>
+            <div data-hf-id="hf-mn08" class="mac-notch-prow"><i data-hf-id="hf-1gej" class="mac-notch-pip" id="mac-notch-w1"></i><i data-hf-id="hf-qkww" class="mac-notch-pip" id="mac-notch-w2"></i><i data-hf-id="hf-rckp" class="mac-notch-pip" id="mac-notch-w3"></i><i data-hf-id="hf-ioou" class="mac-notch-pip" id="mac-notch-w4"></i></div>
+          </div>
+          <div data-hf-id="hf-mn09" id="mac-notch-states"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+  (function () {
+    const tl = gsap.timeline({ paused: true });
+    const ISL = "#mac-notch-island";
+    // the app's sizes (points) x 2
+    const NOTCH_W = 220, NOTCH_H = 64, WIDTH = 508, ROW = 56, ROW_D = 88, COMPACT = 12;
+    const SIZE = { closed: [NOTCH_W, NOTCH_H], row: [WIDTH, NOTCH_H + ROW], detail: [WIDTH, NOTCH_H + ROW_D], folded: [WIDTH, NOTCH_H + COMPACT] };
+
+    // ---- glyphs: an app (a terminal session), the AI mark, the check in a ring, a run slot
+    const stroke = 'fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"';
+    const ICON = {
+      app: `<svg viewBox="0 0 16 16"><rect x="1.5" y="2.5" width="13" height="11" rx="3" ${stroke}/><path d="M5 6.5l2.2 1.7L5 9.9M8.6 10h2.6" ${stroke}/></svg>`,
+      ai: '<svg viewBox="0 0 16 16"><path d="M6.5 2.5l1.1 3.1 3.1 1.1-3.1 1.1-1.1 3.1-1.1-3.1-3.1-1.1 3.1-1.1z" fill="currentColor"/><path d="M12 9.5l.6 1.6 1.6.6-1.6.6-.6 1.6-.6-1.6-1.6-.6 1.6-.6z" fill="currentColor"/></svg>',
+    };
+    const CHECK = '<svg width="40" height="40" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle class="mac-notch-ring" cx="10" cy="10" r="8" stroke-dasharray="51"/><path class="mac-notch-tick" d="M6 10.5l3 3 5-6" stroke-dasharray="14"/></svg>';
+    const RUN = '<svg width="28" height="28" viewBox="0 0 16 16"><path d="M5 3l8 5-8 5z" fill="currentColor"/></svg>';
+
+    // ---- retiming: every time below is written in the film's first cut (scenes of 4.5, 3.5, 4.5, 3.5
+    // and 4 s from 2.5 s) and mapped by T() onto the slower cut, scene by scene, so the island stays
+    // in step with the retimed scenes. [old start, old length, new start, new length], layer time.
+    const CUT = [[0, 4.5, 0, 6.75], [4.5, 3.5, 6.75, 4.75], [8, 4.5, 11.5, 6.75], [12.5, 3.5, 18.25, 4.5], [16, 4, 22.75, 5]];
+    function T(x) {
+      for (const [a, l, b, m] of CUT) if (x < a + l - 1e-9) return b + (x - a) * (m / l);
+      const [a, l, b, m] = CUT[CUT.length - 1];
+      return b + (x - a) * (m / l);
+    }
+
+    // ---- the states, in this layer's time (the layer starts at 2.5 s of the film)
+    // right: ["time", [[at, "0:00"], …]] | ["text", "2/4"] | ["check", "0.8 s"] | ["run"]
+    const STATES = [
+      // 02 channels: four taps on orange, then a click on another app (free: the island closes)
+      { at: 2.0, until: 2.45, kind: "row", icon: "app", app: "claude", title: "api-backend", right: ["text", "1/4"] },
+      { at: 2.45, until: 2.9, kind: "row", icon: "app", app: "claude", title: "Conversation", right: ["text", "2/4"] },
+      { at: 2.9, until: 3.35, kind: "row", icon: "app", app: "codex", title: "infra", right: ["text", "3/4"] },
+      { at: 3.35, until: 3.85, kind: "row", icon: "app", app: "vscode", title: "todo.md", right: ["text", "4/4"] },
+      // 03 talk: hold, the title row folds away, release, transcribing, written
+      { at: 5.5, until: 6.7, kind: "row", icon: "app", app: "notes", title: "Notes", right: ["time", [[5.5, "0:00"], [6.5, "0:01"]]] },
+      { at: 6.7, until: 7.5, kind: "folded", icon: "app", app: "notes", title: "Notes", right: ["time", [[6.7, "0:01"], [7.4, "0:02"]]] },
+      { at: 7.5, until: 7.95, kind: "row", icon: "app", app: "notes", title: "Transcribing", right: null },
+      { at: 7.95, until: 8.55, kind: "row", icon: "app", app: "notes", title: "Written", right: ["check", "0.8 s"] },
+      // 04 voice command: hold, grey, the step and what you said, done
+      { at: 8.55, until: 9.05, kind: "row", icon: "app", app: "notes", title: "Notes", right: ["time", [[8.55, "0:00"]]] },
+      { at: 9.05, until: 10.22, kind: "detail", icon: "ai", title: "Notes", detail: "Voice command", right: ["time", [[9.05, "0:00"], [9.55, "0:01"]]] },
+      { at: 10.22, until: 10.75, kind: "detail", icon: "ai", title: "Rewriting the selection", detail: "“translate it into italian”", right: ["text", "1/2"] },
+      { at: 10.75, until: 12.3, kind: "detail", icon: "ai", title: "Done", detail: "Replaced the selection", right: ["check", "0.6 s"] },
+      // 05 slots: three taps on white, the card names the skill and its kind
+      { at: 13.05, until: 13.62, kind: "row", title: "/compact", right: ["run"] },
+      { at: 13.62, until: 14.19, kind: "row", title: "/clear", right: ["run"] },
+      { at: 14.19, until: 15.8, kind: "row", title: "/review", right: ["run"] },
+      // 06 agent: grey runs the skill
+      { at: 16.85, until: 18.0, kind: "row", icon: "app", app: "terminal", title: "/review", right: ["check"] },
+    ];
+
+    // Variable iconStyle: "app" (the film's only cut) uses the real icons macOS shows for each
+    // channel's app, exported with scripts/export-app-icons.swift into assets/app-icons (third-party
+    // marks: kept out of the repo, see .gitignore); "glyph" is the fallback when they are missing.
+    // The AI mark stays for the voice command.
+    const vars = (window.__hyperframes && window.__hyperframes.getVariables && window.__hyperframes.getVariables()) || {};
+    const APP_ICONS = vars.iconStyle !== "glyph";
+    const iconFor = (s) => s.icon === "app" && APP_ICONS && s.app
+      ? `<img src="assets/app-icons/${s.app}.png" alt="">` : (s.icon ? ICON[s.icon] : "");
+
+    STATES.forEach((s) => {
+      s.at = T(s.at); s.until = T(s.until);
+      if (s.right && s.right[0] === "time") s.right[1] = s.right[1].map(([at, text]) => [T(at), text]);
+    });
+
+    const host = document.querySelector("#mac-notch-states");
+    STATES.forEach((s, i) => {
+      const el = document.createElement("div");
+      el.className = "mac-notch-state " + s.kind;
+      el.id = "mac-notch-s" + i;
+      let right = "";
+      if (s.right && s.right[0] === "time") {
+        const spans = s.right[1].map(([, text], k) => `<span id="mac-notch-s${i}-t${k}">${text}</span>`).join("");
+        right = (s.kind === "folded" ? '<i class="mac-notch-dot" id="mac-notch-s' + i + '-dot"></i>' : "")
+          + `<b class="mac-notch-time"><i>0:00</i>${spans}</b>`;
+      } else if (s.right && s.right[0] === "text") right = `<span>${s.right[1]}</span>`;
+      else if (s.right && s.right[0] === "check") right = CHECK + (s.right[1] ? `<span>${s.right[1]}</span>` : "");
+      else if (s.right && s.right[0] === "run") right = RUN;
+      const row = s.kind === "folded" ? "" : `<div class="mac-notch-row"><div class="mac-notch-title">${iconFor(s)}<span>${s.title}</span></div>`
+        + (s.detail ? `<div class="mac-notch-detail">${s.detail}</div>` : "") + "</div>";
+      el.innerHTML = `<div class="mac-notch-right">${right}</div>${row}`;
+      host.appendChild(el);
+    });
+
+    // ---- the lid comes down with the first scene that has a screen and leaves before the brand card
+    tl.fromTo("#mac-notch-lid", { y: -290 }, { y: 0, duration: 0.5, ease: "power3.out" }, 0);
+    tl.to("#mac-notch-lid", { y: -290, duration: 0.45, ease: "power2.in" }, T(19.55));
+
+    // ---- shape: grows out of the notch with a little overshoot, follows each state, retracts
+    let shapeNow = "closed";
+    function shape(kind, t) {
+      if (kind === shapeNow) return;
+      const [w, h] = SIZE[kind];
+      const closing = kind === "closed", opening = shapeNow === "closed";
+      const ease = closing ? "power3.in" : opening ? "back.out(1.4)" : "power3.out";
+      // As in the app, the contents (pips included) leave before the shape retracts and come in once
+      // it is mostly open: the island never drags its pips into the notch.
+      if (closing) tl.to("#mac-notch-pips", { opacity: 0, duration: 0.08, ease: "none" }, t - 0.04);
+      if (opening) tl.fromTo("#mac-notch-pips", { opacity: 0 }, { opacity: 1, duration: 0.12, ease: "none" }, t + 0.15);
+      tl.to(ISL, { width: w, height: h, duration: closing ? 0.32 : 0.45, ease }, closing ? t + 0.04 : t);
+      // the pips sit in the middle of the wings: a little lower when the island is folded
+      tl.to("#mac-notch-pips", { y: kind === "folded" ? COMPACT / 2 : 0, duration: 0.35, ease: "power3.out" }, t);
+      shapeNow = kind;
+    }
+    tl.set(ISL, { width: NOTCH_W, height: NOTCH_H }, 0);
+    tl.set("#mac-notch-pips", { y: 0, opacity: 0 }, 0);
+
+    STATES.forEach((s, i) => {
+      const id = "#mac-notch-s" + i;
+      const opening = i === 0 || STATES[i - 1].until < s.at - 0.01;
+      shape(s.kind, s.at);
+      tl.fromTo(id, { opacity: 0 }, { opacity: 1, duration: 0.12, ease: "none" }, s.at + (opening ? 0.15 : 0));
+      tl.to(id, { opacity: 0, duration: 0.08, ease: "none" }, s.until - 0.04);
+      if (s.right && s.right[0] === "time") {
+        s.right[1].forEach(([at], k) => {
+          const next = s.right[1][k + 1];
+          tl.set(`${id}-t${k}`, { opacity: 1 }, at);
+          tl.set(`${id}-t${k}`, { opacity: 0 }, next ? next[0] : s.until);
+        });
+        // the red dot breathes (1 s up, 1 s down) while the island is folded
+        if (s.kind === "folded") {
+          const n = Math.max(1, Math.floor((s.until - s.at) / 0.5));
+          tl.fromTo(`${id}-dot`, { opacity: 1 }, { opacity: 0.35, duration: 0.5, ease: "sine.inOut", yoyo: true, repeat: n - 1 }, s.at);
+        }
+      }
+      if (s.right && s.right[0] === "check") {
+        // the check draws itself: the ring, then the tick
+        tl.fromTo(`${id} .mac-notch-ring`, { strokeDashoffset: 51 }, { strokeDashoffset: 0, duration: 0.2, ease: "power2.out" }, s.at + 0.15);
+        tl.fromTo(`${id} .mac-notch-tick`, { strokeDashoffset: 14 }, { strokeDashoffset: 0, duration: 0.15, ease: "power2.out" }, s.at + 0.32);
+      }
+      const next = STATES[i + 1];
+      if (!next || next.at > s.until + 0.01) shape("closed", s.until);
+    });
+
+    // ---- pips: the same LED mask as the mic in each scene (red = channel, white = slot in binary)
+    const RED = "#E3242B", RED_BOUND = "#6E1F22", RED_OFF = "#2A1414", WHITE_OFF = "#4A4A47";
+    const BOUND = 4;  // four channels bound in the story
+    function leds(red, white, t0) {
+      const t = T(t0);
+      for (let i = 1; i <= 4; i++) {
+        const r = red.includes(i);
+        // a short tween, not a hard set: a pip grows into its capsule (still in step with the mic)
+        tl.to("#mac-notch-r" + i, { width: r ? 24 : 12, backgroundColor: r ? RED : (i <= BOUND ? RED_BOUND : RED_OFF), boxShadow: r ? "0 0 7px #FF3B30" : "0 0 0px #FF3B30", duration: 0.06, ease: "none" }, t);
+        const w = (white >> (i - 1)) & 1;
+        tl.to("#mac-notch-w" + i, { width: w ? 24 : 12, backgroundColor: w ? "#FFFFFF" : WHITE_OFF, boxShadow: w ? "0 0 7px #FFFFFF" : "0 0 0px #FFFFFF", duration: 0.06, ease: "none" }, t);
+      }
+    }
+    const ALL = [1, 2, 3, 4], SWEEP = [1, 2, 3, 4, 3, 2];
+    leds([], 0, 0);
+    [[1.95, 1], [2.4, 2], [2.85, 3], [3.3, 4]].forEach(([t, n]) => leds([n], 0, t + 0.05));
+    leds(ALL, 0, 3.85);                                                    // free
+    let k = 0;
+    for (let t = 5.7; t < 7.5; t += 0.125, k++) leds([SWEEP[k % 6]], 0, t);  // 03: KITT while talking
+    leds(ALL, 0, 7.5);
+    k = 0;
+    for (let t = 8.7; t < 10.2; t += 0.125, k++) leds([SWEEP[k % 6]], 0, t); // 04: KITT
+    for (let i = 0; i < 4; i++) leds(i % 2 ? [2, 4] : [1, 3], 0, 10.22 + i * 0.12); // the model thinks
+    leds(ALL, 0, 10.7);
+    leds([2], 0, 12.5);                                                    // 05: channel 2, slots 1-3
+    [0, 1, 2].forEach((i) => leds([2], i + 1, 13.0 + i * 0.57 + 0.05));
+    leds([2], 3, 16.0);                                                    // 06: grey runs slot 3
+    leds([2], 0, 16.85);
+
+    window.__timelines["mac-notch"] = tl;
+  })();
+</script>
+</template>
+</body>
+</html>

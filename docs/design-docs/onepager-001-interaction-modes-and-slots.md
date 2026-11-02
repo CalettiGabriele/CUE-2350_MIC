@@ -26,7 +26,7 @@ There is also no feedback on the mic while recording, and no action instead of a
 - **Per profile:** you choose which modes are enabled (for example Command only where it is useful) and which is the default.
 
 ### 2. White = command and skill slots (up to 15 per app, encoded in binary on the 4 LEDs)
-Each combination of the 4 white LEDs is a slot: off = no slot, then 1…15 in binary. **The island always shows the slot's name**, because the binary code cannot be read at a glance.
+Each combination of the 4 white LEDs is a slot: off = no slot, then 1…15 in binary. **The island always shows the slot's name and type** (▶ run, ✎ template, ✦ LLM) next to the white pips that mirror the LEDs, because the binary code cannot be read at a glance. *Rev. 2026-11-01:* the number is one counter for the whole mic, as in the mic's firmware, and is no longer kept per profile ([ADR-005](../adr/adr-005-one-slot-counter-like-the-mic.md), [One-Pager 006](onepager-006-status-island.md)).
 - **Navigation:** tap = next slot, double tap = previous, long press = no slot.
 - **Two kinds of slot, chosen slot by slot:**
   - **Run:** grey sends text, keys or a sequence at once. For example "New chat" (⌘N), "Interrupt" (Esc), a text such as `/compact` with Return, or the text that launches a skill.

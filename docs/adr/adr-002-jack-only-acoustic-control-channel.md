@@ -27,7 +27,7 @@ We decided that with the jack-only connection:
 - The Mac reuses profiles, modes, slots, LLM and the island unchanged, through an adapter from messages to actions.
 
 **Negative**
-- One-way channel: mode, slot, processing and errors are not shown on the LEDs, only in the island.
+- One-way channel: mode, slot, processing and errors are not shown on the LEDs, only in the island. *(Rev. 2026-11-01: the FXMic firmware now pages its own channel and slot LEDs and tells the Mac the page; the island mirrors the LED mask. See ADR-005 and One-Pager 006.)*
 - About 180 ms of extra latency per command, and the gesture thresholds require reinstalling the firmware when they change.
 - Recording always on on the Mac in jack mode: continuous power use and the macOS microphone indicator always lit.
 - It depends on the frequency response of the mic's and the audio interface's audio chain, still to be measured (T5).

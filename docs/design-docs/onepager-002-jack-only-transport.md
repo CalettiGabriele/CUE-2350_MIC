@@ -98,7 +98,7 @@ The **Install FXMic** procedure:
 
 **Switching from USB to jack without a power cycle.** When the app closes the USB session, its agent restarts FXMic. If the cable is pulled suddenly, the agent notices because the Mac stops polling it: after 3 s without requests it restarts FXMic by itself. The time is measured with the firmware's periodic events (tests T3 and T6).
 
-**Feedback without LEDs.** With the jack, the island on the notch is the only feedback for mode, slot, processing and errors. It already shows all of them today.
+**Feedback without LEDs.** With the jack the Mac cannot drive the LEDs, so the island on the notch is the feedback for processing and errors. *Rev. 2026-11-01:* the FXMic firmware pages its own LEDs for channels and slots and tells the Mac which page it landed on; the island **mirrors the LED mask**, so both always agree, and the slot is one counter for the whole mic ([ADR-005](../adr/adr-005-one-slot-counter-like-the-mic.md), [One-Pager 006](onepager-006-status-island.md)).
 
 ## 4. What is kept with the jack (with FXMic installed)
 | Feature | Jack | Notes |

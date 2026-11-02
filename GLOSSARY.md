@@ -1,66 +1,40 @@
-# CUE-2350 MIC
+# Glossary
 
-A macOS menu bar app that turns the EP-2350 FX-MIC (or the keyboard) into a voice remote for the Mac and for coding agents.
+The words this project uses, as they are used in the code, the docs and the UI.
 
-## Language
+## Input
+- **FX-MIC**: the EP-2350 hardware: a handle, three buttons, eight LEDs and an accelerometer. Not "CUE" or "device" when the hardware is meant.
+- **Keyboard mic**: the keys of the Mac keyboard that act as a virtual FX-MIC (right Option = handle, right Command = grey), producing the same gestures. Not "hotkeys" or "fallback".
+- **Connection**: how the FX-MIC talks to the app: USB-C or the 3.5 mm jack. The keyboard mic is not a connection.
+- **Gesture**: a recognised input from the handle, a button or the shake: tap, double tap, long press, very long press, chord, handle double click, shake, shake hold.
+- **Chord**: grey pressed while the handle is held; it turns the dictation into a voice command.
 
-### Input
+## The mic
+- **Handle**: the part you hold to talk. Held = recording, released = the take ends. Double click = new line.
+- **Orange, white, grey**: the three buttons. Orange = channels, white = slots (skills and commands), grey = actions and the voice command.
+- **LEDs**: eight on the mic. Four red (the channel you are on, one lit; all four lit = free) and four white (the slot number in binary, top = 1).
+- **KITT**: the sweep of one red LED up and down (0 1 2 3 2 1) while recording.
+- **LED mask**: the 8 bits sent to the mic (bits 0–3 red, 4–7 white), logical order. The island draws the same mask.
 
-**FX-MIC**:
-The EP-2350 FX-MIC hardware: a handle, three buttons, eight LEDs and an accelerometer.
-_Avoid_: CUE, device (when the hardware is meant)
+## What you talk to
+- **Channel**: a named destination bound to a red LED (a session, a chat, a document, an app). At most four. Binding = long press on orange with the window in front.
+- **Free**: no channel in front. All four red LEDs lit; the voice goes where the cursor is.
+- **Page**: a channel position the mic itself lands on (firmware paging over the jack) and reports to the Mac.
+- **Profile**: the skills, intents and text format that follow the app in front.
+- **Slot**: one of up to fifteen skills or commands, selected with white. Kinds: **run** (grey sends it), **template** (wraps the next dictation), **LLM** (rewrites the next dictation).
+- **Slot counter**: the mic's single number 0–15 on the white LEDs; the slot is the one the profile has at that number, if any ([ADR-005](docs/adr/adr-005-one-slot-counter-like-the-mic.md)).
+- **Intent**: a named action a profile maps to the app ("stop" = Esc in one app, another shortcut elsewhere).
+- **Voice command**: grey pressed while talking (or the Command mode): the sentence becomes actions run by an agent, instead of being typed.
 
-**Keyboard mic**:
-The set of keys on the Mac keyboard that acts as a virtual FX-MIC, producing the same gestures as the handle, the buttons and the shake.
-_Avoid_: hotkeys, fallback, keyboard shortcuts
+- **Dictation**: speech transcribed locally and written where the voice goes.
+- **Confirmation**: the yes/no the app asks for before a risky action of a voice command; no answer means no.
 
-**Connection**:
-How the FX-MIC talks to the app: USB-C or the 3.5 mm jack. The keyboard mic is not a connection.
-
-**Handle**:
-The FX-MIC's push-to-talk lever: held, it records dictation.
-
-**Button**:
-One of the FX-MIC's three buttons, named by colour: grey, white, orange.
-
-**Gesture**:
-A recognised input from the handle, a button or the shake: tap, double tap, long press, very long press, chord, handle double click, shake, shake hold.
-
-**Chord**:
-Grey pressed while the handle is held; it turns the dictation into a voice command.
-
-### Where the voice goes
-
-**Channel**:
-A saved destination (an agent session, a chat, a document, a window or an app) that orange jumps between; up to four.
-_Avoid_: bookmark, target
-
-**Free**:
-The state of being on no channel: the voice goes where the cursor is.
-
-### What the voice does
-
-**Dictation**:
-Speech transcribed locally and written where the voice goes.
-
-**Voice command**:
-A dictation that is turned into actions by the local agent instead of being written.
-_Avoid_: edit selection
-
-**Confirmation**:
-The yes/no the app asks for before a risky action of a voice command; no answer means no.
-
-**Profile**:
-The set of slots, intents and button actions that applies to the app in front.
-
-**Slot**:
-One entry of a profile's list on white: a command, a skill/template or an LLM rewrite.
-
-**Intent**:
-A named action (such as `interrupt`) that each profile maps to its own keys.
-
-### On screen
-
-**Island**:
-The black status shape at the top of the screen that mirrors the LEDs and shows recording, destination and cards.
-_Avoid_: pill, HUD
+## The island ([One-Pager 006](docs/design-docs/onepager-006-status-island.md))
+- **Island**: the black shape at the top of the active screen, growing out of the notch (a **pill** on screens without one).
+- **Wing**: the part beside the notch. Left wing holds the pips, right wing holds the time, `2/3` or a glyph.
+- **Pips**: the two rows of four dots in the left wing mirroring the LEDs. Lit = a capsule, unlit = a dot.
+- **Title row**: what is below the notch: the app icon (or the AI mark), the title and a grey detail.
+- **Folded / compact island**: while recording, the title row gone: the two wings, a little thicker than the notch.
+- **Notice**: anything the island says for a moment (a result, a message, a card). **Card**: a notice for a selection (channel, slot, mode).
+- **Chip**: a pill under the title with an answer ("grey = yes", "shake = no").
+- **AI mark**: the ✦ (sparkles) shown instead of the app icon in every step of a voice command.

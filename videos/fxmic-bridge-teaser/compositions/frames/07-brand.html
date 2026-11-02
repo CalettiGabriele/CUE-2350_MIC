@@ -23,12 +23,13 @@
 #f05-brand-device svg{width:100%;height:100%}
 #f05-brand-word{position:absolute;left:360px;top:300px;font-weight:900;font-size:124px;letter-spacing:-0.04em;line-height:0.92}
 #f05-brand-tag{position:absolute;left:364px;top:540px;font-weight:600;font-size:42px;line-height:1.2}
+#f05-brand-tag > div:nth-child(2){color:#6B6B66}
 #f05-brand-meta{position:absolute;left:364px;top:676px;font-family:"IBM Plex Mono";font-weight:600;font-size:28px;letter-spacing:0.14em;text-transform:uppercase;color:#D44A1A}
 #f05-brand-foot{position:absolute;left:72px;right:72px;top:830px;border-top:1px solid #C9C9C3;padding-top:16px;font-family:"IBM Plex Mono";font-size:18px;letter-spacing:0.12em;text-transform:uppercase;color:#6B6B66}
 </style>
-<div data-hf-id="hf-c2vh" id="root" data-composition-id="f05-brand" data-width="1080" data-height="1080" data-duration="3.5">
-  <div data-hf-id="hf-q77h" id="f05-brand-bg" class="clip" data-start="0" data-duration="3.5" data-track-index="0"></div>
-  <div data-hf-id="hf-dtvv" id="f05-brand-stage" class="clip" data-start="0" data-duration="3.5" data-track-index="1" style="position:absolute;inset:0">
+<div data-hf-id="hf-c2vh" id="root" data-composition-id="f05-brand" data-width="1080" data-height="1080" data-duration="4">
+  <div data-hf-id="hf-q77h" id="f05-brand-bg" class="clip" data-start="0" data-duration="4" data-track-index="0"></div>
+  <div data-hf-id="hf-dtvv" id="f05-brand-stage" class="clip" data-start="0" data-duration="4" data-track-index="1" style="position:absolute;inset:0">
 <div data-hf-id="hf-phw2" class="f05-brand-chrome"><span data-hf-id="hf-xutb" class="f05-brand-kicker">((8)) end of chapter</span><span data-hf-id="hf-1j2s" class="f05-brand-kicker">EP–2350 FX–MIC</span></div>
     <div data-hf-id="hf-gdaj" id="f05-brand-device"><svg data-hf-id="hf-8x96" class="fxd" viewBox="-70 0 520 760" xmlns="http://www.w3.org/2000/svg">
   
@@ -83,7 +84,7 @@
 </svg>
 </div>
     <div data-hf-id="hf-nev1" id="f05-brand-word"><div data-hf-id="hf-fr9w">cue-2350</div><div data-hf-id="hf-9i8r">mic<span data-hf-id="hf-es5c" style="color:#F05A28">.</span></div></div>
-    <div data-hf-id="hf-xidn" id="f05-brand-tag"><div data-hf-id="hf-7319">voice + channels</div><div data-hf-id="hf-25h6">for your coding agents</div></div>
+    <div data-hf-id="hf-xidn" id="f05-brand-tag"><div data-hf-id="hf-7319">one mic.</div><div data-hf-id="hf-25h6">every agent you work with.</div></div>
     <div data-hf-id="hf-uq2b" id="f05-brand-meta">open source · macOS</div>
     <div data-hf-id="hf-4oxk" id="f05-brand-foot">unofficial · not affiliated with teenage engineering</div>
   </div>
@@ -111,8 +112,8 @@
     tl.fromTo(D, { x: -220, opacity: 0 }, { x: 0, opacity: 1, duration: 0.55, ease: "power3.out" }, 0.05);
     rise("#f05-brand-word > div:nth-child(1)", 0.5, 0.55, 50);
     rise("#f05-brand-word > div:nth-child(2)", 0.65, 0.55, 50);
-    rise("#f05-brand-tag > div:nth-child(1)", 1.3, 0.45, 16);
-    rise("#f05-brand-tag > div:nth-child(2)", 1.45, 0.45, 16);
+    rise("#f05-brand-tag > div:nth-child(1)", 1.1, 0.45, 16);
+    rise("#f05-brand-tag > div:nth-child(2)", 1.25, 0.45, 16);
     rise("#f05-brand-meta", 1.75, 0.45, 12);
     red(D, [1], 1.9); red(D, [], 2.05); red(D, [1], 2.2);
     tl.fromTo("#f05-brand-foot", { opacity: 0 }, { opacity: 1, duration: 0.5 }, 2.2);
