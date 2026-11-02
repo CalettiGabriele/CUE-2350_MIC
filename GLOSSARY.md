@@ -2,6 +2,13 @@
 
 The words this project uses, as they are used in the code, the docs and the UI.
 
+## Input
+- **FX-MIC**: the EP-2350 hardware: a handle, three buttons, eight LEDs and an accelerometer. Not "CUE" or "device" when the hardware is meant.
+- **Keyboard mic**: the keys of the Mac keyboard that act as a virtual FX-MIC (right Option = handle, right Command = grey), producing the same gestures. Not "hotkeys" or "fallback".
+- **Connection**: how the FX-MIC talks to the app: USB-C or the 3.5 mm jack. The keyboard mic is not a connection.
+- **Gesture**: a recognised input from the handle, a button or the shake: tap, double tap, long press, very long press, chord, handle double click, shake, shake hold.
+- **Chord**: grey pressed while the handle is held; it turns the dictation into a voice command.
+
 ## The mic
 - **Handle**: the part you hold to talk. Held = recording, released = the take ends. Double click = new line.
 - **Orange, white, grey**: the three buttons. Orange = channels, white = slots (skills and commands), grey = actions and the voice command.
@@ -18,6 +25,9 @@ The words this project uses, as they are used in the code, the docs and the UI.
 - **Slot counter**: the mic's single number 0–15 on the white LEDs; the slot is the one the profile has at that number, if any ([ADR-005](docs/adr/adr-005-one-slot-counter-like-the-mic.md)).
 - **Intent**: a named action a profile maps to the app ("stop" = Esc in one app, another shortcut elsewhere).
 - **Voice command**: grey pressed while talking (or the Command mode): the sentence becomes actions run by an agent, instead of being typed.
+
+- **Dictation**: speech transcribed locally and written where the voice goes.
+- **Confirmation**: the yes/no the app asks for before a risky action of a voice command; no answer means no.
 
 ## The island ([One-Pager 006](docs/design-docs/onepager-006-status-island.md))
 - **Island**: the black shape at the top of the active screen, growing out of the notch (a **pill** on screens without one).
