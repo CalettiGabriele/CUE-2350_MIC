@@ -143,4 +143,111 @@ import Testing
         #expect(mic.tick(at: 300).isEmpty)
         #expect(mic.handle(keyCode: 54, isDown: false, at: 300).gestures == [.longPress(.grey)])
     }
+
+    // MARK: - Arrows on right Command (orange, white, shake)
+
+    private let leftArrow: UInt16 = 123, rightArrow: UInt16 = 124, downArrow: UInt16 = 125  // ↓ is not mapped yet
+
+    @Test func rightCommandLeftIsOrangeAndIntercepted() {
+        var mic = KeyboardMic()
+        _ = mic.handle(keyCode: 54, isDown: true, at: 0)
+        let press = mic.handle(keyCode: leftArrow, isDown: true, at: 10)
+        #expect(press.gestures.isEmpty && press.intercept)
+        let release = mic.handle(keyCode: leftArrow, isDown: false, at: 100)
+        #expect(release.gestures.isEmpty && release.intercept)
+        #expect(mic.tick(at: 400).isEmpty)
+        #expect(mic.tick(at: 401) == [.tap(.orange)])
+        #expect(mic.handle(keyCode: 54, isDown: false, at: 500).gestures.isEmpty)
+        #expect(mic.tick(at: 5000).isEmpty)
+    }
+
+    @Test func rightCommandRightIsWhite() {
+        var mic = KeyboardMic()
+        _ = mic.handle(keyCode: 54, isDown: true, at: 0)
+        _ = mic.handle(keyCode: rightArrow, isDown: true, at: 10)
+        _ = mic.handle(keyCode: rightArrow, isDown: false, at: 100)
+        #expect(mic.tick(at: 401) == [.tap(.white)])
+    }
+
+    @Test(arguments: [(UInt16(123), MicButton.orange), (UInt16(124), MicButton.white)])
+    func arrowDoubleTap(keyCode: UInt16, button: MicButton) {
+        var mic = KeyboardMic()
+        _ = mic.handle(keyCode: 54, isDown: true, at: 0)
+        _ = mic.handle(keyCode: keyCode, isDown: true, at: 10)
+        _ = mic.handle(keyCode: keyCode, isDown: false, at: 100)
+        _ = mic.handle(keyCode: keyCode, isDown: true, at: 200)
+        #expect(mic.handle(keyCode: keyCode, isDown: false, at: 300).gestures == [.doubleTap(button)])
+        #expect(mic.tick(at: 2000).isEmpty)
+    }
+
+    @Test func orangeLongAndVeryLongPress() {
+        var mic = KeyboardMic()
+        _ = mic.handle(keyCode: 54, isDown: true, at: 0)
+        _ = mic.handle(keyCode: leftArrow, isDown: true, at: 0)
+        #expect(mic.tick(at: 599).isEmpty)
+        #expect(mic.tick(at: 600) == [.longPress(.orange)])
+        #expect(mic.tick(at: 2999).isEmpty)
+        #expect(mic.tick(at: 3000) == [.veryLongPress(.orange)])
+        #expect(mic.handle(keyCode: leftArrow, isDown: false, at: 3100).gestures.isEmpty)
+        #expect(mic.handle(keyCode: 54, isDown: false, at: 3200).gestures.isEmpty)
+        #expect(mic.tick(at: 9000).isEmpty)
+    }
+
+    @Test func whiteLongPress() {
+        var mic = KeyboardMic()
+        _ = mic.handle(keyCode: 54, isDown: true, at: 0)
+        _ = mic.handle(keyCode: rightArrow, isDown: true, at: 0)
+        #expect(mic.tick(at: 600) == [.longPress(.white)])
+    }
+
+    @Test func leftCommandAndPlainArrowsAreNeverIntercepted() {
+        var mic = KeyboardMic()
+        for keyCode in [leftArrow, rightArrow, downArrow] {
+            #expect(!mic.handle(keyCode: keyCode, isDown: true, at: 0).intercept)
+            #expect(!mic.handle(keyCode: keyCode, isDown: false, at: 10).intercept)
+        }
+        _ = mic.handle(keyCode: 55, isDown: true, at: 100)
+        for keyCode in [leftArrow, rightArrow, downArrow] {
+            let press = mic.handle(keyCode: keyCode, isDown: true, at: 120)
+            #expect(!press.intercept && press.gestures.isEmpty)
+            #expect(!mic.handle(keyCode: keyCode, isDown: false, at: 130).intercept)
+        }
+        #expect(mic.tick(at: 5000).isEmpty)
+    }
+
+    @Test func arrowKeyUpAfterCommandReleaseIsStillIntercepted() {
+        var mic = KeyboardMic()
+        _ = mic.handle(keyCode: 54, isDown: true, at: 0)
+        _ = mic.handle(keyCode: leftArrow, isDown: true, at: 10)
+        #expect(mic.handle(keyCode: 54, isDown: false, at: 50).gestures.isEmpty)
+        #expect(mic.handle(keyCode: leftArrow, isDown: false, at: 100).intercept)
+        #expect(mic.tick(at: 401) == [.tap(.orange)])
+        // Back to normal: a plain arrow passes through again.
+        #expect(!mic.handle(keyCode: leftArrow, isDown: true, at: 600).intercept)
+    }
+
+    @Test func arrowAutoRepeatIsSwallowedWithoutGestures() {
+        var mic = KeyboardMic()
+        _ = mic.handle(keyCode: 54, isDown: true, at: 0)
+        _ = mic.handle(keyCode: leftArrow, isDown: true, at: 10)
+        let repeated = mic.handle(keyCode: leftArrow, isDown: true, isRepeat: true, at: 60)
+        #expect(repeated.gestures.isEmpty && repeated.intercept)
+        let other = mic.handle(keyCode: rightArrow, isDown: true, at: 70)
+        #expect(other.gestures.isEmpty && other.intercept)
+        _ = mic.handle(keyCode: rightArrow, isDown: false, at: 80)
+        _ = mic.handle(keyCode: leftArrow, isDown: false, at: 100)
+        #expect(mic.tick(at: 401) == [.tap(.orange)])
+    }
+
+    @Test func arrowsWhileTalkingDoNotSelect() {
+        var mic = KeyboardMic()
+        _ = mic.handle(keyCode: 61, isDown: true, at: 0)
+        _ = mic.handle(keyCode: 54, isDown: true, at: 100)
+        let press = mic.handle(keyCode: leftArrow, isDown: true, at: 120)
+        #expect(press.intercept)
+        _ = mic.handle(keyCode: leftArrow, isDown: false, at: 200)
+        #expect(mic.tick(at: 800).isEmpty)
+        // The combination also cancelled the candidate chord.
+        #expect(mic.handle(keyCode: 54, isDown: false, at: 900).gestures.isEmpty)
+    }
 }

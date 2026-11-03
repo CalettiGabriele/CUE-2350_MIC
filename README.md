@@ -82,9 +82,15 @@ command. At a confirmation, tap right Command to approve, or hold it for at leas
 to refuse. Command gestures commit only on release, using the mic's duration thresholds; pressing
 another key during the hold cancels grey and leaves the shortcut untouched. Left Command is unchanged.
 
+Channels and slots from the keyboard: hold <kbd>right ⌘ Command</kbd> and press <kbd>←</kbd> for orange
+(tap: next channel, double tap: previous, long press: add the window in front, hold 3 s: clear all
+channels) or <kbd>→</kbd> for white (tap: next slot, double tap: previous). These combinations never reach
+the app in front, so the cursor does not move; left Command + arrows and plain arrows are untouched.
+They need the Accessibility permission the app already asks for.
+
 Recording keeps the red sweep and timer through the voice-command chord; processing and risky
 confirmations use the existing mic patterns. Reduce Motion replaces the recording and processing sweep
-with steady red LEDs. Keyboard arrow mappings for the other mic buttons are not implemented yet.
+with steady red LEDs. The shake on the keyboard is not implemented yet.
 
 Music playing? Turn on **Settings › Audio › Music** and Spotify or Apple Music pause while you hold the
 handle and resume, by themselves, when you let go.

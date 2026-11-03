@@ -46,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private var deviceStatus: DeviceStatus = .stopped
     private var currentPhase: DictationController.Phase = .idle
     private var keyboardMonitors: [Any] = []
+    private var keyboardTap: KeyboardTap?
     private var frontmost: NSRunningApplication?
     /// Confirmation of risky voice command actions on the mic.
     private let riskGate = RiskGate()
@@ -185,7 +186,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         // A session can change inside an app without any app switch: look again now and then.
         focusTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self, !self.dictation.isRecording else { return }
+                guard let self else { return }
+                self.upgradeKeyboardMicIfPossible()
+                guard !self.dictation.isRecording else { return }
                 self.updateFocus()
             }
         }
@@ -196,6 +199,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     func applicationWillTerminate(_ notification: Notification) {
         keyboardMonitors.forEach(NSEvent.removeMonitor)
         keyboardMonitors.removeAll()
+        keyboardTap?.stop()
         // Restores the factory callback, LEDs and preset on the mic (ADR-001).
         device.restoreSync = (engine.channels.count, engine.channelPosition ?? -1, engine.slotNumber ?? 0)
         media.holdEnded()   // never leave the music paused
@@ -730,7 +734,37 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     // MARK: - Keyboard mic
 
+    /// The keyboard mic listens through an active event tap, which can consume right ⌘ + arrows.
+    /// Without the Accessibility grant (or if macOS refuses the tap) it falls back to passive
+    /// monitors: right ⌥ and right ⌘ alone keep working, the arrow combinations do not.
     private func installKeyboardMic() {
+        if AXIsProcessTrusted(), let tap = KeyboardTap(handler: { [weak self] keyCode, isDown, isRepeat in
+            self?.keyboardEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat) ?? false
+        }) {
+            keyboardTap = tap
+            return
+        }
+        installKeyboardMonitors()
+    }
+
+    /// The grant can arrive after launch: switch from the monitors to the tap when it does.
+    private func upgradeKeyboardMicIfPossible() {
+        guard keyboardTap == nil, AXIsProcessTrusted() else { return }
+        keyboardMonitors.forEach(NSEvent.removeMonitor)
+        keyboardMonitors.removeAll()
+        keyboardMic = KeyboardMic()
+        installKeyboardMic()
+    }
+
+    /// One key event for the keyboard mic; true when it must not reach the app in front.
+    private func keyboardEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool) -> Bool {
+        let result = keyboardMic.handle(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat,
+                                        at: ProcessInfo.processInfo.systemUptime * 1000)
+        handle(result.gestures, from: .keyboard)
+        return result.intercept
+    }
+
+    private func installKeyboardMonitors() {
         let handler: (NSEvent) -> Void = { [weak self] event in
             guard let self else { return }
             let down: Bool
@@ -754,10 +788,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
                 // Caps Lock reports its latched state; toggling it either way is key activity.
                 down = true
             }
-            let result = self.keyboardMic.handle(keyCode: event.keyCode, isDown: down,
-                                                isRepeat: event.type == .keyDown && event.isARepeat,
-                                                at: event.timestamp * 1000)
-            self.handle(result.gestures, from: .keyboard)
+            _ = self.keyboardEvent(keyCode: event.keyCode, isDown: down,
+                                   isRepeat: event.type == .keyDown && event.isARepeat)
         }
         let events: NSEvent.EventTypeMask = [.flagsChanged, .keyDown]
         if let monitor = NSEvent.addGlobalMonitorForEvents(matching: events, handler: { event in

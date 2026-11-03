@@ -35,6 +35,19 @@ and in the throwaway document to cover local and global event monitors.
 - [ ] Repeat the chord, but press C while Command is down. No voice-command transition occurs; releasing Option still ends the dictation.
 - [ ] Release Option before Command in a candidate chord. Dictation ends normally, without a later grey tap or interrupt.
 
+### Orange and white on the arrows
+
+Use the built app with no FX-MIC connected, a few channels bound and a profile with several slots,
+in the throwaway document.
+
+- [ ] Right Command + ← tap goes to the next channel; double tap goes to the previous; long press adds the window in front as a channel; held for 3 s clears all channels. The island card and the logical red LEDs follow each change.
+- [ ] Right Command + → tap and double tap step through the slots. The card names the slot and the logical white LEDs show its number.
+- [ ] While one of these combinations is used, the cursor in the document does not move and no character is typed. Left Command + ← / → still moves the cursor to the start and end of the line, and plain arrows move it as usual.
+- [ ] Releasing right Command after an arrow combination gives no Return (grey tap). Holding the arrow does not repeat the gesture.
+- [ ] While holding right Option and dictating, press right Command + ← : nothing is selected and the dictation continues.
+- [ ] Revoke and grant the Accessibility permission, or re-sign the app: the arrow combinations work again after the app notices (within a couple of seconds). While the permission is missing, right Option and right Command alone still work.
+- [ ] With the FX-MIC connected, repeat one combination and check that the mic's own orange and white buttons behave as before.
+
 For repeatable confirmation checks, temporarily add a macro named `Smoke confirmation` under
 Settings › Voice command › My tools. Give it an English description saying it types a harmless
 smoke marker, one text step containing `SMOKE CONFIRMED`, and Risk = **Asks on the mic**.
@@ -51,7 +64,7 @@ use the keyboard answers above even when the wording names the mic.
 - [ ] Turn on macOS Reduce Motion and repeat a recording, chord and processing: red LEDs are steady rather than sweeping or alternating; the timer and outcomes still work. Restore the setting.
 - [ ] Connect USB, including read-only firmware if available, then disconnect it; repeat with a signal-bearing jack and loss of signal or listener stop. Change connection during recording, processing and confirmation: those overlays must not be replaced or closed by the change.
 
-Keyboard arrow mappings for the remaining mic buttons are not implemented yet.
+The shake on the keyboard (right Command + ↓) is not implemented yet.
 
 ## Hardware ownership and recovery
 
