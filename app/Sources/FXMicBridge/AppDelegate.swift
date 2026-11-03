@@ -126,7 +126,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             // The action as the title, how to answer as two chips, the time left as a ring.
             self.hud.show(pending.summary,
                           chips: self.hintsNameKeys
-                            ? [HUD.Chip(icon: .grey, text: L.t("⌘ = yes")), HUD.Chip(icon: .shake, text: L.t("⌘↓ = no"))]
+                            ? [HUD.Chip(icon: .grey, text: L.t("⌘↑ = yes")), HUD.Chip(icon: .shake, text: L.t("⌘↓ = no"))]
                             : [HUD.Chip(icon: .grey, text: L.t("grey = yes")), HUD.Chip(icon: .shake, text: L.t("shake = no"))],
                           icon: self.aiIcon,
                           trailing: .countdown(Double(self.config.agent.confirmTimeoutMs) / 1000))
@@ -557,7 +557,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             if dictation.isRecording {
                 dictation.markEditSelection()
             } else {
-                hud.toast(hintsNameKeys ? L.t("Hold right ⌥ and press right ⌘ while you talk")
+                hud.toast(hintsNameKeys ? L.t("Hold right ⌥ and right ⌘ together while you talk")
                                         : L.t("Hold the handle and press grey while you talk"))
             }
         }
@@ -740,9 +740,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     // MARK: - Keyboard mic
 
-    /// The keyboard mic listens through an active event tap, which can consume right ⌘ + arrows.
-    /// Without the Accessibility grant (or if macOS refuses the tap) it falls back to passive
-    /// monitors: right ⌥ and right ⌘ alone keep working, the arrow combinations do not. Switched
+    /// The keyboard mic listens through an active event tap, which can consume right ⌥ (so that no
+    /// other app reacts to it) and right ⌘ + arrows. Without the Accessibility grant (or if macOS
+    /// refuses the tap) it falls back to passive monitors: right ⌥ and the voice command keep
+    /// working, the arrow combinations do not and other apps still see right ⌥. Switched
     /// off in Settings it listens to nothing and intercepts nothing.
     /// Hints name the keyboard mic's keys when no FX-MIC is connected (and the keyboard mic is on);
     /// with a mic connected they name its buttons.
@@ -779,6 +780,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     /// One key event for the keyboard mic; true when it must not reach the app in front.
     private func keyboardEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool) -> Bool {
         guard config.device.keyboardMic else { return false }
+        keyboardMic.confirmationPending = riskGate.isWaiting
         let result = keyboardMic.handle(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat,
                                         at: ProcessInfo.processInfo.systemUptime * 1000)
         handle(result.gestures, from: .keyboard)

@@ -29,7 +29,7 @@ struct OnboardingView: View {
                      detail: L.t("Whisper runs locally.") + " " + model.whisperStatus, actionTitle: nil, action: {}),
             StepInfo(title: "EP-2350 FX MIC", done: model.deviceConnected,
                      detail: model.deviceConnected ? model.deviceStatus
-                        : L.t("Connect the mic with a USB-C data cable and switch it on by pressing the handle. Without the mic, use the keyboard mic: right Option is the handle and right Command the buttons."),
+                        : L.t("Connect the mic with a USB-C data cable and switch it on by pressing the handle. Without the mic, use the keyboard mic: right Option is the handle and right Command with the arrows the buttons."),
                      actionTitle: model.deviceConnected ? nil : L.t("Reconnect"), action: { model.onReconnectDevice?() }),
             StepInfo(title: L.t("Local LLM (optional)"), done: model.llmReady,
                      detail: L.f("Voice commands and LLM slots need an OpenAI-compatible server, e.g. Ollama with %@.", model.draft.llm.model) + " " + model.llmStatus,
@@ -116,7 +116,7 @@ struct OnboardingView: View {
                 bullet(L.t("• Shake to cancel · shake hard for 2 s to clear everything"))
             } else {
                 bullet(L.t("• Right ⌥: hold and talk · double click = new line"))
-                bullet(L.t("• Right ⌘ + ←: channels · right ⌘ + →: skills and commands · right ⌘ alone: run or Return, and a voice command while you talk"))
+                bullet(L.t("• Right ⌘ + ←: channels · right ⌘ + →: skills and commands · right ⌥ + right ⌘ together: a voice command while you talk"))
                 bullet(L.t("• Right ⌘ + ↓: cancel · hold it for 2 s to clear everything"))
             }
         }

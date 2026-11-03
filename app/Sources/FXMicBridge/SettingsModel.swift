@@ -13,7 +13,7 @@ final class SettingsModel: ObservableObject {
     // Live status pushed by the app.
     @Published var deviceStatus = "—"
     @Published var deviceConnected = false
-    /// False when macOS refused the keyboard mic's event tap: right ⌥ and right ⌘ alone still work, the arrows do not.
+    /// False when macOS refused the keyboard mic's event tap: right ⌥ and the voice command still work, the arrows do not.
     @Published var keyboardArrowsAvailable = true
     @Published var whisperStatus = "—"
     @Published var whisperReady = false

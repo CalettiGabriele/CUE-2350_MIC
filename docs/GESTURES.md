@@ -21,7 +21,7 @@
 |---|---|---|
 | **USB-C** (data) | MicroPython serial console, plus power | All gestures and LEDs. The app installs a RAM-only agent (ADR-001). |
 | **3.5 mm jack** | Analogue voice and acoustic gesture codes | With the installed [FXMic firmware](INSTALL-FIRMWARE.md), a USB audio interface with an input carries voice and supported gestures; see [the jack channel](JACK-CHANNEL.md). Original firmware and the USB RAM-only agent do not provide this acoustic channel. The Mac's headset jack with a TRS→TRRS adapter was tried without success: the Mac detects the microphone but gets no signal. |
-| **Mac keyboard** | Keyboard mic handle, grey, orange, white and shake gestures | Hold **right Option** to talk; double click it for a new line. **Right Command alone** acts as grey; press and release it while right Option stays held for a voice command. **Right Command + ←** is orange, **+ →** is white and **+ ↓** is the shake. |
+| **Mac keyboard** | Keyboard mic handle, voice command, orange, white and shake gestures | Hold **right Option** to talk; double click it for a new line. Hold **right Option and right Command together** for a voice command. **Right Command + ←** is orange, **+ →** is white, **+ ↓** is the shake and, at a confirmation, **+ ↑** is "yes". Right Command alone does nothing. |
 
 The keyboard mic works alongside the FX-MIC. The source that starts a take owns the handle until
 it releases it: pressing or releasing another source's handle cannot start or stop that take.
@@ -30,6 +30,10 @@ keyboard mic remains available. Heartbeat silence alone does not end a jack take
 does not send heartbeats while its handle is held.
 Right Option uses the same click timing and profile actions as the physical handle; holding left
 Option at the same time does not prevent a right Option release from ending the take.
+While the keyboard mic is on, right Option is consumed by the app's event tap: no other app sees it,
+so a shortcut of another app that listens for it (Claude's double tap of Option, for instance) no
+longer fires. Left Option and every other key are untouched. Without the tap (no Accessibility grant)
+other apps still see right Option.
 
 The recording sweep and elapsed timer continue through the voice-command chord until release.
 Processing, error and risky-confirmation feedback use the existing mic LED patterns. Grey actions
@@ -46,51 +50,47 @@ profile's actions:
 | Right Command + ← | orange | tap: next channel · double tap: previous channel · long press: add the window in front · held 3 s: clear all channels |
 | Right Command + → | white | tap: next slot · double tap: previous slot · long press: as configured |
 | Right Command + ↓ | shake | short press: cancel the dictation, or answer "no" to a confirmation · held 2 s: shake hold (clear the field, or the profile's action), once |
+| Right Command + ↑ | yes | only while a confirmation waits: approve. Otherwise it is an ordinary shortcut and is not intercepted |
 
 The shake is decided when the key is released, or when 2 s have passed: a short press never
 signals a cancellation before it happens and holding it does not also cancel. These are the only
-combinations the keyboard mic **intercepts**: they do not reach the app in front.
+combinations the keyboard mic **intercepts** (besides right Option itself): they do not reach the app in front.
 Left Command + arrows, plain arrows and every other key pass through untouched. Releasing right
-Command after an arrow combination gives no grey. A key held down does not repeat the gesture. While
+Command after an arrow combination gives nothing. A key held down does not repeat the gesture. While
 you are dictating, selecting a channel or slot is ignored, as on the mic. Cards and LEDs follow the
 selection exactly as with the FX-MIC.
 
 Interception uses an event tap and the Accessibility grant the app already has; no further
 permission is asked. macOS can switch a tap off (for example after a re-sign): the app switches it
-back on. Without the grant, right Option and right Command alone keep working and the arrows do not.
+back on. Without the grant, right Option and the voice command keep working; the arrows do not, and other apps still see right Option.
 
 ### Switch and hints
 
 **Settings › Device › Keyboard mic** turns the whole keyboard mic on (default) or off. Off means no
 gestures from the keyboard and no interception; the choice is kept in `config.json`
-(`device.keyboardMic`). If macOS does not let the app intercept keys, right Option and right Command
-alone keep working and Settings says the arrow combinations are off.
+(`device.keyboardMic`). If macOS does not let the app intercept keys, right Option and the voice command
+keep working and Settings says the arrow combinations are off.
 
 The on-screen hints follow the connection. With no FX-MIC connected (and the keyboard mic on), the
-confirmation shows "⌘ = yes" and "⌘↓ = no", and the cards and the onboarding name the keys. With an
+confirmation shows "⌘↑ = yes" and "⌘↓ = no", and the cards and the onboarding name the keys. With an
 FX-MIC connected they name its buttons ("grey = yes", "shake = no"). The strings exist in the nine
 interface languages.
 
-### Grey on the keyboard mic
+### Voice command and confirmations on the keyboard mic
 
-Right Command uses the same grey profile actions and gesture thresholds as the FX-MIC:
+Right Command alone does nothing: there is no tap, double tap or long press on it (Return is
+one key away). It only combines with right Option or with an arrow:
 
 | Keyboard gesture | Result |
 |---|---|
-| Right Command tap, at most 450 ms | Run the selected command, otherwise Return; waits for the 300 ms double-tap window |
-| Two right Command taps within the double-tap window | Undo the last insertion |
-| Right Command held for at least 600 ms, then released | Interrupt, Esc by default |
-| Right Option held, then right Command pressed and released | Voice command; release Command before Option so the chord commits before recording ends |
-| Right Command tap during confirmation | Approve |
-| Right Command held for at least 600 ms, then released during confirmation | Refuse |
+| Right Option and right Command held together | Voice command: the take is a command, not text |
+| Releasing either of the two (or both) | The command runs |
+| Right Command + ↑ during a confirmation | Approve |
+| Right Command + ↓ during a confirmation | Refuse |
 
-Unlike the physical grey button, right Command stays provisional until it is released.
-Long press and chord therefore fire on release, not while held. This preserves ordinary shortcuts
-even when another key is pressed after the long-press threshold. Any other key pressed during the
-Command hold cancels its grey gesture; all keyboard events pass through unchanged. Left Command
-never acts as grey. Releasing right Option before Command cancels the candidate chord and ends the
-dictation normally, without a stray Return or Esc. A hold longer than 450 ms but shorter than 600 ms
-is neither tap nor long press, as on the mic.
+The two keys can be pressed in either order. The take starts when right Option goes down and becomes
+a command when both are down; releasing either key ends it, so there is no order to remember.
+Any other key pressed meanwhile passes through unchanged. Left Command never takes part.
 
 These keys work both in the app's own windows and in other apps. Observing keys in other apps needs
 the app's Accessibility grant; Secure Keyboard Entry can prevent delivery.

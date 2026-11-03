@@ -76,12 +76,11 @@ Nothing jumps, nothing needs to be set up first.
 
 No mic plugged in? Use the **keyboard mic**: your right-hand modifier keys act as the FX-MIC. Hold
 <kbd>right ⌥ Option</kbd> and talk; release to finish, or double-click it for
-a new line. <kbd>right ⌘ Command</kbd> alone acts as grey: tap runs the selected command or presses
-Return, double tap undoes the last insertion, and a long press interrupts, with Esc by default.
-Keep right Option held, press and release right Command, then release Option to finish a voice
-command. At a confirmation, tap right Command to approve, or hold it for at least 600 ms and release
-to refuse. Command gestures commit only on release, using the mic's duration thresholds; pressing
-another key during the hold cancels grey and leaves the shortcut untouched. Left Command is unchanged.
+a new line. No other app sees this key, so a shortcut of another app on it (Claude's double tap of
+Option) does not fire. Hold <kbd>right ⌥ Option</kbd> and <kbd>right ⌘ Command</kbd> together for a
+voice command; release either of them and the command runs. <kbd>right ⌘ Command</kbd> alone does
+nothing. At a confirmation, press <kbd>right ⌘ Command</kbd> + <kbd>↑</kbd> to approve or
+<kbd>right ⌘ Command</kbd> + <kbd>↓</kbd> to refuse. Left Command is unchanged.
 
 Channels and slots from the keyboard: hold <kbd>right ⌘ Command</kbd> and press <kbd>←</kbd> for orange
 (tap: next channel, double tap: previous, long press: add the window in front, hold 3 s: clear all
@@ -89,12 +88,12 @@ channels) or <kbd>→</kbd> for white (tap: next slot, double tap: previous). Th
 the app in front, so the cursor does not move; left Command + arrows and plain arrows are untouched.
 They need the Accessibility permission the app already asks for. The keyboard mic is on by default,
 works alongside a connected FX-MIC and has a switch in **Settings › Device**. With no mic connected,
-the confirmation, the cards and the onboarding name these keys ("⌘ = yes · ⌘↓ = no"); with the mic
+the confirmation, the cards and the onboarding name these keys ("⌘↑ = yes · ⌘↓ = no"); with the mic
 connected they name its buttons.
 
 <kbd>right ⌘ Command</kbd> + <kbd>↓</kbd> is the shake: a short press cancels the dictation in progress
-and answers "no" to a confirmation; held for 2 s it clears the text field, once. Like the Command
-gestures, it commits on release (or after 2 s), so nothing is cancelled while you are still deciding.
+and answers "no" to a confirmation; held for 2 s it clears the text field, once. It commits on
+release (or after 2 s), so nothing is cancelled while you are still deciding.
 
 Recording keeps the red sweep and timer through the voice-command chord; processing and risky
 confirmations use the existing mic patterns. Reduce Motion replaces the recording and processing sweep
