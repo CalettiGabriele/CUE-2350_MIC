@@ -46,6 +46,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private var deviceStatus: DeviceStatus = .stopped
     private var currentPhase: DictationController.Phase = .idle
     private var keyboardMonitors: [Any] = []
+    private var keyboardTap: KeyboardTap?
     private var frontmost: NSRunningApplication?
     /// Confirmation of risky voice command actions on the mic.
     private let riskGate = RiskGate()
@@ -124,7 +125,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             self.leds.set(.confirm)
             // The action as the title, how to answer as two chips, the time left as a ring.
             self.hud.show(pending.summary,
-                          chips: [HUD.Chip(icon: .grey, text: L.t("grey = yes")), HUD.Chip(icon: .shake, text: L.t("shake = no"))],
+                          chips: self.hintsNameKeys
+                            ? [HUD.Chip(icon: .grey, text: L.t("⌘↑ = yes")), HUD.Chip(icon: .shake, text: L.t("⌘↓ = no"))]
+                            : [HUD.Chip(icon: .grey, text: L.t("grey = yes")), HUD.Chip(icon: .shake, text: L.t("shake = no"))],
                           icon: self.aiIcon,
                           trailing: .countdown(Double(self.config.agent.confirmTimeoutMs) / 1000))
             self.phaseItem.title = L.f("Confirm · %@", pending.summary)
@@ -171,11 +174,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         jack.onGesture = { [weak self] gesture, sample in
             self?.handle([gesture], from: .jack, captureSample: sample)
         }
-        jack.onStop = { [weak self] in
-            self?.inputDisconnected(.jack)
-            // JackTransport invokes onStop before clearing its listening and signal state.
-            DispatchQueue.main.async { [weak self] in self?.updateIdleHUD() }
-        }
+        jack.onStop = { [weak self] in self?.inputDisconnected(.jack) }
         jack.onPage = { [weak self] index in self?.goToPage(index) }
         media.configure(config.audio.pauseMedia)
         media.warmUp()
@@ -189,17 +188,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         // A session can change inside an app without any app switch: look again now and then.
         focusTimer = Timer.scheduledTimer(withTimeInterval: 1.5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated {
-                guard let self, !self.dictation.isRecording else { return }
+                guard let self else { return }
+                self.upgradeKeyboardMicIfPossible()
+                guard !self.dictation.isRecording else { return }
                 self.updateFocus()
             }
         }
-        installKeyboardMic()
+        applyKeyboardMic()
         if let configError { show(.message(configError)) }
     }
 
     func applicationWillTerminate(_ notification: Notification) {
         keyboardMonitors.forEach(NSEvent.removeMonitor)
         keyboardMonitors.removeAll()
+        keyboardTap?.stop()
         // Restores the factory callback, LEDs and preset on the mic (ADR-001).
         device.restoreSync = (engine.channels.count, engine.channelPosition ?? -1, engine.slotNumber ?? 0)
         media.holdEnded()   // never leave the music paused
@@ -289,7 +291,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             selectionChanged(announce: false, title: engine.active.name)
         }
         updateFocus()
-        updateIdleHUD()
     }
 
     /// Where the voice goes now: the channel whose window is in front, or free. Nothing jumps:
@@ -318,21 +319,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private func icon(forBundleID bundleID: String) -> NSImage? {
         guard let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleID) else { return nil }
         return NSWorkspace.shared.icon(forFile: url.path)
-    }
-
-    private func updateIdleHUD() {
-        let usbConnected: Bool
-        switch deviceStatus {
-        case .connected, .readOnly: usbConnected = config.device.transport != .jack
-        default: usbConnected = false
-        }
-        let jackConnected = jack.isListening && jack.hasSignal
-        if usbConnected || jackConnected {
-            hud.setIdle(nil)
-        } else {
-            let target = hudTarget
-            hud.setIdle((target.title, target.icon, channelTrailing))
-        }
     }
 
     /// What the island's title row shows now: the app's icon and the part of the name the icon
@@ -404,7 +390,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
                     else if case .readOnly = status { settings.deviceConnected = true }
                     else { settings.deviceConnected = false }
                 }
-                updateIdleHUD()
             }
             switch status {
             case .searching: deviceItem.title = L.t("Mic: not connected (right Option = talk)")
@@ -449,7 +434,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             device.start()
         }
         _ = updateJackUse()
-        updateIdleHUD()
         jackStatusChanged()
     }
 
@@ -473,7 +457,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     }
 
     private func jackStatusChanged() {
-        updateIdleHUD()
         guard jack.isListening else { return }
         let connected = jack.hasSignal
         deviceItem.title = jack.failed ? L.t("Mic: audio input not available")
@@ -574,7 +557,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             if dictation.isRecording {
                 dictation.markEditSelection()
             } else {
-                hud.toast(L.t("Hold the handle and press grey while you talk"))
+                hud.toast(hintsNameKeys ? L.t("Hold right ⌥ and right ⌘ together while you talk")
+                                        : L.t("Hold the handle and press grey while you talk"))
             }
         }
     }
@@ -585,7 +569,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     /// there, not one step from wherever the mouse took us, so LEDs and screen always agree.
     private func goToPage(_ index: Int) {
         guard engine.channels.indices.contains(index) else {
-            hud.toast(L.f("No channel %d: long-press orange on a window to add it", index + 1))
+            hud.toast(hintsNameKeys ? L.f("No channel %d: hold right ⌘ + ← on a window to add it", index + 1)
+                                    : L.f("No channel %d: long-press orange on a window to add it", index + 1))
             return
         }
         engine.select(channel: index)
@@ -596,7 +581,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private func channelChanged() {
         guard let channel = engine.channel else {
             hud.setChannels(engine.channels.count)
-            hud.card(title: L.t("No channels yet: long-press orange on a window to add it"))
+            hud.card(title: hintsNameKeys ? L.t("No channels yet: hold right ⌘ + ← on a window to add it")
+                                          : L.t("No channels yet: long-press orange on a window to add it"))
             return
         }
         focusLockedUntil = Date().addingTimeInterval(2)
@@ -736,7 +722,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             rebuildProfileMenu()
             perform(slot.action)
         case .template, .llm:
-            hud.toast(L.f("%@: hold the handle and dictate", slot.name))
+            hud.toast(hintsNameKeys ? L.f("%@: hold right ⌥ and dictate", slot.name)
+                                    : L.f("%@: hold the handle and dictate", slot.name))
         }
     }
 
@@ -753,7 +740,54 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     // MARK: - Keyboard mic
 
-    private func installKeyboardMic() {
+    /// The keyboard mic listens through an active event tap, which can consume right ⌥ (so that no
+    /// other app reacts to it) and right ⌘ + arrows. Without the Accessibility grant (or if macOS
+    /// refuses the tap) it falls back to passive monitors: right ⌥ and the voice command keep
+    /// working, the arrow combinations do not and other apps still see right ⌥. Switched
+    /// off in Settings it listens to nothing and intercepts nothing.
+    /// Hints name the keyboard mic's keys when no FX-MIC is connected (and the keyboard mic is on);
+    /// with a mic connected they name its buttons.
+    private var hintsNameKeys: Bool { !settings.deviceConnected && config.device.keyboardMic }
+
+    private func applyKeyboardMic() {
+        keyboardMonitors.forEach(NSEvent.removeMonitor)
+        keyboardMonitors.removeAll()
+        keyboardTap?.stop()
+        keyboardTap = nil
+        keyboardMic = KeyboardMic()
+        inputDisconnected(.keyboard)   // a take it owned is cancelled, not left running
+        guard config.device.keyboardMic else {
+            settings.keyboardArrowsAvailable = true
+            return
+        }
+        if AXIsProcessTrusted(), let tap = KeyboardTap(handler: { [weak self] keyCode, isDown, isRepeat in
+            self?.keyboardEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat) ?? false
+        }) {
+            keyboardTap = tap
+            settings.keyboardArrowsAvailable = true
+            return
+        }
+        settings.keyboardArrowsAvailable = false
+        installKeyboardMonitors()
+    }
+
+    /// The grant can arrive after launch: switch from the monitors to the tap when it does.
+    private func upgradeKeyboardMicIfPossible() {
+        guard config.device.keyboardMic, keyboardTap == nil, AXIsProcessTrusted() else { return }
+        applyKeyboardMic()
+    }
+
+    /// One key event for the keyboard mic; true when it must not reach the app in front.
+    private func keyboardEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool) -> Bool {
+        guard config.device.keyboardMic else { return false }
+        keyboardMic.confirmationPending = riskGate.isWaiting
+        let result = keyboardMic.handle(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat,
+                                        at: ProcessInfo.processInfo.systemUptime * 1000)
+        handle(result.gestures, from: .keyboard)
+        return result.intercept
+    }
+
+    private func installKeyboardMonitors() {
         let handler: (NSEvent) -> Void = { [weak self] event in
             guard let self else { return }
             let down: Bool
@@ -777,10 +811,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
                 // Caps Lock reports its latched state; toggling it either way is key activity.
                 down = true
             }
-            let result = self.keyboardMic.handle(keyCode: event.keyCode, isDown: down,
-                                                isRepeat: event.type == .keyDown && event.isARepeat,
-                                                at: event.timestamp * 1000)
-            self.handle(result.gestures, from: .keyboard)
+            _ = self.keyboardEvent(keyCode: event.keyCode, isDown: down,
+                                   isRepeat: event.type == .keyDown && event.isARepeat)
         }
         let events: NSEvent.EventTypeMask = [.flagsChanged, .keyDown]
         if let monitor = NSEvent.addGlobalMonitorForEvents(matching: events, handler: { event in
@@ -857,7 +889,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     }
 
     private func rebuildProfileMenu() {
-        updateIdleHUD()
         profileItem.title = L.f("Profile: %@", engine.active.name)
         settings.activeProfileID = engine.active.id
         channelMenu.removeAllItems()
@@ -1244,6 +1275,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         dictation.config = newConfig
         media.configure(newConfig.audio.pauseMedia)
         media.warmUp()
+        if old.device.keyboardMic != newConfig.device.keyboardMic { applyKeyboardMic() }
         if old.device.transport != newConfig.device.transport { applyTransport() }
         else if old.audio.inputDeviceUID != newConfig.audio.inputDeviceUID, jack.isListening { jack.restart() }
         leds.map = newConfig.device.ledMap

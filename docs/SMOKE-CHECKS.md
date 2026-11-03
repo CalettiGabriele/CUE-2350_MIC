@@ -15,45 +15,61 @@ Use this checklist after a change to handle ownership, recording or transport be
 
 Disconnect the FX-MIC or disable its transports. Record the macOS version, app build/signing identity and input device with the results.
 
-- [ ] At startup, the idle island shows the current profile, channel and slot and the corresponding logical red/white mic LEDs. Change the frontmost app, channel and slot; check the caption and LEDs follow, including clearing or consuming a slot.
-
-- [ ] Physically hold **right Option**, speak a distinct phrase and release. The island shows the recording timer and red sweep while held; recording ends on release and the phrase appears in the throwaway document. Processing and outcome feedback return to the idle context.
+- [ ] Physically hold **right Option**, speak a distinct phrase and release. The island shows the recording timer and red sweep while held; recording ends on release and the phrase appears in the throwaway document. Processing and outcome feedback close the island when done.
 - [ ] Repeat, holding left Option too; releasing right Option still ends the take. Releasing left Option must not end a right-Option-owned take.
-- [ ] Quickly double-click right Option. The configured handle double-click action runs (by default Shift-Return inserts a newline), without leaving a recording active; any outcome feedback returns to the idle context.
+- [ ] Quickly double-click right Option. The configured handle double-click action runs (by default Shift-Return inserts a newline), without leaving a recording active.
+- [ ] With Claude desktop running (and again with it in the foreground), double-click right Option. Claude does not open; the configured handle double-click action still runs. Turn the Keyboard mic switch off and repeat: Claude may react again, which confirms the key was ours.
 - [ ] Repeat a normal hold/release after the double-click to check that recording still works.
 
-### Keyboard grey and confirmations
+### Keyboard voice command and confirmations
 
 Use the built app with no FX-MIC connected. Repeat the shortcut checks both in its Settings window
 and in the throwaway document to cover local and global event monitors.
 
-- [ ] With no command slot selected, tap **right Command alone**. One Return is sent after the double-tap window. Select a harmless command slot and repeat; its action runs instead.
-- [ ] Dictate a harmless phrase, then double-tap right Command within 300 ms. The last insertion is undone once, with no extra Return.
-- [ ] Hold right Command for at least 600 ms. Nothing interrupts while it is held; releasing it runs the profile's interrupt action, Esc by default.
-- [ ] For Return, slot execution, undo and interrupt, check the outcome feedback and return to the current idle caption and LEDs. Do not expect a new LED pattern where the physical mic has none.
-- [ ] Use right Command-C and right Command-V in the throwaway document. Repeat after holding Command for more than 600 ms before pressing C or V. Copy/paste still works, with no Return, undo or Esc. Repeat with another modifier pressed while Command is down, and with Caps Lock toggled both on and off.
-- [ ] Tap and hold **left Command**. Neither produces a grey gesture. Hold left Command too and verify that releasing right Command is still recognised independently.
-- [ ] Hold right Option, then press and release right Command while Option remains held. The island names Voice command but retains the recording timer and red sweep until Option is released. Speak a harmless command and release Option; it executes rather than typing the command sentence.
-- [ ] Repeat the chord, but press C while Command is down. No voice-command transition occurs; releasing Option still ends the dictation.
-- [ ] Release Option before Command in a candidate chord. Dictation ends normally, without a later grey tap or interrupt.
+- [ ] Tap, double-tap and hold **right Command alone** (also past 600 ms). Nothing happens: no Return, no undo, no Esc. Use right Command-C and right Command-V in the throwaway document: copy/paste works with no side effect, also with Caps Lock toggled on and off.
+- [ ] Tap and hold **left Command**, also while right Option is held. Nothing happens, and the take is not turned into a command.
+- [ ] Hold right Option and right Command together. The island names Voice command but retains the recording timer and red sweep. Speak a harmless command and release **right Command**: it executes rather than typing the command sentence. Repeat releasing **right Option** first: same result. Repeat releasing both together: it runs once.
+- [ ] Press right Command first, then right Option: the voice command starts the same way. Releasing either key runs it.
+- [ ] Dictate with right Option alone, never touching Command: the take is plain text, not a command.
+
+### Orange and white on the arrows
+
+Use the built app with no FX-MIC connected, a few channels bound and a profile with several slots,
+in the throwaway document.
+
+- [ ] Right Command + ← tap goes to the next channel; double tap goes to the previous; long press adds the window in front as a channel; held for 3 s clears all channels. The island card and the logical red LEDs follow each change.
+- [ ] Right Command + → tap and double tap step through the slots. The card names the slot and the logical white LEDs show its number.
+- [ ] While one of these combinations is used, the cursor in the document does not move and no character is typed. Left Command + ← / → still moves the cursor to the start and end of the line, and plain arrows move it as usual.
+- [ ] Releasing right Command after an arrow combination gives nothing. Holding the arrow does not repeat the gesture.
+- [ ] While holding right Option and right Command (voice command), press ← : nothing is selected and the command still runs on release.
+- [ ] Revoke and grant the Accessibility permission, or re-sign the app: the arrow combinations work again after the app notices (within a couple of seconds). While the permission is missing, right Option and the voice command still work.
+- [ ] Start a dictation with right Option, then press right Command + ↓ briefly. Nothing happens while the keys are down; on release the dictation is cancelled and no text is inserted. The island says so and the LEDs return to the selected channel and slot.
+- [ ] Type some text in the throwaway document and hold right Command + ↓ for 2 s: the field is cleared once, with no earlier cancellation or message. Releasing afterwards does nothing further.
+- [ ] At a confirmation (see below), right Command + ↓ refuses the action and right Command + ↑ approves it; left Command + ↓ / ↑ and plain ↓ / ↑ move the cursor as usual and do not answer. Outside a confirmation, right Command + ↑ is not intercepted (in Finder it goes up one folder).
+- [ ] With the FX-MIC connected, repeat one combination and check that the mic's own orange and white buttons behave as before.
+
+### Settings switch and hints
+
+- [ ] Settings › Device › Keyboard mic is on by default. Turn it off and save: right Option and the right Command combinations do nothing, and right Command + arrows reach the app again (the cursor moves). Relaunch the app: it is still off. Turn it on again and save: everything works without a relaunch.
+- [ ] Turn the switch off during a right-Option take: the take is cancelled, not left running.
+- [ ] With no FX-MIC connected, a confirmation shows "⌘↑ = yes" and "⌘↓ = no". The "no channels yet" card, the slot reminder card and the onboarding bullets name the keys. Connect the FX-MIC (USB, then jack): the same places name its buttons. Disconnect it: they name the keys again. None of these changes replaces or closes an ongoing recording, processing or confirmation.
+- [ ] Repeat the confirmation and the onboarding in two other interface languages (Settings › General › Language).
+- [ ] Remove the app's Accessibility grant: Settings › Device says the arrow combinations are off, right Option and the voice command still work. Grant it again: the arrows work within a couple of seconds and the message goes away.
 
 For repeatable confirmation checks, temporarily add a macro named `Smoke confirmation` under
 Settings › Voice command › My tools. Give it an English description saying it types a harmless
 smoke marker, one text step containing `SMOKE CONFIRMED`, and Risk = **Asks on the mic**.
 Keep the throwaway document focused. The speech model and local model server must be ready.
 
-- [ ] Hold right Option, press and release right Command, say "run Smoke confirmation", then release Option. Wait for the confirmation and blinking red LEDs; tap right Command and wait for the double-tap window. The marker is inserted exactly once; processing/outcome feedback returns to the idle context.
-- [ ] Repeat the voice command. At the confirmation, hold right Command for at least 600 ms and release it before the confirmation timeout. The action is refused, no marker is inserted, and the idle context returns after feedback.
-- [ ] During another confirmation, use right Command-C. It must not approve or refuse; no answer still times out to no.
+- [ ] Hold right Option and right Command together, say "run Smoke confirmation", then release. Wait for the confirmation and blinking red LEDs; press right Command + ↑. The marker is inserted exactly once; the island closes after the outcome feedback.
+- [ ] Repeat the voice command. At the confirmation, press right Command + ↓ before the confirmation timeout. The action is refused, no marker is inserted, and the island closes after feedback.
+- [ ] During another confirmation, use right Command-C and tap right Command alone. Neither approves nor refuses; no answer still times out to no.
 - [ ] Remove the temporary macro and restore any profile or slot changes.
 
-The island still names the physical grey/shake buttons until the connection-aware hints ticket;
-use the keyboard answers above even when the wording names the mic.
+With no FX-MIC connected the confirmation names the keyboard mic's keys (⌘↑ = yes, ⌘↓ = no).
 
 - [ ] Turn on macOS Reduce Motion and repeat a recording, chord and processing: red LEDs are steady rather than sweeping or alternating; the timer and outcomes still work. Restore the setting.
-- [ ] Connect USB, including read-only firmware if available, then disconnect it; repeat with a signal-bearing jack and loss of signal or listener stop. The keyboard-only idle island disappears on connection and returns with the current selection on loss. Change connection during recording, processing and confirmation: those overlays are not replaced by idle context.
-
-Keyboard arrow mappings for the remaining mic buttons are not implemented yet.
+- [ ] Connect USB, including read-only firmware if available, then disconnect it; repeat with a signal-bearing jack and loss of signal or listener stop. Change connection during recording, processing and confirmation: those overlays must not be replaced or closed by the change.
 
 ## Hardware ownership and recovery
 
@@ -64,7 +80,7 @@ These cases require the physical FX-MIC. For USB use a data cable; for jack inst
 - [ ] During a USB-owned take, disconnect USB. The take is cancelled rather than committed; a subsequent right Option take still works. Reconnect USB and confirm a new physical take works.
 - [ ] During a jack-owned take, stop the jack listener by changing the connection away from jack, or change the audio input to restart the listener. The take is cancelled rather than committed; a subsequent right Option take still works. Restore the jack connection/listener and confirm a new physical take works.
 - [ ] Hold the jack handle for more than 12 seconds, speaking throughout, then release. No heartbeat is sent while held; heartbeat silence alone must not cancel the take. Confirm the recording lasts through the hold and completes on release.
-- [ ] With an FX-MIC connected, check physical grey tap, double tap, long press and handle-plus-grey voice command. Approve and refuse a harmless risky command using the mic, then using right Command. Physical long press/chord still fire while held; only keyboard Command waits for release.
+- [ ] With an FX-MIC connected, check physical grey tap, double tap, long press and handle-plus-grey voice command. Approve and refuse a harmless risky command using the mic, then using right Command + ↑ / ↓. Physical long press and chord fire while held.
 
 ## Audio boundary regression
 

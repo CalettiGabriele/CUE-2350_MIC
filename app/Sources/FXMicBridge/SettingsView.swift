@@ -296,6 +296,14 @@ private struct DevicePage: View {
             }
             Text(L.t("The app controls the mic with an agent loaded in RAM only: quitting the app or switching the mic off restores the factory behaviour."))
                 .font(.caption).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
+            Toggle(L.t("Keyboard mic"), isOn: $model.draft.device.keyboardMic)
+                .padding(.top, 6)
+            Text(L.t("Right ⌥ is the handle; right ⌘ with ← → ↓ is orange, white and the shake, and right ⌥ with right ⌘ is a voice command. It works alongside the mic. Turn it off if right ⌥ or right ⌘ conflicts with another tool."))
+                .font(.caption).foregroundStyle(Theme.muted).fixedSize(horizontal: false, vertical: true)
+            if model.draft.device.keyboardMic, !model.keyboardArrowsAvailable {
+                Text(L.t("The arrow combinations are off: macOS did not allow the app to intercept keys. Grant Accessibility to the app; right ⌥ and the voice command still work."))
+                    .font(.caption).foregroundStyle(Theme.accent).fixedSize(horizontal: false, vertical: true)
+            }
         }
     }
 
