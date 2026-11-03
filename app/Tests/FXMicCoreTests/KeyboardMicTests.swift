@@ -9,7 +9,15 @@ import Testing
         #expect(mic.handle(keyCode: 61, isDown: true, at: 250).gestures == [.pttDown])
         let release = mic.handle(keyCode: 61, isDown: false, at: 350)
         #expect(release.gestures == [.pttUp, .handleDoubleClick])
-        #expect(!release.intercept)
+        #expect(release.intercept)
+    }
+
+    @Test func rightOptionEventsAreConsumedSoNoOtherAppSeesThem() {
+        var mic = KeyboardMic()
+        #expect(mic.handle(keyCode: 61, isDown: true, at: 0).intercept)
+        #expect(mic.handle(keyCode: 61, isDown: false, at: 500).intercept)
+        // Left Option is not the handle: it passes through untouched.
+        #expect(!mic.handle(keyCode: 58, isDown: true, at: 600).intercept)
     }
 
     @Test func repeatCannotStartAHandlePress() {
@@ -47,9 +55,11 @@ import Testing
         var mic = KeyboardMic()
         _ = mic.handle(keyCode: 54, isDown: true, at: 0)
         #expect(mic.tick(at: 650).isEmpty)
+        // Right Option is the handle and always consumed; every other key passes through.
+        let consumed = keyCode == 61
         let shortcut = mic.handle(keyCode: keyCode, isDown: true, at: 700)
-        #expect(!shortcut.intercept)
-        #expect(!mic.handle(keyCode: keyCode, isDown: false, at: 750).intercept)
+        #expect(shortcut.intercept == consumed)
+        #expect(mic.handle(keyCode: keyCode, isDown: false, at: 750).intercept == consumed)
         let release = mic.handle(keyCode: 54, isDown: false, at: 800)
         #expect(release.gestures.isEmpty)
         #expect(!release.intercept)

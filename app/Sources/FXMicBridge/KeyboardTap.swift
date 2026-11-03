@@ -2,9 +2,12 @@ import AppKit
 import ApplicationServices
 
 /// An active event tap for the keyboard mic. Unlike the passive monitors it can consume an event,
-/// which the right ⌘ + arrow combinations need so that they never reach the app in front.
+/// which the right ⌘ + arrow combinations need so that they never reach the app in front, and
+/// right ⌥ needs so that no other app reacts to it (a double tap of it opens Claude, for one).
+/// It sits at the HID level, ahead of the other apps' taps, and falls back to the session level.
 /// It relies on the Accessibility grant the app already holds; without it `init` fails and the
-/// caller falls back to the monitors (right ⌥ and right ⌘ alone keep working, the arrows do not).
+/// caller falls back to the monitors (right ⌥ and the voice command keep working, the arrows
+/// do not, and other apps still see right ⌥).
 @MainActor
 final class KeyboardTap {
     /// A key event: key code, down or up, auto-repeat. Returns true to consume it.
@@ -34,9 +37,11 @@ final class KeyboardTap {
             let consume = MainActor.assumeIsolated { tap.consumes(type: type, event: event) }
             return consume ? nil : Unmanaged.passUnretained(event)
         }
-        guard let port = CGEvent.tapCreate(tap: .cgSessionEventTap, place: .headInsertEventTap,
-                                           options: .defaultTap, eventsOfInterest: mask, callback: callback,
-                                           userInfo: Unmanaged.passUnretained(self).toOpaque()) else { return nil }
+        let userInfo = Unmanaged.passUnretained(self).toOpaque()
+        guard let port = [CGEventTapLocation.cghidEventTap, .cgSessionEventTap].lazy.compactMap({
+            CGEvent.tapCreate(tap: $0, place: .headInsertEventTap, options: .defaultTap,
+                              eventsOfInterest: mask, callback: callback, userInfo: userInfo)
+        }).first else { return nil }
         self.port = port
         source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, port, 0)
         CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)

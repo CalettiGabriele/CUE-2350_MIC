@@ -48,13 +48,14 @@ public struct KeyboardMic {
             return handleArrow(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, at: time)
         }
         if isDown, commandPressedAt != nil { commandUsed = true }
-        guard keyCode == 61, !isRepeat else {
-            return Result(gestures: [], intercept: false)
-        }
+        guard keyCode == 61 else { return Result(gestures: [], intercept: false) }
+        // Right Option is the handle: its events are consumed so that no other app reacts to
+        // them (a double tap of it opens Claude, for one).
+        guard !isRepeat else { return Result(gestures: [], intercept: true) }
         // A chord must commit while its take is still recording, never after pttUp.
         if !isDown, commandPressedAt != nil, recognizer.handleDown { commandUsed = true }
         return Result(gestures: recognizer.handle(.handle, active: isDown, at: time),
-                      intercept: false)
+                      intercept: true)
     }
 
     private mutating func handleArrow(keyCode: UInt16, isDown: Bool, isRepeat: Bool,
