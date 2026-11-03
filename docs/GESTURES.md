@@ -59,6 +59,18 @@ Interception uses an event tap and the Accessibility grant the app already has; 
 permission is asked. macOS can switch a tap off (for example after a re-sign): the app switches it
 back on. Without the grant, right Option and right Command alone keep working and the arrows do not.
 
+### Switch and hints
+
+**Settings › Device › Keyboard mic** turns the whole keyboard mic on (default) or off. Off means no
+gestures from the keyboard and no interception; the choice is kept in `config.json`
+(`device.keyboardMic`). If macOS does not let the app intercept keys, right Option and right Command
+alone keep working and Settings says the arrow combinations are off.
+
+The on-screen hints follow the connection. With no FX-MIC connected (and the keyboard mic on), the
+confirmation shows "⌘ = yes" and "⌘↓ = no", and the cards and the onboarding name the keys. With an
+FX-MIC connected they name its buttons ("grey = yes", "shake = no"). The strings exist in the nine
+interface languages.
+
 ### Grey on the keyboard mic
 
 Right Command uses the same grey profile actions and gesture thresholds as the FX-MIC:

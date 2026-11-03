@@ -125,7 +125,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             self.leds.set(.confirm)
             // The action as the title, how to answer as two chips, the time left as a ring.
             self.hud.show(pending.summary,
-                          chips: [HUD.Chip(icon: .grey, text: L.t("grey = yes")), HUD.Chip(icon: .shake, text: L.t("shake = no"))],
+                          chips: self.hintsNameKeys
+                            ? [HUD.Chip(icon: .grey, text: L.t("⌘ = yes")), HUD.Chip(icon: .shake, text: L.t("⌘↓ = no"))]
+                            : [HUD.Chip(icon: .grey, text: L.t("grey = yes")), HUD.Chip(icon: .shake, text: L.t("shake = no"))],
                           icon: self.aiIcon,
                           trailing: .countdown(Double(self.config.agent.confirmTimeoutMs) / 1000))
             self.phaseItem.title = L.f("Confirm · %@", pending.summary)
@@ -192,7 +194,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
                 self.updateFocus()
             }
         }
-        installKeyboardMic()
+        applyKeyboardMic()
         if let configError { show(.message(configError)) }
     }
 
@@ -555,7 +557,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             if dictation.isRecording {
                 dictation.markEditSelection()
             } else {
-                hud.toast(L.t("Hold the handle and press grey while you talk"))
+                hud.toast(hintsNameKeys ? L.t("Hold right ⌥ and press right ⌘ while you talk")
+                                        : L.t("Hold the handle and press grey while you talk"))
             }
         }
     }
@@ -566,7 +569,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     /// there, not one step from wherever the mouse took us, so LEDs and screen always agree.
     private func goToPage(_ index: Int) {
         guard engine.channels.indices.contains(index) else {
-            hud.toast(L.f("No channel %d: long-press orange on a window to add it", index + 1))
+            hud.toast(hintsNameKeys ? L.f("No channel %d: hold right ⌘ + ← on a window to add it", index + 1)
+                                    : L.f("No channel %d: long-press orange on a window to add it", index + 1))
             return
         }
         engine.select(channel: index)
@@ -577,7 +581,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
     private func channelChanged() {
         guard let channel = engine.channel else {
             hud.setChannels(engine.channels.count)
-            hud.card(title: L.t("No channels yet: long-press orange on a window to add it"))
+            hud.card(title: hintsNameKeys ? L.t("No channels yet: hold right ⌘ + ← on a window to add it")
+                                          : L.t("No channels yet: long-press orange on a window to add it"))
             return
         }
         focusLockedUntil = Date().addingTimeInterval(2)
@@ -717,7 +722,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
             rebuildProfileMenu()
             perform(slot.action)
         case .template, .llm:
-            hud.toast(L.f("%@: hold the handle and dictate", slot.name))
+            hud.toast(hintsNameKeys ? L.f("%@: hold right ⌥ and dictate", slot.name)
+                                    : L.f("%@: hold the handle and dictate", slot.name))
         }
     }
 
@@ -736,28 +742,43 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
 
     /// The keyboard mic listens through an active event tap, which can consume right ⌘ + arrows.
     /// Without the Accessibility grant (or if macOS refuses the tap) it falls back to passive
-    /// monitors: right ⌥ and right ⌘ alone keep working, the arrow combinations do not.
-    private func installKeyboardMic() {
+    /// monitors: right ⌥ and right ⌘ alone keep working, the arrow combinations do not. Switched
+    /// off in Settings it listens to nothing and intercepts nothing.
+    /// Hints name the keyboard mic's keys when no FX-MIC is connected (and the keyboard mic is on);
+    /// with a mic connected they name its buttons.
+    private var hintsNameKeys: Bool { !settings.deviceConnected && config.device.keyboardMic }
+
+    private func applyKeyboardMic() {
+        keyboardMonitors.forEach(NSEvent.removeMonitor)
+        keyboardMonitors.removeAll()
+        keyboardTap?.stop()
+        keyboardTap = nil
+        keyboardMic = KeyboardMic()
+        inputDisconnected(.keyboard)   // a take it owned is cancelled, not left running
+        guard config.device.keyboardMic else {
+            settings.keyboardArrowsAvailable = true
+            return
+        }
         if AXIsProcessTrusted(), let tap = KeyboardTap(handler: { [weak self] keyCode, isDown, isRepeat in
             self?.keyboardEvent(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat) ?? false
         }) {
             keyboardTap = tap
+            settings.keyboardArrowsAvailable = true
             return
         }
+        settings.keyboardArrowsAvailable = false
         installKeyboardMonitors()
     }
 
     /// The grant can arrive after launch: switch from the monitors to the tap when it does.
     private func upgradeKeyboardMicIfPossible() {
-        guard keyboardTap == nil, AXIsProcessTrusted() else { return }
-        keyboardMonitors.forEach(NSEvent.removeMonitor)
-        keyboardMonitors.removeAll()
-        keyboardMic = KeyboardMic()
-        installKeyboardMic()
+        guard config.device.keyboardMic, keyboardTap == nil, AXIsProcessTrusted() else { return }
+        applyKeyboardMic()
     }
 
     /// One key event for the keyboard mic; true when it must not reach the app in front.
     private func keyboardEvent(keyCode: UInt16, isDown: Bool, isRepeat: Bool) -> Bool {
+        guard config.device.keyboardMic else { return false }
         let result = keyboardMic.handle(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat,
                                         at: ProcessInfo.processInfo.systemUptime * 1000)
         handle(result.gestures, from: .keyboard)
@@ -1252,6 +1273,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate, Device
         dictation.config = newConfig
         media.configure(newConfig.audio.pauseMedia)
         media.warmUp()
+        if old.device.keyboardMic != newConfig.device.keyboardMic { applyKeyboardMic() }
         if old.device.transport != newConfig.device.transport { applyTransport() }
         else if old.audio.inputDeviceUID != newConfig.audio.inputDeviceUID, jack.isListening { jack.restart() }
         leds.map = newConfig.device.ledMap

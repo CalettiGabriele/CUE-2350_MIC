@@ -54,6 +54,14 @@ in the throwaway document.
 - [ ] At a confirmation (see below), right Command + ↓ refuses the action; left Command + ↓ and plain ↓ move the cursor as usual and do not answer.
 - [ ] With the FX-MIC connected, repeat one combination and check that the mic's own orange and white buttons behave as before.
 
+### Settings switch and hints
+
+- [ ] Settings › Device › Keyboard mic is on by default. Turn it off and save: right Option, right Command and the arrows do nothing, and right Command + arrows reach the app again (the cursor moves). Relaunch the app: it is still off. Turn it on again and save: everything works without a relaunch.
+- [ ] Turn the switch off during a right-Option take: the take is cancelled, not left running.
+- [ ] With no FX-MIC connected, a confirmation shows "⌘ = yes" and "⌘↓ = no". The "no channels yet" card, the slot reminder card and the onboarding bullets name the keys. Connect the FX-MIC (USB, then jack): the same places name its buttons. Disconnect it: they name the keys again. None of these changes replaces or closes an ongoing recording, processing or confirmation.
+- [ ] Repeat the confirmation and the onboarding in two other interface languages (Settings › General › Language).
+- [ ] Remove the app's Accessibility grant: Settings › Device says the arrow combinations are off, right Option and right Command alone still work. Grant it again: the arrows work within a couple of seconds and the message goes away.
+
 For repeatable confirmation checks, temporarily add a macro named `Smoke confirmation` under
 Settings › Voice command › My tools. Give it an English description saying it types a harmless
 smoke marker, one text step containing `SMOKE CONFIRMED`, and Risk = **Asks on the mic**.
@@ -64,8 +72,7 @@ Keep the throwaway document focused. The speech model and local model server mus
 - [ ] During another confirmation, use right Command-C. It must not approve or refuse; no answer still times out to no.
 - [ ] Remove the temporary macro and restore any profile or slot changes.
 
-The island still names the physical grey/shake buttons until the connection-aware hints ticket;
-use the keyboard answers above even when the wording names the mic.
+With no FX-MIC connected the confirmation names the keyboard mic's keys (⌘ = yes, ⌘↓ = no).
 
 - [ ] Turn on macOS Reduce Motion and repeat a recording, chord and processing: red LEDs are steady rather than sweeping or alternating; the timer and outcomes still work. Restore the setting.
 - [ ] Connect USB, including read-only firmware if available, then disconnect it; repeat with a signal-bearing jack and loss of signal or listener stop. Change connection during recording, processing and confirmation: those overlays must not be replaced or closed by the change.

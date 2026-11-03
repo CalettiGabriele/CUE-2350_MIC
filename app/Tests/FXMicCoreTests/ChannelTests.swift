@@ -117,6 +117,17 @@ import Testing
         #expect(engine.channelPosition == nil)
     }
 
+    @Test func keyboardMicIsOnByDefaultAndPersists() throws {
+        #expect(AppConfig().device.keyboardMic)
+        #expect(try JSONDecoder().decode(AppConfig.self, from: Data("{}".utf8)).device.keyboardMic)
+        var config = AppConfig()
+        config.device.keyboardMic = false
+        let back = try JSONDecoder().decode(AppConfig.self, from: JSONEncoder().encode(config))
+        #expect(!back.device.keyboardMic)
+        let json = #"{"device":{"keyboardMic":false}}"#
+        #expect(!(try JSONDecoder().decode(AppConfig.self, from: Data(json.utf8)).device.keyboardMic))
+    }
+
     @Test func channelsPersistInConfig() throws {
         var config = AppConfig()
         config.channels = [claude, notes]

@@ -74,7 +74,8 @@ sweep plays in a small black island at the top of your screen, next to the timer
 text is written where your cursor is: terminal, editor, browser, chat, anything with a text field.
 Nothing jumps, nothing needs to be set up first.
 
-No mic plugged in? Hold <kbd>right ⌥ Option</kbd> and talk; release to finish, or double-click it for
+No mic plugged in? Use the **keyboard mic**: your right-hand modifier keys act as the FX-MIC. Hold
+<kbd>right ⌥ Option</kbd> and talk; release to finish, or double-click it for
 a new line. <kbd>right ⌘ Command</kbd> alone acts as grey: tap runs the selected command or presses
 Return, double tap undoes the last insertion, and a long press interrupts, with Esc by default.
 Keep right Option held, press and release right Command, then release Option to finish a voice
@@ -86,7 +87,10 @@ Channels and slots from the keyboard: hold <kbd>right ⌘ Command</kbd> and pres
 (tap: next channel, double tap: previous, long press: add the window in front, hold 3 s: clear all
 channels) or <kbd>→</kbd> for white (tap: next slot, double tap: previous). These combinations never reach
 the app in front, so the cursor does not move; left Command + arrows and plain arrows are untouched.
-They need the Accessibility permission the app already asks for.
+They need the Accessibility permission the app already asks for. The keyboard mic is on by default,
+works alongside a connected FX-MIC and has a switch in **Settings › Device**. With no mic connected,
+the confirmation, the cards and the onboarding name these keys ("⌘ = yes · ⌘↓ = no"); with the mic
+connected they name its buttons.
 
 <kbd>right ⌘ Command</kbd> + <kbd>↓</kbd> is the shake: a short press cancels the dictation in progress
 and answers "no" to a confirmation; held for 2 s it clears the text field, once. Like the Command

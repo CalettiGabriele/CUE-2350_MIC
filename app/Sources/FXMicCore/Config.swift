@@ -49,6 +49,9 @@ public struct AppConfig: Codable, Equatable, Sendable {
         /// (acoustic codes from the FXMic firmware), or whichever is there.
         public enum Transport: String, Codable, CaseIterable, Sendable { case auto, usb, jack }
         public var transport: Transport = .auto
+        /// The keyboard mic: right ⌥ is the handle, right ⌘ (alone or with the arrows) the buttons and
+        /// the shake. Off means no gestures from the keyboard and no interception.
+        public var keyboardMic = true
         /// Physical `ui.led_level` index for each logical LED:
         /// [red 1…4 top→bottom, white 1…4 top→bottom]. Unverified default, see TEST_NOTES.
         public var ledMap = [0, 1, 2, 3, 4, 5, 6, 7]
@@ -649,7 +652,7 @@ extension AppConfig.History {
 }
 
 extension AppConfig.Device {
-    private enum CodingKeys: String, CodingKey { case ledMap, ledAnimationMs, transport }
+    private enum CodingKeys: String, CodingKey { case ledMap, ledAnimationMs, transport, keyboardMic }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         let d = Self()
@@ -658,6 +661,7 @@ extension AppConfig.Device {
         ledMap = map.sorted() == Array(0..<8) ? map : d.ledMap
         ledAnimationMs = max(40, c.value(.ledAnimationMs, d.ledAnimationMs))
         transport = c.value(.transport, d.transport)
+        keyboardMic = c.value(.keyboardMic, d.keyboardMic)
     }
 }
 
