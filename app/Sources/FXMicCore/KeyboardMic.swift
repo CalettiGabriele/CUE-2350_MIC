@@ -9,20 +9,20 @@ public struct KeyboardMic {
     private var commandPressedAt: Double?
     private var commandUsed = false
     /// The arrow held together with right Command, until its key-up (even after Command is released).
-    private var heldArrow: UInt16?
+    private var heldArrow: (keyCode: UInt16, start: Double, shakeHoldFired: Bool)?
 
     public init(settings: GestureSettings = GestureSettings()) {
         recognizer = GestureRecognizer(settings: settings)
     }
 
     /// Key codes of the arrows that act as buttons while right Command is held:
-    /// left = orange, right = white. Only these combinations are intercepted.
-    private static let left: UInt16 = 123, right: UInt16 = 124
+    /// left = orange, right = white, down = shake. Only these combinations are intercepted.
+    private static let left: UInt16 = 123, right: UInt16 = 124, down: UInt16 = 125
 
     /// Key codes identify physical keys, independently of the keyboard layout.
     /// Right Command is provisional until release: a later shortcut key must still cancel it.
     /// For a chord, release Command before releasing the right-Option handle.
-    /// Right Command held with ← or → is orange or white; those events are intercepted
+    /// Right Command held with an arrow is orange, white or the shake; those events are intercepted
     /// (never with the left Command, never a plain arrow).
     public mutating func handle(keyCode: UInt16, isDown: Bool, isRepeat: Bool = false,
                                 at time: Double) -> Result {
@@ -44,7 +44,7 @@ public struct KeyboardMic {
             gestures += recognizer.handle(.grey, active: false, at: time)
             return Result(gestures: gestures, intercept: false)
         }
-        if keyCode == Self.left || keyCode == Self.right {
+        if keyCode == Self.left || keyCode == Self.right || keyCode == Self.down {
             return handleArrow(keyCode: keyCode, isDown: isDown, isRepeat: isRepeat, at: time)
         }
         if isDown, commandPressedAt != nil { commandUsed = true }
@@ -62,23 +62,35 @@ public struct KeyboardMic {
         let pass = Result(gestures: [], intercept: false)
         let swallow = Result(gestures: [], intercept: true)
         if let held = heldArrow {
-            guard keyCode == held else {
+            guard keyCode == held.keyCode else {
                 // Another arrow during the combination: swallowed while Command is down.
                 return isDown && commandPressedAt != nil ? swallow : pass
             }
             if isDown { return swallow }   // auto-repeat of the held arrow
             heldArrow = nil
-            let button: DeviceControl = keyCode == Self.left ? .orange : .white
-            return Result(gestures: recognizer.handle(button, active: false, at: time), intercept: true)
+            switch keyCode {
+            case Self.left: return Result(gestures: recognizer.handle(.orange, active: false, at: time), intercept: true)
+            case Self.right: return Result(gestures: recognizer.handle(.white, active: false, at: time), intercept: true)
+            default: return Result(gestures: held.shakeHoldFired ? [] : [.shake], intercept: true)
+            }
         }
         guard isDown, !isRepeat, commandPressedAt != nil else { return pass }
         commandUsed = true   // right Command with an arrow is never a grey tap
-        heldArrow = keyCode
-        let button: DeviceControl = keyCode == Self.left ? .orange : .white
-        return Result(gestures: recognizer.handle(button, active: true, at: time), intercept: true)
+        heldArrow = (keyCode, time, false)
+        switch keyCode {
+        case Self.left: return Result(gestures: recognizer.handle(.orange, active: true, at: time), intercept: true)
+        case Self.right: return Result(gestures: recognizer.handle(.white, active: true, at: time), intercept: true)
+        default: return swallow   // the shake is decided on release, or when held long enough
+        }
     }
 
     public mutating func tick(at time: Double) -> [Gesture] {
-        recognizer.tick(at: time)
+        var gestures = recognizer.tick(at: time)
+        if let held = heldArrow, held.keyCode == Self.down, !held.shakeHoldFired,
+           time - held.start >= recognizer.settings.shakeHoldMs {
+            heldArrow?.shakeHoldFired = true
+            gestures.append(.shakeHold)
+        }
+        return gestures
     }
 }

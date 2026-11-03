@@ -88,9 +88,13 @@ channels) or <kbd>→</kbd> for white (tap: next slot, double tap: previous). Th
 the app in front, so the cursor does not move; left Command + arrows and plain arrows are untouched.
 They need the Accessibility permission the app already asks for.
 
+<kbd>right ⌘ Command</kbd> + <kbd>↓</kbd> is the shake: a short press cancels the dictation in progress
+and answers "no" to a confirmation; held for 2 s it clears the text field, once. Like the Command
+gestures, it commits on release (or after 2 s), so nothing is cancelled while you are still deciding.
+
 Recording keeps the red sweep and timer through the voice-command chord; processing and risky
 confirmations use the existing mic patterns. Reduce Motion replaces the recording and processing sweep
-with steady red LEDs. The shake on the keyboard is not implemented yet.
+with steady red LEDs.
 
 Music playing? Turn on **Settings › Audio › Music** and Spotify or Apple Music pause while you hold the
 handle and resume, by themselves, when you let go.

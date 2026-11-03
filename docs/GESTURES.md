@@ -21,7 +21,7 @@
 |---|---|---|
 | **USB-C** (data) | MicroPython serial console, plus power | All gestures and LEDs. The app installs a RAM-only agent (ADR-001). |
 | **3.5 mm jack** | Analogue voice and acoustic gesture codes | With the installed [FXMic firmware](INSTALL-FIRMWARE.md), a USB audio interface with an input carries voice and supported gestures; see [the jack channel](JACK-CHANNEL.md). Original firmware and the USB RAM-only agent do not provide this acoustic channel. The Mac's headset jack with a TRS→TRRS adapter was tried without success: the Mac detects the microphone but gets no signal. |
-| **Mac keyboard** | Keyboard mic handle, grey, orange and white gestures | Hold **right Option** to talk; double click it for a new line. **Right Command alone** acts as grey; press and release it while right Option stays held for a voice command. **Right Command + ←** is orange and **right Command + →** is white. |
+| **Mac keyboard** | Keyboard mic handle, grey, orange, white and shake gestures | Hold **right Option** to talk; double click it for a new line. **Right Command alone** acts as grey; press and release it while right Option stays held for a voice command. **Right Command + ←** is orange, **+ →** is white and **+ ↓** is the shake. |
 
 The keyboard mic works alongside the FX-MIC. The source that starts a take owns the handle until
 it releases it: pressing or releasing another source's handle cannot start or stop that take.
@@ -35,9 +35,8 @@ The recording sweep and elapsed timer continue through the voice-command chord u
 Processing, error and risky-confirmation feedback use the existing mic LED patterns. Grey actions
 with no dedicated physical pattern show their outcome on the island without a new LED pattern.
 With Reduce Motion, recording and processing use steady red LEDs instead of motion.
-The shake on the keyboard is not implemented yet.
 
-### Orange and white on the keyboard mic
+### Orange, white and shake on the keyboard mic
 
 Right Command held with an arrow acts as the physical button, with the mic's timing and the
 profile's actions:
@@ -46,8 +45,11 @@ profile's actions:
 |---|---|---|
 | Right Command + ← | orange | tap: next channel · double tap: previous channel · long press: add the window in front · held 3 s: clear all channels |
 | Right Command + → | white | tap: next slot · double tap: previous slot · long press: as configured |
+| Right Command + ↓ | shake | short press: cancel the dictation, or answer "no" to a confirmation · held 2 s: shake hold (clear the field, or the profile's action), once |
 
-These are the only combinations the keyboard mic **intercepts**: they do not reach the app in front.
+The shake is decided when the key is released, or when 2 s have passed: a short press never
+signals a cancellation before it happens and holding it does not also cancel. These are the only
+combinations the keyboard mic **intercepts**: they do not reach the app in front.
 Left Command + arrows, plain arrows and every other key pass through untouched. Releasing right
 Command after an arrow combination gives no grey. A key held down does not repeat the gesture. While
 you are dictating, selecting a channel or slot is ignored, as on the mic. Cards and LEDs follow the

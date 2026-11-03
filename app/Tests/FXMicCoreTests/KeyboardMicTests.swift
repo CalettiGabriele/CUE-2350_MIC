@@ -146,7 +146,7 @@ import Testing
 
     // MARK: - Arrows on right Command (orange, white, shake)
 
-    private let leftArrow: UInt16 = 123, rightArrow: UInt16 = 124, downArrow: UInt16 = 125  // ↓ is not mapped yet
+    private let leftArrow: UInt16 = 123, rightArrow: UInt16 = 124, downArrow: UInt16 = 125
 
     @Test func rightCommandLeftIsOrangeAndIntercepted() {
         var mic = KeyboardMic()
@@ -249,5 +249,39 @@ import Testing
         #expect(mic.tick(at: 800).isEmpty)
         // The combination also cancelled the candidate chord.
         #expect(mic.handle(keyCode: 54, isDown: false, at: 900).gestures.isEmpty)
+    }
+
+    @Test func shortDownArrowIsAShakeOnRelease() {
+        var mic = KeyboardMic()
+        _ = mic.handle(keyCode: 54, isDown: true, at: 0)
+        let press = mic.handle(keyCode: downArrow, isDown: true, at: 10)
+        #expect(press.gestures.isEmpty && press.intercept)
+        #expect(mic.tick(at: 1500).isEmpty)
+        let release = mic.handle(keyCode: downArrow, isDown: false, at: 1900)
+        #expect(release.gestures == [.shake] && release.intercept)
+        #expect(mic.handle(keyCode: 54, isDown: false, at: 2000).gestures.isEmpty)
+    }
+
+    @Test func heldDownArrowIsAShakeHoldOnce() {
+        var mic = KeyboardMic()
+        _ = mic.handle(keyCode: 54, isDown: true, at: 0)
+        _ = mic.handle(keyCode: downArrow, isDown: true, at: 0)
+        #expect(mic.tick(at: 1999).isEmpty)
+        #expect(mic.tick(at: 2000) == [.shakeHold])
+        #expect(mic.tick(at: 2500).isEmpty)
+        #expect(mic.handle(keyCode: downArrow, isDown: true, isRepeat: true, at: 2600).gestures.isEmpty)
+        #expect(mic.handle(keyCode: downArrow, isDown: false, at: 3000).gestures.isEmpty)
+        #expect(mic.handle(keyCode: 54, isDown: false, at: 3100).gestures.isEmpty)
+        #expect(mic.tick(at: 9000).isEmpty)
+    }
+
+    @Test func shakeHoldUsesTheConfiguredThreshold() {
+        var settings = GestureSettings()
+        settings.shakeHoldMs = 500
+        var mic = KeyboardMic(settings: settings)
+        _ = mic.handle(keyCode: 54, isDown: true, at: 0)
+        _ = mic.handle(keyCode: downArrow, isDown: true, at: 0)
+        #expect(mic.tick(at: 499).isEmpty)
+        #expect(mic.tick(at: 500) == [.shakeHold])
     }
 }
